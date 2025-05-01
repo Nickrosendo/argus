@@ -1,0 +1,21 @@
+{
+  "name": "argus-screen-time",
+  "version": "1.0.0",
+  "description": "A Chrome extension that monitors and visualizes the time you spend on different websites",
+  "main": "background.js",
+  "scripts": {
+    "generate-icons": "node create-icons.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "chrome-extension",
+    "screen-time",
+    "productivity",
+    "time-tracker"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "canvas": "^2.11.2"
+  }
+}

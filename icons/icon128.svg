@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Main square frame -->
+  <rect x="4" y="4" width="120" height="120" fill="none" stroke="#4a1e8a" stroke-width="8"/>
+  
+  <!-- Greek key patterns in corners -->
+  <path d="M4,4 L24,4 L24,12 L12,12 L12,24 L4,24 Z" fill="#4a1e8a"/>
+  <path d="M124,4 L104,4 L104,12 L116,12 L116,24 L124,24 Z" fill="#4a1e8a"/>
+  <path d="M4,124 L24,124 L24,116 L12,116 L12,104 L4,104 Z" fill="#4a1e8a"/>
+  <path d="M124,124 L104,124 L104,116 L116,116 L116,104 L124,104 Z" fill="#4a1e8a"/>
+  
+  <!-- Central eye -->
+  <g transform="translate(64, 64)">
+    <!-- Eye rays -->
+    <line x1="0" y1="-40" x2="0" y2="-20" stroke="#4a1e8a" stroke-width="5" stroke-linecap="round"/>
+    <line x1="28" y1="-28" x2="14" y2="-14" stroke="#4a1e8a" stroke-width="5" stroke-linecap="round"/>
+    <line x1="40" y1="0" x2="20" y2="0" stroke="#4a1e8a" stroke-width="5" stroke-linecap="round"/>
+    <line x1="28" y1="28" x2="14" y2="14" stroke="#4a1e8a" stroke-width="5" stroke-linecap="round"/>
+    <line x1="0" y1="40" x2="0" y2="20" stroke="#4a1e8a" stroke-width="5" stroke-linecap="round"/>
+    <line x1="-28" y1="28" x2="-14" y2="14" stroke="#4a1e8a" stroke-width="5" stroke-linecap="round"/>
+    <line x1="-40" y1="0" x2="-20" y2="0" stroke="#4a1e8a" stroke-width="5" stroke-linecap="round"/>
+    <line x1="-28" y1="-28" x2="-14" y2="-14" stroke="#4a1e8a" stroke-width="5" stroke-linecap="round"/>
+    
+    <!-- Eye outline -->
+    <ellipse cx="0" cy="0" rx="20" ry="12" fill="#d4af37" stroke="#4a1e8a" stroke-width="4"/>
+    
+    <!-- Iris -->
+    <circle cx="0" cy="0" r="8" fill="#4a1e8a" stroke="#d4af37" stroke-width="2"/>
+    
+    <!-- Pupil -->
+    <circle cx="0" cy="0" r="2" fill="#d4af37"/>
+  </g>
+  
+  <!-- Bottom eyes -->
+  <g transform="translate(32, 96)">
+    <ellipse cx="0" cy="0" rx="12" ry="8" fill="#d4af37" stroke="#4a1e8a" stroke-width="3"/>
+    <circle cx="0" cy="0" r="5" fill="#4a1e8a"/>
+    <circle cx="0" cy="0" r="1.5" fill="#d4af37"/>
+  </g>
+  
+  <g transform="translate(96, 96)">
+    <ellipse cx="0" cy="0" rx="12" ry="8" fill="#d4af37" stroke="#4a1e8a" stroke-width="3"/>
+    <circle cx="0" cy="0" r="5" fill="#4a1e8a"/>
+    <circle cx="0" cy="0" r="1.5" fill="#d4af37"/>
+  </g>
+  
+  <!-- Top right eye -->
+  <g transform="translate(96, 32)">
+    <ellipse cx="0" cy="0" rx="12" ry="8" fill="#d4af37" stroke="#4a1e8a" stroke-width="3"/>
+    <circle cx="0" cy="0" r="5" fill="#4a1e8a"/>
+    <circle cx="0" cy="0" r="1.5" fill="#d4af37"/>
+  </g>
+  
+  <!-- Top left eye -->
+  <g transform="translate(32, 32)">
+    <ellipse cx="0" cy="0" rx="12" ry="8" fill="#d4af37" stroke="#4a1e8a" stroke-width="3"/>
+    <circle cx="0" cy="0" r="5" fill="#4a1e8a"/>
+    <circle cx="0" cy="0" r="1.5" fill="#d4af37"/>
+  </g>
+</svg> 
