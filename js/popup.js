@@ -1,5 +1,8 @@
 // Argus - Screen Time Tracker JavaScript
 
+// Browser API compatibility
+const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
+
 // Tab navigation
 document.addEventListener('DOMContentLoaded', () => {
   // Get all tab buttons and content sections
@@ -72,15 +75,19 @@ function formatTime(milliseconds) {
 
 // Load today's data
 function loadTodayData() {
-  chrome.storage.local.get(['sites', 'totalTime'], (result) => {
+  browserAPI.storage.local.get(['sites', 'totalTime', 'history'], (result) => {
     const totalTime = result.totalTime || 0;
     const sites = result.sites || {};
+    const history = result.history || {};
 
     // Update total time display
     document.getElementById('total-time-today').textContent = formatTime(totalTime);
 
+    // Calculate weekly average
+    calculateWeeklyAverage(history, totalTime);
+
     // Update progress bar based on daily goal
-    chrome.storage.local.get(['dailyLimit'], (settings) => {
+    browserAPI.storage.local.get(['dailyLimit'], (settings) => {
       const dailyLimit = settings.dailyLimit || 8; // Default 8 hours
       const limitInMs = dailyLimit * 60 * 60 * 1000;
       const percentage = Math.min((totalTime / limitInMs) * 100, 100);
@@ -140,9 +147,55 @@ function loadTodayData() {
   });
 }
 
+// Calculate and display weekly average
+function calculateWeeklyAverage(history, todayTime) {
+  const last7Days = getLastNDays(7);
+  let totalWeekTime = todayTime; // Include today's time
+  let daysWithData = todayTime > 0 ? 1 : 0;
+  
+  // Sum up time from previous 6 days
+  last7Days.slice(0, 6).forEach(date => {
+    const dateString = date.toDateString();
+    const dayData = history[dateString];
+    
+    if (dayData && dayData.totalTime > 0) {
+      totalWeekTime += dayData.totalTime;
+      daysWithData++;
+    }
+  });
+  
+  const averageTime = daysWithData > 0 ? totalWeekTime / daysWithData : 0;
+  
+  // Create or update the daily stats box
+  const summaryCard = document.querySelector('.summary-card');
+  let dailyStatsBox = document.getElementById('daily-stats');
+  
+  if (!dailyStatsBox) {
+    dailyStatsBox = document.createElement('div');
+    dailyStatsBox.id = 'daily-stats';
+    dailyStatsBox.className = 'daily-stats';
+    
+    const dailyAvgLabel = document.createElement('div');
+    dailyAvgLabel.className = 'daily-avg-label';
+    dailyAvgLabel.textContent = 'Daily Average (This Week)';
+    
+    const dailyAvgTime = document.createElement('div');
+    dailyAvgTime.id = 'daily-avg-time';
+    dailyAvgTime.className = 'daily-avg-time';
+    
+    dailyStatsBox.appendChild(dailyAvgLabel);
+    dailyStatsBox.appendChild(dailyAvgTime);
+    
+    summaryCard.appendChild(dailyStatsBox);
+  }
+  
+  // Update the average time
+  document.getElementById('daily-avg-time').textContent = formatTime(averageTime);
+}
+
 // Load statistics data
 function loadStatsData() {
-  chrome.storage.local.get(['history', 'sites'], (result) => {
+  browserAPI.storage.local.get(['history', 'sites'], (result) => {
     const history = result.history || {};
     const todaySites = result.sites || {};
 
@@ -312,14 +365,14 @@ function loadHistoryData() {
   
   // If viewing today, get current data
   if (selectedDate === 'Today') {
-    chrome.storage.local.get(['sites', 'totalTime'], (result) => {
+    browserAPI.storage.local.get(['sites', 'totalTime'], (result) => {
       displayHistoryData(result.sites || {}, result.totalTime || 0);
     });
     return;
   }
   
   // Otherwise, get historical data
-  chrome.storage.local.get(['history'], (result) => {
+  browserAPI.storage.local.get(['history'], (result) => {
     const history = result.history || {};
     const dayData = history[selectedDate] || { sites: {}, totalTime: 0 };
     
@@ -419,12 +472,9 @@ function setupHistoryNavigation() {
   
   // Next date button
   nextDateBtn.addEventListener('click', () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + 1);
-    
     // Can't go beyond today
-    if (newDate.toDateString() <= today.toDateString()) {
-      currentDate = newDate;
+    if (currentDate.toDateString() !== today.toDateString()) {
+      currentDate.setDate(currentDate.getDate() + 1);
       updateSelectedDate();
     }
   });
@@ -436,7 +486,7 @@ function setupHistoryNavigation() {
 // Setup settings handlers
 function setupSettingsHandlers() {
   // Load current settings
-  chrome.storage.local.get(['idleTime', 'dailyLimit', 'showNotifications'], (settings) => {
+  browserAPI.storage.local.get(['idleTime', 'dailyLimit', 'showNotifications'], (settings) => {
     document.getElementById('idle-time').value = settings.idleTime || 5;
     document.getElementById('daily-limit').value = settings.dailyLimit || 8;
     document.getElementById('show-notifications').checked = 
@@ -445,21 +495,22 @@ function setupSettingsHandlers() {
   
   // Save settings on change
   document.getElementById('idle-time').addEventListener('change', function() {
-    chrome.storage.local.set({ idleTime: parseInt(this.value) || 5 });
-    chrome.idle.setDetectionInterval(parseInt(this.value) * 60 || 300);
+    const idleTime = parseInt(this.value) || 5;
+    browserAPI.storage.local.set({ idleTime: idleTime });
+    browserAPI.idle.setDetectionInterval(idleTime * 60);
   });
   
   document.getElementById('daily-limit').addEventListener('change', function() {
-    chrome.storage.local.set({ dailyLimit: parseFloat(this.value) || 8 });
+    browserAPI.storage.local.set({ dailyLimit: parseFloat(this.value) || 8 });
   });
   
   document.getElementById('show-notifications').addEventListener('change', function() {
-    chrome.storage.local.set({ showNotifications: this.checked });
+    browserAPI.storage.local.set({ showNotifications: this.checked });
   });
   
   // Export data
   document.getElementById('export-data').addEventListener('click', () => {
-    chrome.storage.local.get(null, (data) => {
+    browserAPI.storage.local.get(null, (data) => {
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -476,9 +527,9 @@ function setupSettingsHandlers() {
   // Clear data with confirmation
   document.getElementById('clear-data').addEventListener('click', () => {
     if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-      chrome.storage.local.clear(() => {
+      browserAPI.storage.local.clear(() => {
         alert('All data has been cleared. The extension will now restart.');
-        chrome.runtime.reload();
+        browserAPI.runtime.reload();
       });
     }
   });
@@ -499,7 +550,4 @@ function getLastNDays(n) {
 function loadSettingsData() {
   // This function is a placeholder since settings are loaded and managed in setupSettingsHandlers
   // but we need this to maintain consistency with the tab navigation system
-  
-  // If we need to do anything specific when the settings tab is opened,
-  // we can add that logic here
 } 

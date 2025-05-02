@@ -1,14 +1,21 @@
 {
   "name": "argus-screen-time",
   "version": "1.0.0",
-  "description": "A Chrome extension that monitors and visualizes the time you spend on different websites",
+  "description": "A Chrome and Firefox extension that monitors and visualizes the time you spend on different websites",
   "main": "background.js",
   "scripts": {
     "generate-icons": "node create-icons.js",
+    "build": "node build.js",
+    "build:chrome": "node build.js --chrome",
+    "build:firefox": "node build.js --firefox",
+    "dev": "node dev.js",
+    "dev:chrome": "node dev.js --chrome",
+    "dev:firefox": "node dev.js --firefox",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "chrome-extension",
+    "firefox-addon",
     "screen-time",
     "productivity",
     "time-tracker"
@@ -16,6 +23,8 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "canvas": "^2.11.2"
+    "archiver": "^5.3.2",
+    "canvas": "^2.11.2",
+    "chokidar": "^3.6.0"
   }
 }

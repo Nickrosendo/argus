@@ -1,5 +1,8 @@
 // Argus - Time tracking background service worker
 
+// Browser API compatibility
+const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
+
 // Constants
 const ALARM_NAME = 'update-tracker';
 const UPDATE_INTERVAL = 1; // minutes
@@ -11,14 +14,23 @@ let lastActiveTime = Date.now();
 let isTracking = true;
 
 // Initialize the extension
-chrome.runtime.onInstalled.addListener(() => {
+browserAPI.runtime.onInstalled.addListener(() => {
+  initializeExtension();
+});
+
+// For Firefox with Manifest V2, we need to initialize on startup
+if (typeof browser !== 'undefined') {
+  initializeExtension();
+}
+
+function initializeExtension() {
   // Setup update alarm
-  chrome.alarms.create(ALARM_NAME, { periodInMinutes: UPDATE_INTERVAL });
+  browserAPI.alarms.create(ALARM_NAME, { periodInMinutes: UPDATE_INTERVAL });
   
   // Initialize storage if needed
-  chrome.storage.local.get(['sites', 'totalTime', 'lastDate'], (result) => {
+  browserAPI.storage.local.get(['sites', 'totalTime', 'lastDate'], (result) => {
     if (!result.sites) {
-      chrome.storage.local.set({
+      browserAPI.storage.local.set({
         sites: {},
         totalTime: 0,
         lastDate: new Date().toDateString()
@@ -28,7 +40,7 @@ chrome.runtime.onInstalled.addListener(() => {
     // Check if it's a new day and reset if needed
     checkAndResetForNewDay(result.lastDate);
   });
-});
+}
 
 // Check for new day and reset stats if needed
 function checkAndResetForNewDay(lastDate) {
@@ -36,7 +48,7 @@ function checkAndResetForNewDay(lastDate) {
   
   if (lastDate && lastDate !== today) {
     // Archive yesterday's data if needed
-    chrome.storage.local.get(['sites', 'history'], (result) => {
+    browserAPI.storage.local.get(['sites', 'history'], (result) => {
       const yesterday = new Date(lastDate);
       const historicalData = result.history || {};
       
@@ -55,7 +67,7 @@ function checkAndResetForNewDay(lastDate) {
       }
       
       // Reset today's data and update history
-      chrome.storage.local.set({
+      browserAPI.storage.local.set({
         sites: {},
         totalTime: 0,
         lastDate: today,
@@ -63,25 +75,28 @@ function checkAndResetForNewDay(lastDate) {
       });
     });
   } else if (!lastDate) {
-    chrome.storage.local.set({ lastDate: today });
+    browserAPI.storage.local.set({ lastDate: today });
   }
 }
 
 // Listen for tab changes
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
+browserAPI.tabs.onActivated.addListener((activeInfo) => {
   if (!isTracking) return;
   
-  try {
-    updateTimeForCurrentTab();
-    const tab = await chrome.tabs.get(activeInfo.tabId);
-    handleTabChange(tab);
-  } catch (error) {
-    console.error("Error handling tab activation:", error);
+  updateTimeForCurrentTab();
+
+  // Firefox uses a promise-based API, Chrome uses callbacks
+  if (typeof browser !== 'undefined') {
+    browser.tabs.get(activeInfo.tabId)
+      .then(handleTabChange)
+      .catch(error => console.error("Error handling tab activation:", error));
+  } else {
+    chrome.tabs.get(activeInfo.tabId, handleTabChange);
   }
 });
 
 // Listen for tab updates (URL changes)
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+browserAPI.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!isTracking || !changeInfo.url || !tab.active) return;
   
   updateTimeForCurrentTab();
@@ -90,7 +105,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // Handle when a tab becomes the active tab
 function handleTabChange(tab) {
-  if (!tab || !tab.url || tab.url.startsWith('chrome://')) {
+  if (!tab || !tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('about:')) {
     currentTab = null;
     return;
   }
@@ -102,6 +117,7 @@ function handleTabChange(tab) {
       domain: url.hostname,
       url: tab.url,
       title: tab.title,
+      favIconUrl: tab.favIconUrl,
       startTime: Date.now()
     };
   } catch (error) {
@@ -118,7 +134,7 @@ function updateTimeForCurrentTab() {
   const timeSpent = now - currentTab.startTime;
   
   if (timeSpent > 1000) { // Only log if more than 1 second was spent
-    chrome.storage.local.get(['sites', 'totalTime'], (result) => {
+    browserAPI.storage.local.get(['sites', 'totalTime'], (result) => {
       const sites = result.sites || {};
       const domain = currentTab.domain;
       
@@ -139,7 +155,7 @@ function updateTimeForCurrentTab() {
       // Update total time
       const totalTime = (result.totalTime || 0) + timeSpent;
       
-      chrome.storage.local.set({
+      browserAPI.storage.local.set({
         sites: sites,
         totalTime: totalTime
       });
@@ -150,24 +166,34 @@ function updateTimeForCurrentTab() {
 }
 
 // Periodic update via alarm
-chrome.alarms.onAlarm.addListener((alarm) => {
+browserAPI.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_NAME) {
     updateTimeForCurrentTab();
   }
 });
 
 // Handle system idle state changes
-chrome.idle.onStateChanged.addListener((newState) => {
+browserAPI.idle.onStateChanged.addListener((newState) => {
   if (newState === 'active') {
     // User is back, start tracking again
     isTracking = true;
     
     // Update current tab with new start time
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs.length > 0) {
-        handleTabChange(tabs[0]);
-      }
-    });
+    // Firefox uses promises, Chrome uses callbacks
+    if (typeof browser !== 'undefined') {
+      browser.tabs.query({ active: true, currentWindow: true })
+        .then(tabs => {
+          if (tabs.length > 0) {
+            handleTabChange(tabs[0]);
+          }
+        });
+    } else {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs.length > 0) {
+          handleTabChange(tabs[0]);
+        }
+      });
+    }
   } else {
     // User is idle or locked, pause tracking
     updateTimeForCurrentTab();
@@ -176,19 +202,34 @@ chrome.idle.onStateChanged.addListener((newState) => {
 });
 
 // Set up idle detection
-chrome.idle.setDetectionInterval(IDLE_THRESHOLD);
+browserAPI.idle.setDetectionInterval(IDLE_THRESHOLD);
 
 // Listen for windows focus change
-chrome.windows.onFocusChanged.addListener((windowId) => {
-  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+browserAPI.windows.onFocusChanged.addListener((windowId) => {
+  // Use appropriate constant for window ID based on browser
+  const noneFocusedWindowId = typeof browser !== 'undefined' ? 
+    browser.windows.WINDOW_ID_NONE : 
+    chrome.windows.WINDOW_ID_NONE;
+
+  if (windowId === noneFocusedWindowId) {
     // Window lost focus
     updateTimeForCurrentTab();
   } else {
     // Window gained focus
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs.length > 0) {
-        handleTabChange(tabs[0]);
-      }
-    });
+    // Firefox uses promises, Chrome uses callbacks
+    if (typeof browser !== 'undefined') {
+      browser.tabs.query({ active: true, currentWindow: true })
+        .then(tabs => {
+          if (tabs.length > 0) {
+            handleTabChange(tabs[0]);
+          }
+        });
+    } else {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs.length > 0) {
+          handleTabChange(tabs[0]);
+        }
+      });
+    }
   }
 }); 

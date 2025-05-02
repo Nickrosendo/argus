@@ -2,7 +2,7 @@
 
 ![Argus Logo](icons/icon128.png)
 
-A Chrome extension that monitors and visualizes the time you spend on different websites, similar to the iPhone's Screen Time feature.
+A browser extension for Chrome and Firefox that monitors and visualizes the time you spend on different websites, similar to the iPhone's Screen Time feature.
 
 ## Features
 
@@ -13,6 +13,7 @@ A Chrome extension that monitors and visualizes the time you spend on different 
 - **Automatic idle detection**: Pauses tracking when you're away from your computer
 - **Data export**: Export your screen time data as JSON
 - **Privacy-focused**: All data is stored locally on your device, not on external servers
+- **Cross-browser support**: Works on both Chrome and Firefox
 
 ## Installation
 
@@ -22,17 +23,41 @@ A Chrome extension that monitors and visualizes the time you spend on different 
 2. Click "Add to Chrome"
 3. Confirm the installation when prompted
 
-### Manual Installation (Developer Mode)
+### From Firefox Add-ons (Coming Soon)
+
+1. Visit the Firefox Add-ons site (link to be added)
+2. Click "Add to Firefox"
+3. Confirm the installation when prompted
+
+### Manual Installation
+
+#### Chrome
 
 1. Download or clone this repository
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable "Developer mode" by toggling the switch in the top-right corner
-4. Click "Load unpacked" and select the extension folder
-5. The Argus extension icon should now appear in your Chrome toolbar
+2. Run `npm run build:chrome` to build the Chrome extension
+3. Open Chrome and navigate to `chrome://extensions/`
+4. Enable "Developer mode" by toggling the switch in the top-right corner
+5. Click "Load unpacked" and select the `dist/chrome` folder
+6. The Argus extension icon should now appear in your Chrome toolbar
+
+#### Firefox
+
+1. Download or clone this repository
+2. Run `npm run build:firefox` to build the Firefox extension
+3. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`
+4. Click "Load Temporary Add-on..."
+5. Select the `dist/firefox/manifest.json` file
+6. The Argus extension icon should now appear in your Firefox toolbar
+
+For permanent installation in Firefox:
+1. Go to `about:config` and set `xpinstall.signatures.required` to `false`
+2. Open `about:addons`
+3. Click the gear icon and select "Install Add-on From File..."
+4. Select the `dist/argus-firefox.zip` file
 
 ## Usage
 
-1. Click on the Argus icon in your Chrome toolbar to open the popup
+1. Click on the Argus icon in your browser toolbar to open the popup
 2. The default "Today" tab shows your current screen time statistics
 3. Navigate through the tabs to view different aspects of your usage:
    - **Today**: Current day's screen time
@@ -59,10 +84,31 @@ Argus respects your privacy:
 
 ### Project Structure
 
-- `manifest.json`: Extension configuration
-- `background.js`: Background service worker for tracking
+- `manifest.json`: Chrome extension configuration
+- `manifest-firefox.json`: Firefox extension configuration
+- `background.js`: Background script for tracking
 - `popup.html/css/js`: User interface files
 - `icons/`: Extension icons in various sizes
+- `build.js`: Build script for packaging the extensions
+
+### Building the Extension
+
+```bash
+# Install dependencies
+npm install
+
+# Generate icons
+npm run generate-icons
+
+# Build for both Chrome and Firefox
+npm run build
+
+# Build for Chrome only
+npm run build:chrome
+
+# Build for Firefox only
+npm run build:firefox
+```
 
 ### Built With
 
