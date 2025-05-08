@@ -388,7 +388,13 @@ function displayHistoryData(sites, totalTime) {
   // Add total time
   const totalTimeElem = document.createElement('div');
   totalTimeElem.className = 'history-total-time';
-  totalTimeElem.innerHTML = `<strong>Total time:</strong> ${formatTime(totalTime)}`;
+  
+  // Create elements instead of using innerHTML
+  const strongElement = document.createElement('strong');
+  strongElement.textContent = 'Total time:';
+  totalTimeElem.appendChild(strongElement);
+  totalTimeElem.appendChild(document.createTextNode(' ' + formatTime(totalTime)));
+  
   historyData.appendChild(totalTimeElem);
   
   // Sort sites by time spent
