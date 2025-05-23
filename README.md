@@ -110,10 +110,33 @@ npm run build:chrome
 npm run build:firefox
 ```
 
+### Testing
+
+The extension includes unit tests for core functionality:
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Generate test coverage report
+npm run test:coverage
+```
+
+Tests are organized in the `tests/` directory and cover:
+- Background script functionality
+- Popup UI utility functions
+- Browser storage interactions
+
+See `tests/README.md` for detailed information about the testing approach.
+
 ### Built With
 
 - HTML, CSS, and JavaScript
 - Chart.js for data visualization
+- Jest for testing
 
 ## License
 
