@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Blocked - Argus</title>
+  <link rel="stylesheet" href="css/blocked.css">
+</head>
+<body>
+  <div class="container">
+    <div class="blocked-card">
+      <img src="icons/icon128.png" alt="Argus Logo" class="logo">
+      <h1>Website Blocked</h1>
+      
+      <div class="blocked-info">
+        <p>The website <span id="blocked-domain">example.com</span> has been blocked by Argus.</p>
+        <p>This site is on your block list to help you stay focused.</p>
+      </div>
+      
+      <div class="unblock-options">
+        <h2>Unblock Options</h2>
+        <p>You have <span id="unblocks-remaining">3</span> temporary unblocks remaining today.</p>
+        
+        <div class="unblock-btns">
+          <button id="unblock-5min" class="unblock-btn">Unblock for 5 minutes</button>
+          <button id="unblock-15min" class="unblock-btn">Unblock for 15 minutes</button>
+          <button id="unblock-30min" class="unblock-btn">Unblock for 30 minutes</button>
+        </div>
+        
+        <div class="or-divider">OR</div>
+        
+        <button id="remove-from-blocklist" class="remove-btn">Remove from block list permanently</button>
+      </div>
+      
+      <div class="motivation">
+        <p>"Stay focused on what matters most."</p>
+      </div>
+      
+      <div class="actions">
+        <button id="go-back" class="back-btn">Go back</button>
+        <button id="open-settings" class="settings-btn">Manage block list</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="js/blocked.js"></script>
+</body>
+</html> 

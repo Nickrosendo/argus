@@ -1,10 +1,26 @@
 // Argus - Screen Time Tracker JavaScript
+import Chart from 'chart.js/auto';
+import authService from '../services/AuthService';
+import apiService from '../services/ApiService';
 
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
+// Elements for auth
+let authOverlay, signinTab, signupTab, signinForm, signupForm, signinError, signupError;
+let accountUsername, accountEmail, accountType, syncStatusText, lastSyncTime, syncNowBtn, signoutBtn;
+
 // Tab navigation
 document.addEventListener('DOMContentLoaded', () => {
+  // Get auth elements
+  initializeAuthElements();
+  
+  // Set up auth functionality
+  setupAuthTabs();
+  setupAuthForms();
+  setupAccountActions();
+  checkAuthentication();
+
   // Get all tab buttons and content sections
   const tabButtons = document.querySelectorAll('.tab-btn');
   const tabContents = document.querySelectorAll('.tab-content');
@@ -36,7 +52,214 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Setup history navigation
   setupHistoryNavigation();
+  
+  // Setup message listener for switching to the settings tab
+  browserAPI.runtime.onMessage.addListener((message) => {
+    if (message.action === 'openSettingsTab') {
+      // Switch to the settings tab programmatically
+      const settingsTab = document.getElementById('tab-settings');
+      if (settingsTab) {
+        settingsTab.click();
+        
+        // Scroll to the website blocking section
+        setTimeout(() => {
+          const blockingSection = document.querySelector('.setting-section');
+          if (blockingSection) {
+            blockingSection.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 100);
+      }
+    }
+  });
 });
+
+// Initialize auth elements
+function initializeAuthElements() {
+  authOverlay = document.getElementById("auth-overlay");
+  signinTab = document.getElementById("signin-tab");
+  signupTab = document.getElementById("signup-tab");
+  signinForm = document.getElementById("signin-form");
+  signupForm = document.getElementById("signup-form");
+  signinError = document.getElementById("signin-error");
+  signupError = document.getElementById("signup-error");
+
+  // Account tab elements
+  accountUsername = document.getElementById("account-username");
+  accountEmail = document.getElementById("account-email");
+  accountType = document.getElementById("account-type");
+  syncStatusText = document.getElementById("sync-status-text");
+  lastSyncTime = document.getElementById("last-sync-time");
+  syncNowBtn = document.getElementById("sync-now-btn");
+  signoutBtn = document.getElementById("signout-btn");
+}
+
+// Set up authentication tabs
+function setupAuthTabs() {
+  signinTab.addEventListener("click", () => {
+    signinTab.classList.add("active");
+    signupTab.classList.remove("active");
+    signinForm.classList.add("active");
+    signupForm.classList.remove("active");
+    signinError.textContent = "";
+    signupError.textContent = "";
+  });
+
+  signupTab.addEventListener("click", () => {
+    signupTab.classList.add("active");
+    signinTab.classList.remove("active");
+    signupForm.classList.add("active");
+    signinForm.classList.remove("active");
+    signinError.textContent = "";
+    signupError.textContent = "";
+  });
+}
+
+// Set up authentication forms
+function setupAuthForms() {
+  // Handle sign in form submission
+  signinForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const username = document.getElementById("signin-username").value;
+    const password = document.getElementById("signin-password").value;
+
+    try {
+      signinError.textContent = "";
+      await authService.signin(username, password);
+      await checkAuthentication();
+    } catch (error) {
+      signinError.textContent = error.message;
+    }
+  });
+
+  // Handle sign up form submission
+  signupForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const username = document.getElementById("signup-username").value;
+    const email = document.getElementById("signup-email").value;
+    const password = document.getElementById("signup-password").value;
+
+    try {
+      signupError.textContent = "";
+      await authService.signup(username, password, email);
+      await checkAuthentication();
+    } catch (error) {
+      signupError.textContent = error.message;
+    }
+  });
+}
+
+// Set up account actions
+function setupAccountActions() {
+  // Handle sync now button
+  syncNowBtn.addEventListener("click", async () => {
+    await syncData();
+  });
+
+  // Handle sign out button
+  signoutBtn.addEventListener("click", async () => {
+    try {
+      await authService.signout();
+      await checkAuthentication();
+    } catch (error) {
+      console.error("Sign out error:", error);
+    }
+  });
+}
+
+// Check if user is authenticated and show/hide auth overlay
+async function checkAuthentication() {
+  try {
+    const isAuthenticated = await authService.isAuthenticated();
+
+    if (isAuthenticated) {
+      // Hide auth overlay
+      authOverlay.style.display = "none";
+
+      // Load user data
+      await loadUserData();
+
+      // Sync data with the API
+      await syncData();
+    } else {
+      // Show auth overlay
+      authOverlay.style.display = "flex";
+
+      // Clear forms
+      signinForm.reset();
+      signupForm.reset();
+    }
+  } catch (error) {
+    console.error("Authentication check error:", error);
+    // Show auth overlay on error
+    authOverlay.style.display = "flex";
+  }
+}
+
+// Load user data into account tab
+async function loadUserData() {
+  try {
+    const userData = await apiService.getUser();
+
+    // Update UI with user data
+    if (userData) {
+      accountUsername.textContent = userData.username;
+      accountEmail.textContent = userData.email || "Not provided";
+      accountType.textContent =
+        userData.type.charAt(0).toUpperCase() + userData.type.slice(1);
+    }
+  } catch (error) {
+    console.error("Load user data error:", error);
+    accountUsername.textContent = "Error loading data";
+    accountEmail.textContent = "Error loading data";
+    accountType.textContent = "Error loading data";
+  }
+}
+
+// Sync data with the API
+async function syncData() {
+  try {
+    syncStatusText.textContent = "syncing";
+    syncNowBtn.disabled = true;
+
+    // Get user data first to get the userId
+    const userData = await apiService.getUser();
+
+    if (!userData) {
+      throw new Error("User data not available");
+    }
+
+    // Get stored browser usage data
+    const { sites = {} } = await new Promise((resolve) => {
+      browserAPI.storage.local.get(["sites"], resolve);
+    });
+
+    // Generate a device ID if not already stored
+    let { deviceId } = await new Promise((resolve) => {
+      browserAPI.storage.local.get(["deviceId"], resolve);
+    });
+
+    if (!deviceId) {
+      deviceId = `argus_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      await new Promise((resolve) => {
+        browserAPI.storage.local.set({ deviceId }, resolve);
+      });
+    }
+
+    // Sync the data with the API
+    await apiService.syncBrowserUsage(userData.id, deviceId, { sites });
+
+    // Update UI
+    syncStatusText.textContent = "synced";
+    lastSyncTime.textContent = new Date().toLocaleTimeString();
+  } catch (error) {
+    console.error("Sync error:", error);
+    syncStatusText.textContent = "failed to sync";
+  } finally {
+    syncNowBtn.disabled = false;
+  }
+}
 
 // Load data for the selected tab
 function loadTabData(tabId) {
@@ -492,11 +715,31 @@ function setupHistoryNavigation() {
 // Setup settings handlers
 function setupSettingsHandlers() {
   // Load current settings
-  browserAPI.storage.local.get(['idleTime', 'dailyLimit', 'showNotifications'], (settings) => {
-    document.getElementById('idle-time').value = settings.idleTime || 5;
-    document.getElementById('daily-limit').value = settings.dailyLimit || 8;
+  browserAPI.storage.local.get([
+    'idleThreshold', 
+    'dailyLimit', 
+    'showNotifications',
+    'blockingEnabled',
+    'blockedSites'
+  ], (settings) => {
+    // Set idle time
+    document.getElementById('idle-time').value = 
+      settings.idleThreshold ? Math.floor(settings.idleThreshold / 60) : 5;
+    
+    // Set daily limit
+    document.getElementById('daily-limit').value = 
+      settings.dailyLimit || 8;
+    
+    // Set notifications checkbox
     document.getElementById('show-notifications').checked = 
-      settings.showNotifications === undefined ? true : settings.showNotifications;
+      settings.showNotifications !== false;
+    
+    // Set website blocking checkbox
+    document.getElementById('enable-blocking').checked = 
+      settings.blockingEnabled === true;
+    
+    // Populate blocked sites list
+    populateBlockedSitesList(settings.blockedSites || []);
   });
   
   // Save settings on change
@@ -539,6 +782,29 @@ function setupSettingsHandlers() {
       });
     }
   });
+  
+  // Handle website blocking toggle
+  const blockingToggle = document.getElementById('enable-blocking');
+  blockingToggle.addEventListener('change', () => {
+    browserAPI.storage.local.set({ blockingEnabled: blockingToggle.checked }, () => {
+      // Update the blocking rules
+      updateBlockingRules();
+    });
+  });
+  
+  // Handle add blocked site
+  const addSiteButton = document.getElementById('add-blocked-site');
+  const newSiteInput = document.getElementById('new-blocked-site');
+  
+  addSiteButton.addEventListener('click', () => {
+    addBlockedSite(newSiteInput.value);
+  });
+  
+  newSiteInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      addBlockedSite(newSiteInput.value);
+    }
+  });
 }
 
 // Helper function to get an array of the last N days
@@ -554,6 +820,122 @@ function getLastNDays(n) {
 
 // Load settings data
 function loadSettingsData() {
-  // This function is a placeholder since settings are loaded and managed in setupSettingsHandlers
-  // but we need this to maintain consistency with the tab navigation system
+  browserAPI.storage.local.get([
+    'idleThreshold', 
+    'dailyLimit', 
+    'showNotifications',
+    'blockingEnabled',
+    'blockedSites'
+  ], (settings) => {
+    // Set idle time
+    document.getElementById('idle-time').value = 
+      settings.idleThreshold ? Math.floor(settings.idleThreshold / 60) : 5;
+    
+    // Set daily limit
+    document.getElementById('daily-limit').value = 
+      settings.dailyLimit || 8;
+    
+    // Set notifications checkbox
+    document.getElementById('show-notifications').checked = 
+      settings.showNotifications !== false;
+    
+    // Set website blocking checkbox
+    document.getElementById('enable-blocking').checked = 
+      settings.blockingEnabled === true;
+    
+    // Populate blocked sites list
+    populateBlockedSitesList(settings.blockedSites || []);
+  });
+}
+
+// Populate the list of blocked websites
+function populateBlockedSitesList(sites) {
+  const listContainer = document.getElementById('blocked-sites-list');
+  listContainer.innerHTML = '';
+  
+  if (sites.length === 0) {
+    listContainer.innerHTML = '<p class="no-sites">No blocked sites. Add websites to block below.</p>';
+    return;
+  }
+  
+  sites.forEach(site => {
+    const siteItem = document.createElement('div');
+    siteItem.className = 'blocked-site-item';
+    
+    const siteName = document.createElement('span');
+    siteName.className = 'blocked-site-name';
+    siteName.textContent = site;
+    
+    const removeButton = document.createElement('button');
+    removeButton.className = 'remove-site';
+    removeButton.innerHTML = '&times;';
+    removeButton.dataset.site = site;
+    removeButton.addEventListener('click', () => removeBlockedSite(site));
+    
+    siteItem.appendChild(siteName);
+    siteItem.appendChild(removeButton);
+    listContainer.appendChild(siteItem);
+  });
+}
+
+// Add a new site to the blocked list
+function addBlockedSite(site) {
+  // Clean up and validate the input
+  site = site.trim().toLowerCase();
+  
+  // Simple validation for domain format
+  if (!site || !/^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,}$/.test(site)) {
+    alert('Please enter a valid domain (e.g., example.com)');
+    return;
+  }
+  
+  // Add the site to the list
+  browserAPI.storage.local.get(['blockedSites'], (result) => {
+    const blockedSites = result.blockedSites || [];
+    
+    // Check if site is already in the list
+    if (blockedSites.includes(site)) {
+      alert(`${site} is already in the blocked list.`);
+      return;
+    }
+    
+    // Add the new site
+    blockedSites.push(site);
+    
+    // Save the updated list
+    browserAPI.storage.local.set({ blockedSites }, () => {
+      // Clear the input
+      document.getElementById('new-blocked-site').value = '';
+      
+      // Refresh the list
+      populateBlockedSitesList(blockedSites);
+      
+      // Update the blocking rules
+      updateBlockingRules();
+    });
+  });
+}
+
+// Remove a site from the blocked list
+function removeBlockedSite(site) {
+  browserAPI.storage.local.get(['blockedSites'], (result) => {
+    const blockedSites = result.blockedSites || [];
+    
+    // Remove the site
+    const updatedList = blockedSites.filter(s => s !== site);
+    
+    // Save the updated list
+    browserAPI.storage.local.set({ blockedSites: updatedList }, () => {
+      // Refresh the list
+      populateBlockedSitesList(updatedList);
+      
+      // Update the blocking rules
+      updateBlockingRules();
+    });
+  });
+}
+
+// Update the blocking rules in the background script
+function updateBlockingRules() {
+  browserAPI.runtime.sendMessage({ action: 'updateBlockedSites' });
 } 

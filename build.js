@@ -27,6 +27,7 @@ const commonFiles = [
   'README.md',
   'js/chart.min.js',
   'js/popup.js',
+  'js/auth.js',
   'css/popup.css',
   'css/fontawesome.min.css',
   'icons/icon16.png',

@@ -8,8 +8,17 @@
     "tabs",
     "activeTab",
     "alarms",
-    "idle"
+    "idle",
+    "webNavigation",
+    "declarativeNetRequest"
   ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "web_accessible_resources": [{
+    "resources": ["blocked.html", "css/*", "js/*", "icons/*"],
+    "matches": ["<all_urls>"]
+  }],
   "background": {
     "service_worker": "background.js"
   },

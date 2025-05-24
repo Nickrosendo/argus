@@ -248,36 +248,187 @@ const BrowserApiService = {
    * @param {number} detectionIntervalInSeconds The detection interval in seconds
    */
   addIdleStateListener(callback, detectionIntervalInSeconds = 60) {
-    if (!api.idle) return;
-    
     api.idle.setDetectionInterval(detectionIntervalInSeconds);
     api.idle.onStateChanged.addListener(callback);
   },
 
   /**
    * Gets the current idle state
-   * @returns {Promise<string|null>} The idle state ('active', 'idle', or 'locked')
+   * @returns {Promise<string>} The idle state ('active', 'idle', or 'locked')
    */
   async getIdleState() {
-    if (!api.idle) return null;
-
     try {
       if (typeof browser !== 'undefined') {
         // Firefox
-        return await browser.idle.queryState(60);
+        return await browser.idle.queryState(30);
       } else {
         // Chrome
         return new Promise((resolve) => {
-          chrome.idle.queryState(60, (state) => {
+          chrome.idle.queryState(30, (state) => {
             resolve(state);
           });
         });
       }
     } catch (error) {
       console.error('Error getting idle state:', error);
+      return 'active';
+    }
+  },
+
+  /**
+   * Updates the list of blocked websites
+   * @param {Array<string>} blockedSites List of domains to block
+   * @param {boolean} isBlockingEnabled Whether blocking is enabled
+   * @returns {Promise<void>}
+   */
+  async updateBlockedSites(blockedSites, isBlockingEnabled) {
+    try {
+      // Generate rules for each site in the blocked list
+      const rules = blockedSites.map((site, index) => ({
+        id: index + 1, // Rule IDs must be positive integers
+        priority: 1,
+        action: { type: "block" },
+        condition: {
+          urlFilter: `||${site}/*`,
+          resourceTypes: ["main_frame", "sub_frame"]
+        }
+      }));
+
+      if (isBlockingEnabled && rules.length > 0) {
+        // Clear existing rules and add new ones
+        await api.declarativeNetRequest.updateDynamicRules({
+          removeRuleIds: await this.getExistingRuleIds(),
+          addRules: rules
+        });
+      } else {
+        // Remove all rules if blocking is disabled
+        await api.declarativeNetRequest.updateDynamicRules({
+          removeRuleIds: await this.getExistingRuleIds(),
+          addRules: []
+        });
+      }
+    } catch (error) {
+      console.error('Error updating blocked sites:', error);
+    }
+  },
+
+  /**
+   * Gets all existing rule IDs
+   * @returns {Promise<Array<number>>} Array of rule IDs
+   */
+  async getExistingRuleIds() {
+    try {
+      if (typeof browser !== 'undefined') {
+        // Firefox
+        const rules = await browser.declarativeNetRequest.getDynamicRules();
+        return rules.map(rule => rule.id);
+      } else {
+        // Chrome
+        return new Promise((resolve) => {
+          chrome.declarativeNetRequest.getDynamicRules((rules) => {
+            resolve(rules.map(rule => rule.id));
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error getting existing rule IDs:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Gets the blocking status and list of blocked sites
+   * @returns {Promise<{isEnabled: boolean, blockedSites: Array<string>}>}
+   */
+  async getBlockingStatus() {
+    try {
+      const result = await this.getStorage(['blockingEnabled', 'blockedSites']);
+      return {
+        isEnabled: result.blockingEnabled || false,
+        blockedSites: result.blockedSites || []
+      };
+    } catch (error) {
+      console.error('Error getting blocking status:', error);
+      return { isEnabled: false, blockedSites: [] };
+    }
+  },
+
+  /**
+   * Adds a listener for runtime messages
+   * @param {Function} callback The callback function
+   */
+  addRuntimeMessageListener(callback) {
+    api.runtime.onMessage.addListener(callback);
+  },
+
+  /**
+   * Adds a listener for web navigation events
+   * @param {Function} callback The callback function
+   */
+  addWebNavigationListener(callback) {
+    if (api.webNavigation) {
+      api.webNavigation.onBeforeNavigate.addListener(callback);
+    }
+  },
+
+  /**
+   * Creates a tab with the given URL
+   * @param {string} url The URL to open
+   * @returns {Promise<object>} The created tab
+   */
+  async createTab(url) {
+    try {
+      if (typeof browser !== 'undefined') {
+        // Firefox
+        return await browser.tabs.create({ url });
+      } else {
+        // Chrome
+        return new Promise((resolve) => {
+          chrome.tabs.create({ url }, (tab) => {
+            resolve(tab);
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error creating tab:', error);
       return null;
     }
+  },
+
+  /**
+   * Updates a tab with the given URL
+   * @param {number} tabId The ID of the tab to update
+   * @param {string} url The URL to navigate to
+   * @returns {Promise<object>} The updated tab
+   */
+  async updateTab(tabId, url) {
+    try {
+      if (typeof browser !== 'undefined') {
+        // Firefox
+        return await browser.tabs.update(tabId, { url });
+      } else {
+        // Chrome
+        return new Promise((resolve) => {
+          chrome.tabs.update(tabId, { url }, (tab) => {
+            resolve(tab);
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error updating tab:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Gets the URL for an extension resource
+   * @param {string} path The path to the resource
+   * @returns {string} The extension URL
+   */
+  getExtensionUrl(path) {
+    return api.runtime.getURL(path);
   }
 };
 
+// Export the service
 module.exports = { default: BrowserApiService }; 

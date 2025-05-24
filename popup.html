@@ -18,10 +18,57 @@
       <button id="tab-stats" class="tab-btn">Stats</button>
       <button id="tab-history" class="tab-btn">History</button>
       <button id="tab-settings" class="tab-btn">Settings</button>
+      <button id="tab-account" class="tab-btn">Account</button>
     </nav>
   </header>
 
   <main>
+    <!-- Authentication overlay that appears when not logged in -->
+    <div id="auth-overlay" class="auth-overlay">
+      <div class="auth-card">
+        <img src="icons/icon128.png" alt="Argus Logo" class="auth-logo">
+        <h2>Welcome to Argus</h2>
+        
+        <div class="auth-tabs">
+          <button id="signin-tab" class="auth-tab-btn active">Sign In</button>
+          <button id="signup-tab" class="auth-tab-btn">Sign Up</button>
+        </div>
+        
+        <!-- Sign In Form -->
+        <form id="signin-form" class="auth-form active">
+          <div class="form-group">
+            <label for="signin-username">Username</label>
+            <input type="text" id="signin-username" required>
+          </div>
+          <div class="form-group">
+            <label for="signin-password">Password</label>
+            <input type="password" id="signin-password" required>
+          </div>
+          <button type="submit" class="auth-submit">Sign In</button>
+          <div id="signin-error" class="auth-error"></div>
+        </form>
+        
+        <!-- Sign Up Form -->
+        <form id="signup-form" class="auth-form">
+          <div class="form-group">
+            <label for="signup-username">Username</label>
+            <input type="text" id="signup-username" required>
+          </div>
+          <div class="form-group">
+            <label for="signup-email">Email</label>
+            <input type="email" id="signup-email" required>
+          </div>
+          <div class="form-group">
+            <label for="signup-password">Password</label>
+            <input type="password" id="signup-password" required>
+            <small>Must be at least 6 characters</small>
+          </div>
+          <button type="submit" class="auth-submit">Sign Up</button>
+          <div id="signup-error" class="auth-error"></div>
+        </form>
+      </div>
+    </div>
+
     <!-- Today Tab -->
     <section id="today-section" class="tab-content active">
       <div class="summary-card">
@@ -88,20 +135,74 @@
           <input type="checkbox" id="show-notifications" checked>
           <label for="show-notifications">Show notifications</label>
         </div>
+
+        <!-- Website Blocking Section -->
+        <div class="setting-section">
+          <h3>Website Blocking</h3>
+          <div class="setting-item checkbox">
+            <input type="checkbox" id="enable-blocking">
+            <label for="enable-blocking">Enable website blocking</label>
+          </div>
+          <div class="blocked-sites-container">
+            <div class="blocked-sites-list" id="blocked-sites-list">
+              <!-- Blocked sites will be listed here -->
+            </div>
+            <div class="add-site-form">
+              <input type="text" id="new-blocked-site" placeholder="example.com">
+              <button id="add-blocked-site">Add Site</button>
+            </div>
+          </div>
+        </div>
+
         <div class="setting-item">
           <button id="export-data">Export Data</button>
           <button id="clear-data" class="danger">Clear All Data</button>
         </div>
       </div>
     </section>
+
+    <!-- Account Tab -->
+    <section id="account-section" class="tab-content">
+      <div class="account-card">
+        <h2>Your Account</h2>
+        
+        <div class="account-info">
+          <div class="account-field">
+            <label>Username</label>
+            <div id="account-username" class="account-value">Loading...</div>
+          </div>
+          <div class="account-field">
+            <label>Email</label>
+            <div id="account-email" class="account-value">Loading...</div>
+          </div>
+          <div class="account-field">
+            <label>Account Type</label>
+            <div id="account-type" class="account-value">Loading...</div>
+          </div>
+        </div>
+        
+        <div class="sync-status">
+          <h3>Data Sync</h3>
+          <p>Your data is <span id="sync-status-text">syncing</span> with the Argus cloud.</p>
+          <div class="last-sync">
+            Last sync: <span id="last-sync-time">never</span>
+          </div>
+        </div>
+        
+        <div class="account-actions">
+          <button id="sync-now-btn" class="primary-btn">Sync Now</button>
+          <button id="signout-btn" class="warning-btn">Sign Out</button>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer>
-    <small>Argus - Monitor your screen time</small>
+    <div class="version">v1.0.0</div>
+    <a href="https://argus-privacy.com" target="_blank" class="privacy-link">Privacy Policy</a>
   </footer>
 
-  <!-- Scripts -->
-  <script src="js/chart.min.js"></script>
-  <script src="js/popup.js"></script>
+  <!-- Load the bundled script -->
+  <script src="popup.js"></script>
 </body>
 </html> 
