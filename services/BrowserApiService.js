@@ -430,5 +430,5 @@ const BrowserApiService = {
   }
 };
 
-// Export the service
-module.exports = { default: BrowserApiService }; 
+// Export for ES modules
+export default BrowserApiService; 

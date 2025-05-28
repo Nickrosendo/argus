@@ -2,6 +2,7 @@
 import browserApiService from './services/BrowserApiService';
 import authService from './services/AuthService';
 import apiService from './services/ApiService';
+import freeService from './services/FreeService';
 
 // Constants
 const ALARM_NAME = 'update-tracker';
@@ -11,6 +12,7 @@ const MAX_INACTIVE_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
 const TEMP_UNBLOCK_CHECK_ALARM = 'check-temp-unblocks';
 const API_SYNC_ALARM = 'api-sync';
 const API_SYNC_INTERVAL = 15; // minutes - how often to sync with API
+const FREE_MODE_MAX_BLOCKED_SITES = 3;
 
 // State
 let currentTab = null;
@@ -19,6 +21,7 @@ let lastUpdateTime = Date.now();
 let isTracking = true;
 let temporaryUnblocks = {}; // Domain -> expiration timestamp
 let isAuthenticated = false;
+let isFreeMode = false;
 let lastSyncTime = 0;
 
 // Initialize the extension
@@ -61,7 +64,8 @@ async function initializeExtension() {
     'blockingEnabled', 
     'blockedSites',
     'unblockData',
-    'lastSyncTime'
+    'lastSyncTime',
+    'freeMode'
   ]);
   
   // Initialize storage values if not set
@@ -89,6 +93,9 @@ async function initializeExtension() {
   if (result.unblockData && result.unblockData.temporaryUnblocks) {
     temporaryUnblocks = result.unblockData.temporaryUnblocks;
   }
+  
+  // Check free mode status
+  isFreeMode = result.freeMode === true;
   
   // Check and reset unblock count for new day
   await checkAndResetUnblockData();
@@ -129,6 +136,12 @@ async function initializeExtension() {
     } else if (message.action === 'checkAuthentication') {
       isAuthenticated = await authService.isAuthenticated();
       sendResponse({ isAuthenticated });
+    } else if (message.action === 'checkFreeMode') {
+      isFreeMode = await freeService.isFreeMode();
+      sendResponse({ isFreeMode });
+    } else if (message.action === 'trackKeyAction') {
+      const shouldShowAd = await freeService.trackKeyAction();
+      sendResponse({ shouldShowAd });
     }
     return true; // Required for async sendResponse
   });
@@ -160,9 +173,10 @@ async function checkAndResetForNewDay(lastDate) {
   
   if (lastDate && lastDate !== today) {
     // Archive yesterday's data if needed
-    const result = await browserApiService.getStorage(['sites', 'history', 'totalTime']);
+    const result = await browserApiService.getStorage(['sites', 'history', 'totalTime', 'freeMode']);
     
     const historicalData = result.history || {};
+    const isFreeMode = result.freeMode === true;
     
     // Store yesterday's data in history
     historicalData[lastDate] = {
@@ -171,10 +185,14 @@ async function checkAndResetForNewDay(lastDate) {
       date: lastDate
     };
     
-    // Keep only the last 30 days of history
+    // For free mode, keep only 7 days of history
+    // For premium users, keep 30 days
+    const maxHistoryDays = isFreeMode ? 7 : 30;
+    
+    // Keep only the last X days of history
     const historyDates = Object.keys(historicalData).sort();
-    if (historyDates.length > 30) {
-      const toRemove = historyDates.slice(0, historyDates.length - 30);
+    if (historyDates.length > maxHistoryDays) {
+      const toRemove = historyDates.slice(0, historyDates.length - maxHistoryDays);
       toRemove.forEach(date => delete historicalData[date]);
     }
     
@@ -403,7 +421,10 @@ function handleAlarm(alarm) {
   } else if (alarm.name === TEMP_UNBLOCK_CHECK_ALARM) {
     checkTemporaryUnblocks();
   } else if (alarm.name === API_SYNC_ALARM) {
-    syncDataWithApi();
+    // Only sync if authenticated (not in free mode)
+    if (isAuthenticated && !isFreeMode) {
+      syncDataWithApi();
+    }
   }
 }
 
@@ -428,11 +449,17 @@ async function updateTracker() {
 
 // Update the blocked sites configuration
 async function updateBlockedSites() {
-  const { isEnabled, blockedSites } = await browserApiService.getBlockingStatus();
+  const result = await browserApiService.getStorage(['blockingEnabled', 'blockedSites', 'freeMode']);
+  const blockingEnabled = result.blockingEnabled || false;
+  const blockedSites = result.blockedSites || [];
+  const isFreeMode = result.freeMode === true;
   
-  // No need to use declarativeNetRequest anymore, we'll handle blocking via 
-  // the webNavigation event handler
-  console.log(`Website blocking ${isEnabled ? 'enabled' : 'disabled'} with ${blockedSites.length} sites`);
+  // In free mode, limit the number of blocked sites
+  if (isFreeMode && blockedSites.length > FREE_MODE_MAX_BLOCKED_SITES) {
+    // Keep only the first few sites
+    const limitedBlockedSites = blockedSites.slice(0, FREE_MODE_MAX_BLOCKED_SITES);
+    await browserApiService.setStorage({ blockedSites: limitedBlockedSites });
+  }
 }
 
 // Check and clean up expired temporary unblocks

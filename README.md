@@ -89,7 +89,8 @@ Argus respects your privacy:
 - `background.js`: Background script for tracking
 - `popup.html/css/js`: User interface files
 - `icons/`: Extension icons in various sizes
-- `build.js`: Build script for packaging the extensions
+- `webpack.*.js`: Webpack configuration files for building the extensions
+- `scripts/`: Build and utility scripts
 
 ### Building the Extension
 
@@ -97,7 +98,7 @@ Argus respects your privacy:
 # Install dependencies
 npm install
 
-# Generate icons
+# Generate icons (if needed)
 npm run generate-icons
 
 # Build for both Chrome and Firefox
@@ -108,6 +109,24 @@ npm run build:chrome
 
 # Build for Firefox only
 npm run build:firefox
+
+# Build for development (includes source maps)
+npm run build:dev
+
+# Watch for changes (Chrome)
+npm run watch:chrome
+
+# Watch for changes (Firefox)
+npm run watch:firefox
+
+# Development mode with automatic rebuilding
+npm run dev
+
+# Package extensions into ZIP files
+npm run package
+
+# Build and package for release
+npm run release
 ```
 
 ### Testing
@@ -136,6 +155,7 @@ See `tests/README.md` for detailed information about the testing approach.
 
 - HTML, CSS, and JavaScript
 - Chart.js for data visualization
+- Webpack for bundling
 - Jest for testing
 
 ## License

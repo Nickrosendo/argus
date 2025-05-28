@@ -3,265 +3,73 @@ import Chart from 'chart.js/auto';
 import authService from '../services/AuthService';
 import apiService from '../services/ApiService';
 
+// Add global error handler for debugging extension issues
+window.addEventListener('error', function(event) {
+  console.error('Script error:', event.filename, event.lineno, event.message);
+});
+
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
-// Elements for auth
-let authOverlay, signinTab, signupTab, signinForm, signupForm, signinError, signupError;
-let accountUsername, accountEmail, accountType, syncStatusText, lastSyncTime, syncNowBtn, signoutBtn;
-
-// Tab navigation
+// Document loaded event
 document.addEventListener('DOMContentLoaded', () => {
-  // Get auth elements
-  initializeAuthElements();
-  
-  // Set up auth functionality
-  setupAuthTabs();
-  setupAuthForms();
-  setupAccountActions();
-  checkAuthentication();
+  try {
+    // Get all tab buttons and content sections
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
 
-  // Get all tab buttons and content sections
-  const tabButtons = document.querySelectorAll('.tab-btn');
-  const tabContents = document.querySelectorAll('.tab-content');
+    // Add click event to each tab button
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        // Remove active class from all buttons and contents
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        tabContents.forEach(content => content.classList.remove('active'));
 
-  // Add click event to each tab button
-  tabButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      // Remove active class from all buttons and contents
-      tabButtons.forEach(btn => btn.classList.remove('active'));
-      tabContents.forEach(content => content.classList.remove('active'));
+        // Add active class to clicked button
+        button.classList.add('active');
 
-      // Add active class to clicked button
-      button.classList.add('active');
+        // Find the corresponding content section and make it active
+        const tabId = button.id.replace('tab-', '');
+        document.getElementById(`${tabId}-section`).classList.add('active');
 
-      // Find the corresponding content section and make it active
-      const tabId = button.id.replace('tab-', '');
-      document.getElementById(`${tabId}-section`).classList.add('active');
-
-      // Load data for the active tab
-      loadTabData(tabId);
+        // Load data for the active tab
+        loadTabData(tabId);
+      });
     });
-  });
 
-  // Initialize with the today tab
-  loadTabData('today');
+    // Initialize with the today tab
+    loadTabData('today');
 
-  // Setup settings handlers
-  setupSettingsHandlers();
+    // Setup settings handlers
+    setupSettingsHandlers();
 
-  // Setup history navigation
-  setupHistoryNavigation();
-  
-  // Setup message listener for switching to the settings tab
-  browserAPI.runtime.onMessage.addListener((message) => {
-    if (message.action === 'openSettingsTab') {
-      // Switch to the settings tab programmatically
-      const settingsTab = document.getElementById('tab-settings');
-      if (settingsTab) {
-        settingsTab.click();
-        
-        // Scroll to the website blocking section
-        setTimeout(() => {
-          const blockingSection = document.querySelector('.setting-section');
-          if (blockingSection) {
-            blockingSection.scrollIntoView({ behavior: 'smooth' });
-          }
-        }, 100);
+    // Setup history navigation
+    setupHistoryNavigation();
+    
+    // Setup message listener for switching to the settings tab
+    browserAPI.runtime.onMessage.addListener((message) => {
+      if (message.action === 'openSettingsTab') {
+        // Switch to the settings tab programmatically
+        const settingsTab = document.getElementById('tab-settings');
+        if (settingsTab) {
+          settingsTab.click();
+          
+          // Scroll to the website blocking section
+          setTimeout(() => {
+            const blockingSection = document.querySelector('.setting-section');
+            if (blockingSection) {
+              blockingSection.scrollIntoView({ behavior: 'smooth' });
+            }
+          }, 100);
+        }
       }
-    }
-  });
+    });
+  } catch (error) {
+    console.error('Error initializing popup:', error);
+  }
 });
 
-// Initialize auth elements
-function initializeAuthElements() {
-  authOverlay = document.getElementById("auth-overlay");
-  signinTab = document.getElementById("signin-tab");
-  signupTab = document.getElementById("signup-tab");
-  signinForm = document.getElementById("signin-form");
-  signupForm = document.getElementById("signup-form");
-  signinError = document.getElementById("signin-error");
-  signupError = document.getElementById("signup-error");
-
-  // Account tab elements
-  accountUsername = document.getElementById("account-username");
-  accountEmail = document.getElementById("account-email");
-  accountType = document.getElementById("account-type");
-  syncStatusText = document.getElementById("sync-status-text");
-  lastSyncTime = document.getElementById("last-sync-time");
-  syncNowBtn = document.getElementById("sync-now-btn");
-  signoutBtn = document.getElementById("signout-btn");
-}
-
-// Set up authentication tabs
-function setupAuthTabs() {
-  signinTab.addEventListener("click", () => {
-    signinTab.classList.add("active");
-    signupTab.classList.remove("active");
-    signinForm.classList.add("active");
-    signupForm.classList.remove("active");
-    signinError.textContent = "";
-    signupError.textContent = "";
-  });
-
-  signupTab.addEventListener("click", () => {
-    signupTab.classList.add("active");
-    signinTab.classList.remove("active");
-    signupForm.classList.add("active");
-    signinForm.classList.remove("active");
-    signinError.textContent = "";
-    signupError.textContent = "";
-  });
-}
-
-// Set up authentication forms
-function setupAuthForms() {
-  // Handle sign in form submission
-  signinForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const username = document.getElementById("signin-username").value;
-    const password = document.getElementById("signin-password").value;
-
-    try {
-      signinError.textContent = "";
-      await authService.signin(username, password);
-      await checkAuthentication();
-    } catch (error) {
-      signinError.textContent = error.message;
-    }
-  });
-
-  // Handle sign up form submission
-  signupForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const username = document.getElementById("signup-username").value;
-    const email = document.getElementById("signup-email").value;
-    const password = document.getElementById("signup-password").value;
-
-    try {
-      signupError.textContent = "";
-      await authService.signup(username, password, email);
-      await checkAuthentication();
-    } catch (error) {
-      signupError.textContent = error.message;
-    }
-  });
-}
-
-// Set up account actions
-function setupAccountActions() {
-  // Handle sync now button
-  syncNowBtn.addEventListener("click", async () => {
-    await syncData();
-  });
-
-  // Handle sign out button
-  signoutBtn.addEventListener("click", async () => {
-    try {
-      await authService.signout();
-      await checkAuthentication();
-    } catch (error) {
-      console.error("Sign out error:", error);
-    }
-  });
-}
-
-// Check if user is authenticated and show/hide auth overlay
-async function checkAuthentication() {
-  try {
-    const isAuthenticated = await authService.isAuthenticated();
-
-    if (isAuthenticated) {
-      // Hide auth overlay
-      authOverlay.style.display = "none";
-
-      // Load user data
-      await loadUserData();
-
-      // Sync data with the API
-      await syncData();
-    } else {
-      // Show auth overlay
-      authOverlay.style.display = "flex";
-
-      // Clear forms
-      signinForm.reset();
-      signupForm.reset();
-    }
-  } catch (error) {
-    console.error("Authentication check error:", error);
-    // Show auth overlay on error
-    authOverlay.style.display = "flex";
-  }
-}
-
-// Load user data into account tab
-async function loadUserData() {
-  try {
-    const userData = await apiService.getUser();
-
-    // Update UI with user data
-    if (userData) {
-      accountUsername.textContent = userData.username;
-      accountEmail.textContent = userData.email || "Not provided";
-      accountType.textContent =
-        userData.type.charAt(0).toUpperCase() + userData.type.slice(1);
-    }
-  } catch (error) {
-    console.error("Load user data error:", error);
-    accountUsername.textContent = "Error loading data";
-    accountEmail.textContent = "Error loading data";
-    accountType.textContent = "Error loading data";
-  }
-}
-
-// Sync data with the API
-async function syncData() {
-  try {
-    syncStatusText.textContent = "syncing";
-    syncNowBtn.disabled = true;
-
-    // Get user data first to get the userId
-    const userData = await apiService.getUser();
-
-    if (!userData) {
-      throw new Error("User data not available");
-    }
-
-    // Get stored browser usage data
-    const { sites = {} } = await new Promise((resolve) => {
-      browserAPI.storage.local.get(["sites"], resolve);
-    });
-
-    // Generate a device ID if not already stored
-    let { deviceId } = await new Promise((resolve) => {
-      browserAPI.storage.local.get(["deviceId"], resolve);
-    });
-
-    if (!deviceId) {
-      deviceId = `argus_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      await new Promise((resolve) => {
-        browserAPI.storage.local.set({ deviceId }, resolve);
-      });
-    }
-
-    // Sync the data with the API
-    await apiService.syncBrowserUsage(userData.id, deviceId, { sites });
-
-    // Update UI
-    syncStatusText.textContent = "synced";
-    lastSyncTime.textContent = new Date().toLocaleTimeString();
-  } catch (error) {
-    console.error("Sync error:", error);
-    syncStatusText.textContent = "failed to sync";
-  } finally {
-    syncNowBtn.disabled = false;
-  }
-}
-
-// Load data for the selected tab
+// Load tab data
 function loadTabData(tabId) {
   switch (tabId) {
     case 'today':
@@ -275,6 +83,9 @@ function loadTabData(tabId) {
       break;
     case 'settings':
       loadSettingsData();
+      break;
+    case 'account':
+      // Account data is loaded by auth.js
       break;
   }
 }

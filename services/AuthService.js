@@ -215,5 +215,5 @@ const AuthService = {
   }
 };
 
-// Export the service
+// Export for ES modules
 export default AuthService;

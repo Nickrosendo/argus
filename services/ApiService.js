@@ -110,5 +110,5 @@ const ApiService = {
   }
 };
 
-// Export the service
+// Export for ES modules
 export default ApiService;

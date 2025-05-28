@@ -2,7 +2,6 @@ const chokidar = require('chokidar');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const build = require('./build');
 
 // Parse command line arguments to determine which browser to build for
 const args = process.argv.slice(2);
@@ -14,22 +13,43 @@ function getRelativePath(filePath) {
   return path.relative(process.cwd(), filePath);
 }
 
+// Function to run webpack
+function runWebpack(config) {
+  return new Promise((resolve, reject) => {
+    exec(`npx webpack --config ${config}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error running webpack: ${error.message}`);
+        return reject(error);
+      }
+      if (stderr) {
+        console.error(`Webpack stderr: ${stderr}`);
+      }
+      console.log(stdout);
+      resolve();
+    });
+  });
+}
+
 // Function to handle file changes
 async function handleChange(filePath) {
   const relativePath = getRelativePath(filePath);
   console.log(`\n[${new Date().toLocaleTimeString()}] File changed: ${relativePath}`);
   
-  if (buildChrome) {
-    console.log('Rebuilding Chrome extension...');
-    await build.buildChrome();
+  try {
+    if (buildChrome) {
+      console.log('Rebuilding Chrome extension...');
+      await runWebpack('webpack.chrome.dev.js');
+    }
+    
+    if (buildFirefox) {
+      console.log('Rebuilding Firefox extension...');
+      await runWebpack('webpack.firefox.dev.js');
+    }
+    
+    console.log(`\nWatching for changes... Press Ctrl+C to stop.`);
+  } catch (error) {
+    console.error('Error rebuilding extension:', error);
   }
-  
-  if (buildFirefox) {
-    console.log('Rebuilding Firefox extension...');
-    await build.buildFirefox();
-  }
-  
-  console.log(`\nWatching for changes... Press Ctrl+C to stop.`);
 }
 
 // Initialize watcher
@@ -56,14 +76,19 @@ async function initWatcher() {
   console.log('Starting development mode...');
   
   // Create initial build
-  if (buildChrome) {
-    console.log('Building Chrome extension...');
-    await build.buildChrome();
-  }
-  
-  if (buildFirefox) {
-    console.log('Building Firefox extension...');
-    await build.buildFirefox();
+  try {
+    if (buildChrome) {
+      console.log('Building Chrome extension...');
+      await runWebpack('webpack.chrome.dev.js');
+    }
+    
+    if (buildFirefox) {
+      console.log('Building Firefox extension...');
+      await runWebpack('webpack.firefox.dev.js');
+    }
+  } catch (error) {
+    console.error('Error building extension:', error);
+    process.exit(1);
   }
   
   // Watch for changes
@@ -86,11 +111,13 @@ async function initWatcher() {
   
   if (buildChrome) {
     console.log('- Chrome: Go to chrome://extensions/, click the refresh icon on the Argus extension');
+    console.log('  Extension directory: ' + path.resolve(__dirname, 'dist/chrome'));
   }
   
   if (buildFirefox) {
     console.log('- Firefox: Go to about:debugging#/runtime/this-firefox');
     console.log('  Click "Reload" next to the Argus extension');
+    console.log('  Extension directory: ' + path.resolve(__dirname, 'dist/firefox'));
   }
 }
 
