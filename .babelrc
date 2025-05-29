@@ -8,6 +8,12 @@
           "firefox": "74"
         }
       }
+    ],
+    [
+      "@babel/preset-react",
+      {
+        "runtime": "automatic"
+      }
     ]
   ]
 } 

@@ -14,9 +14,6 @@
     "build:firefox:dev": "rollup --config rollup.firefox.dev.js",
     "watch:chrome": "rollup --watch --config rollup.chrome.dev.js",
     "watch:firefox": "rollup --watch --config rollup.firefox.dev.js",
-    "dev": "npm run build:dev && node dev.js",
-    "dev:chrome": "npm run build:chrome:dev && node dev.js --chrome",
-    "dev:firefox": "npm run build:firefox:dev && node dev.js --firefox",
     "package": "node scripts/package.js",
     "package:chrome": "node scripts/package.js --chrome",
     "package:firefox": "node scripts/package.js --firefox",
@@ -35,16 +32,21 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "chart.js": "^4.4.2"
+    "chart.js": "^4.4.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.27.1",
     "@babel/preset-env": "^7.27.2",
+    "@babel/preset-react": "^7.24.7",
     "@rollup/plugin-babel": "^6.0.4",
     "@rollup/plugin-commonjs": "^28.0.3",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-replace": "^6.0.2",
     "@types/jest": "^29.5.12",
+    "@types/react": "^18.2.79",
+    "@types/react-dom": "^18.2.25",
     "archiver": "^5.3.2",
     "babel-jest": "^29.7.0",
     "canvas": "^2.11.2",

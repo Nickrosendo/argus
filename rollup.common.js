@@ -12,7 +12,7 @@ export function createConfig(platform) {
   return {
     input: {
       background: 'background.js',
-      popup: 'js/popup.js'
+      popup: 'src/popup.jsx'
     },
     output: {
       dir: outputDir,
@@ -21,11 +21,6 @@ export function createConfig(platform) {
       chunkFileNames: 'chunks/[name]-[hash].js'
     },
     plugins: [
-      // Clean up comments and whitespace
-      cleanup({
-        comments: 'none'
-      }),
-      
       // Replace environment variables
       replace({
         'process.env.NODE_ENV': JSON.stringify('development'),
@@ -35,17 +30,27 @@ export function createConfig(platform) {
       // Resolve node modules
       resolve({
         browser: true,
-        preferBuiltins: false
+        preferBuiltins: false,
+        extensions: ['.js', '.jsx', '.ts', '.tsx']
       }),
       
       // Convert CommonJS modules to ES6
-      commonjs(),
+      commonjs({
+        include: ['node_modules/**']
+      }),
       
       // Babel transpilation
       babel({
         babelHelpers: 'bundled',
         exclude: 'node_modules/**',
-        presets: ['@babel/preset-env']
+        extensions: ['.js', '.jsx'],
+        presets: ['@babel/preset-env', '@babel/preset-react']
+      }),
+      
+      // Clean up comments and whitespace (exclude JSX files)
+      cleanup({
+        comments: 'none',
+        exclude: ['**/*.jsx']
       }),
       
       // Copy static files

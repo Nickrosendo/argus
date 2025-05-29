@@ -98,19 +98,16 @@ nav {
   background: var(--secondary);
 }
 
-main {
+.main-tab-content {
   flex: 1;
   overflow-y: auto;
   padding: 15px;
+  width:  100%;
+  height: 100%;
 }
 
 .tab-content {
-  display: none;
   animation: fadeIn 0.3s ease;
-}
-
-.tab-content.active {
-  display: block;
 }
 
 .summary-card {
@@ -485,6 +482,30 @@ footer {
   width: 100%;
   max-width: 320px;
   text-align: center;
+  position: relative;
+}
+
+.auth-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #999;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.auth-close-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #333;
 }
 
 .auth-logo {
