@@ -1,7 +1,19 @@
 import React from 'react';
 
-const Header = ({ activeTab, onTabChange }) => {
-  const tabs = [
+type TabId = "today" | "stats" | "history" | "settings" | "account";
+
+interface Tab {
+  id: TabId;
+  label: string;
+}
+
+interface HeaderProps {
+  activeTab: TabId;
+  onTabChange: (tabId: TabId) => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
+  const tabs: Tab[] = [
     { id: 'today', label: 'Today' },
     { id: 'stats', label: 'Stats' },
     { id: 'history', label: 'History' },

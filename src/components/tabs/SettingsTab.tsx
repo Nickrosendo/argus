@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { StorageData, Settings } from '../../types/storage';
 
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
-const SettingsTab = ({ data, updateStorage }) => {
+interface SettingsTabProps {
+  data: StorageData;
+  updateStorage: (updates: Partial<StorageData>) => void;
+}
+
+const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
   const { settings = {}, blockedSites = [] } = data;
-  const [localSettings, setLocalSettings] = useState({
+  const [localSettings, setLocalSettings] = useState<Settings>({
     idleTime: 5,
     dailyLimit: 8,
     showNotifications: true,
     enableBlocking: false,
     ...settings
   });
-  const [newBlockedSite, setNewBlockedSite] = useState('');
-  const [localBlockedSites, setLocalBlockedSites] = useState(blockedSites);
+  const [newBlockedSite, setNewBlockedSite] = useState<string>('');
+  const [localBlockedSites, setLocalBlockedSites] = useState<string[]>(blockedSites);
 
   // Update local state when data changes
   useEffect(() => {
@@ -21,13 +27,13 @@ const SettingsTab = ({ data, updateStorage }) => {
     setLocalBlockedSites(blockedSites);
   }, [settings, blockedSites]);
 
-  const handleSettingChange = (key, value) => {
+  const handleSettingChange = (key: keyof Settings, value: any): void => {
     const newSettings = { ...localSettings, [key]: value };
     setLocalSettings(newSettings);
     updateStorage({ settings: newSettings });
   };
 
-  const handleAddBlockedSite = () => {
+  const handleAddBlockedSite = (): void => {
     if (!newBlockedSite.trim()) return;
     
     const site = newBlockedSite.trim().toLowerCase();
@@ -42,7 +48,7 @@ const SettingsTab = ({ data, updateStorage }) => {
     updateBlockingRules(updatedSites, localSettings.enableBlocking);
   };
 
-  const handleRemoveBlockedSite = (site) => {
+  const handleRemoveBlockedSite = (site: string): void => {
     const updatedSites = localBlockedSites.filter(s => s !== site);
     setLocalBlockedSites(updatedSites);
     updateStorage({ blockedSites: updatedSites });
@@ -51,32 +57,34 @@ const SettingsTab = ({ data, updateStorage }) => {
     updateBlockingRules(updatedSites, localSettings.enableBlocking);
   };
 
-  const handleBlockingToggle = (enabled) => {
+  const handleBlockingToggle = (enabled: boolean): void => {
     handleSettingChange('enableBlocking', enabled);
     updateBlockingRules(localBlockedSites, enabled);
   };
 
-  const updateBlockingRules = (sites, enabled) => {
+  const updateBlockingRules = (sites: string[], enabled: boolean): void => {
     if (!browserAPI.declarativeNetRequest) return;
 
     // Remove existing rules
-    browserAPI.declarativeNetRequest.getDynamicRules((existingRules) => {
+    browserAPI.declarativeNetRequest.getDynamicRules((existingRules: any[]) => {
       const ruleIds = existingRules.map(rule => rule.id);
       
-      browserAPI.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: ruleIds,
-        addRules: enabled ? sites.map((site, index) => ({
-          id: index + 1,
-          priority: 1,
-          action: { type: 'redirect', redirect: { url: browserAPI.runtime.getURL('blocked.html') } },
-          condition: { urlFilter: `*://*.${site}/*` }
-        })) : []
-      });
+      if (browserAPI.declarativeNetRequest) {
+        browserAPI.declarativeNetRequest.updateDynamicRules({
+          removeRuleIds: ruleIds,
+          addRules: enabled ? sites.map((site, index) => ({
+            id: index + 1,
+            priority: 1,
+            action: { type: 'redirect', redirect: { url: browserAPI.runtime.getURL('blocked.html') } },
+            condition: { urlFilter: `*://*.${site}/*` }
+          })) : []
+        });
+      }
     });
   };
 
-  const handleExportData = () => {
-    browserAPI.storage.local.get(null, (allData) => {
+  const handleExportData = (): void => {
+    browserAPI.storage.local.get(null, (allData: any) => {
       const dataStr = JSON.stringify(allData, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
@@ -90,7 +98,7 @@ const SettingsTab = ({ data, updateStorage }) => {
     });
   };
 
-  const handleClearData = () => {
+  const handleClearData = (): void => {
     if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
       browserAPI.storage.local.clear(() => {
         updateStorage({
@@ -109,7 +117,7 @@ const SettingsTab = ({ data, updateStorage }) => {
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter') {
       handleAddBlockedSite();
     }
@@ -199,9 +207,17 @@ const SettingsTab = ({ data, updateStorage }) => {
           </div>
         </div>
 
-        <div className="setting-item">
-          <button onClick={handleExportData}>Export Data</button>
-          <button onClick={handleClearData} className="danger">Clear All Data</button>
+        {/* Data Management Section */}
+        <div className="setting-section">
+          <h3>Data Management</h3>
+          <div className="data-actions">
+            <button onClick={handleExportData} className="secondary-btn">
+              Export Data
+            </button>
+            <button onClick={handleClearData} className="warning-btn">
+              Clear All Data
+            </button>
+          </div>
         </div>
       </div>
     </section>

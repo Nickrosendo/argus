@@ -7,7 +7,7 @@ import './utils/errorHandler';
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
 // Initialize the React app
-function initializeApp() {
+function initializeApp(): void {
   console.log('Initializing React app...');
   const container = document.getElementById('react-root');
   
@@ -31,7 +31,7 @@ if (document.readyState === 'loading') {
 }
 
 // Setup message listener for switching to the settings tab
-browserAPI.runtime.onMessage.addListener((message) => {
+browserAPI.runtime.onMessage.addListener((message: any) => {
   if (message.action === 'openSettingsTab') {
     // This will be handled by the App component through a custom event
     window.dispatchEvent(new CustomEvent('openSettingsTab'));

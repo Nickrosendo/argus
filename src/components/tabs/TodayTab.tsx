@@ -1,8 +1,19 @@
 import React, { useMemo } from 'react';
 import { formatTime, getLastNDays } from '../../utils/timeUtils';
+import { StorageData, SiteInfo } from '../../types/storage';
 
-const TodayTab = ({ data, updateStorage }) => {
-  const { sites = {}, totalTime = 0, history = {}, settings = {} } = data;
+interface TodayTabProps {
+  data: StorageData;
+  updateStorage: (updates: Partial<StorageData>) => void;
+}
+
+interface SiteIconProps {
+  domain: string;
+  favicon?: string;
+}
+
+const TodayTab: React.FC<TodayTabProps> = ({ data, updateStorage }) => {
+  const { sites = {}, totalTime = 0, history = {}, settings } = data;
 
   // Calculate weekly average
   const weeklyAverage = useMemo(() => {
@@ -26,10 +37,10 @@ const TodayTab = ({ data, updateStorage }) => {
 
   // Calculate progress percentage
   const progressPercentage = useMemo(() => {
-    const dailyLimit = settings.dailyLimit || 8; // Default 8 hours
+    const dailyLimit = settings?.dailyLimit || 8; // Default 8 hours
     const limitInMs = dailyLimit * 60 * 60 * 1000;
     return Math.min((totalTime / limitInMs) * 100, 100);
-  }, [totalTime, settings.dailyLimit]);
+  }, [totalTime, settings?.dailyLimit]);
 
   // Sort sites by time spent
   const sortedSites = useMemo(() => {
@@ -37,7 +48,7 @@ const TodayTab = ({ data, updateStorage }) => {
       .sort(([, a], [, b]) => b.totalTime - a.totalTime);
   }, [sites]);
 
-  const SiteIcon = ({ domain, favicon }) => {
+  const SiteIcon: React.FC<SiteIconProps> = ({ domain, favicon }) => {
     if (favicon) {
       return <img src={favicon} alt={`${domain} icon`} />;
     }

@@ -1,12 +1,27 @@
 import React, { useState, useMemo } from 'react';
 import { formatTime } from '../../utils/timeUtils';
+import { StorageData, SiteInfo } from '../../types/storage';
 
-const HistoryTab = ({ data }) => {
-  const [selectedDate, setSelectedDate] = useState(new Date());
+interface HistoryTabProps {
+  data: StorageData;
+}
+
+interface SiteIconProps {
+  domain: string;
+  favicon?: string;
+}
+
+interface SelectedDateData {
+  sites?: { [domain: string]: SiteInfo };
+  totalTime: number;
+}
+
+const HistoryTab: React.FC<HistoryTabProps> = ({ data }) => {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const { history = {} } = data;
 
   // Get data for selected date
-  const selectedDateData = useMemo(() => {
+  const selectedDateData: SelectedDateData = useMemo(() => {
     const dateString = selectedDate.toDateString();
     return history[dateString] || { sites: {}, totalTime: 0 };
   }, [selectedDate, history]);
@@ -17,13 +32,13 @@ const HistoryTab = ({ data }) => {
       .sort(([, a], [, b]) => b.totalTime - a.totalTime);
   }, [selectedDateData.sites]);
 
-  const navigateDate = (direction) => {
+  const navigateDate = (direction: number): void => {
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + direction);
     setSelectedDate(newDate);
   };
 
-  const formatSelectedDate = () => {
+  const formatSelectedDate = (): string => {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -42,12 +57,12 @@ const HistoryTab = ({ data }) => {
     }
   };
 
-  const canNavigateNext = () => {
+  const canNavigateNext = (): boolean => {
     const today = new Date();
     return selectedDate.toDateString() !== today.toDateString();
   };
 
-  const SiteIcon = ({ domain, favicon }) => {
+  const SiteIcon: React.FC<SiteIconProps> = ({ domain, favicon }) => {
     if (favicon) {
       return <img src={favicon} alt={`${domain} icon`} />;
     }

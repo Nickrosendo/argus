@@ -1,6 +1,7 @@
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import babel from '@rollup/plugin-babel';
+import typescript from '@rollup/plugin-typescript';
 import copy from 'rollup-plugin-copy';
 import replace from '@rollup/plugin-replace';
 import cleanup from 'rollup-plugin-cleanup';
@@ -12,7 +13,7 @@ export function createConfig(platform) {
   return {
     input: {
       background: 'background.js',
-      popup: 'src/popup.jsx'
+      popup: 'src/popup.tsx'
     },
     output: {
       dir: outputDir,
@@ -25,6 +26,12 @@ export function createConfig(platform) {
       replace({
         'process.env.NODE_ENV': JSON.stringify('development'),
         preventAssignment: true
+      }),
+      
+      // TypeScript plugin
+      typescript({
+        tsconfig: './tsconfig.json',
+        sourceMap: true
       }),
       
       // Resolve node modules
@@ -43,14 +50,14 @@ export function createConfig(platform) {
       babel({
         babelHelpers: 'bundled',
         exclude: 'node_modules/**',
-        extensions: ['.js', '.jsx'],
+        extensions: ['.js', '.jsx', '.ts', '.tsx'],
         presets: ['@babel/preset-env', '@babel/preset-react']
       }),
       
-      // Clean up comments and whitespace (exclude JSX files)
+      // Clean up comments and whitespace (exclude JSX/TSX files)
       cleanup({
         comments: 'none',
-        exclude: ['**/*.jsx']
+        exclude: ['**/*.jsx', '**/*.tsx']
       }),
       
       // Copy static files

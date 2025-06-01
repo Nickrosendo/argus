@@ -1,22 +1,51 @@
 import React, { useState } from 'react';
+import { UserInfo } from '../types/storage';
 
-const AuthOverlay = ({ authMode, setAuthMode, onAuth, onFreeMode, onClose }) => {
-  const [formData, setFormData] = useState({
+type AuthMode = 'signin' | 'signup';
+
+interface FormData {
+  username: string;
+  email: string;
+  password: string;
+}
+
+interface FormErrors {
+  username?: string;
+  email?: string;
+  password?: string;
+  general?: string;
+}
+
+interface UserData {
+  token: string;
+  user: UserInfo;
+}
+
+interface AuthOverlayProps {
+  authMode: AuthMode;
+  setAuthMode: (mode: AuthMode) => void;
+  onAuth: (success: boolean, userData?: UserData) => void;
+  onFreeMode: () => void;
+  onClose?: () => void;
+}
+
+const AuthOverlay: React.FC<AuthOverlayProps> = ({ authMode, setAuthMode, onAuth, onFreeMode, onClose }) => {
+  const [formData, setFormData] = useState<FormData>({
     username: '',
     email: '',
     password: ''
   });
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
     // Clear error when user starts typing
-    if (errors[name]) {
+    if (errors[name as keyof FormErrors]) {
       setErrors(prev => ({
         ...prev,
         [name]: ''
@@ -24,7 +53,7 @@ const AuthOverlay = ({ authMode, setAuthMode, onAuth, onFreeMode, onClose }) => 
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setLoading(true);
     setErrors({});
@@ -34,11 +63,12 @@ const AuthOverlay = ({ authMode, setAuthMode, onAuth, onFreeMode, onClose }) => 
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Mock successful authentication
-      const userData = {
+      const userData: UserData = {
         token: 'mock-token-' + Date.now(),
         user: {
-          username: formData.username,
-          email: formData.email || `${formData.username}@example.com`
+          id: 'user-' + Date.now(),
+          email: formData.email || `${formData.username}@example.com`,
+          name: formData.username
         }
       };
       
@@ -52,8 +82,8 @@ const AuthOverlay = ({ authMode, setAuthMode, onAuth, onFreeMode, onClose }) => 
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
+  const validateForm = (): FormErrors => {
+    const newErrors: FormErrors = {};
     
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
@@ -72,7 +102,7 @@ const AuthOverlay = ({ authMode, setAuthMode, onAuth, onFreeMode, onClose }) => 
     return newErrors;
   };
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = (e: React.FormEvent): void => {
     e.preventDefault();
     const validationErrors = validateForm();
     

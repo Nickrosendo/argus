@@ -1,5 +1,5 @@
 // Format time in milliseconds to a readable format
-export function formatTime(milliseconds) {
+export function formatTime(milliseconds: number): string {
   if (!milliseconds) return '0m';
 
   const seconds = Math.floor(milliseconds / 1000);
@@ -16,8 +16,8 @@ export function formatTime(milliseconds) {
 }
 
 // Get last N days as Date objects
-export function getLastNDays(n) {
-  const days = [];
+export function getLastNDays(n: number): Date[] {
+  const days: Date[] = [];
   for (let i = 0; i < n; i++) {
     const date = new Date();
     date.setDate(date.getDate() - i);

@@ -8,15 +8,24 @@ import SettingsTab from "./tabs/SettingsTab";
 import AccountTab from "./tabs/AccountTab";
 import Footer from "./Footer";
 import { useBrowserStorage } from "../hooks/useBrowserStorage";
+import { StorageData, UserInfo } from "../types/storage";
 
-const App = () => {
+type TabId = "today" | "stats" | "history" | "settings" | "account";
+type AuthMode = "signin" | "signup";
+
+interface UserData {
+  token: string;
+  user: UserInfo;
+}
+
+const App: React.FC = () => {
   console.log("App: Component rendering test 123...");
 
-  const [activeTab, setActiveTab] = useState("today");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authMode, setAuthMode] = useState("signin"); // 'signin' or 'signup'
-  const [isFreeMode, setIsFreeMode] = useState(true); // Start in free mode by default
-  const [showAuthOverlay, setShowAuthOverlay] = useState(false); // Add state for auth overlay
+  const [activeTab, setActiveTab] = useState<TabId>("today");
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("signin"); // 'signin' or 'signup'
+  const [isFreeMode, setIsFreeMode] = useState<boolean>(true); // Start in free mode by default
+  const [showAuthOverlay, setShowAuthOverlay] = useState<boolean>(false); // Add state for auth overlay
 
   const {
     data: storageData,
@@ -46,7 +55,7 @@ const App = () => {
       authToken: null,
       userInfo: null,
     }
-  );
+  ) as { data: StorageData; loading: boolean; updateStorage: (updates: Partial<StorageData>) => void };
 
   console.log("App: Current state:", {
     activeTab,
@@ -79,7 +88,7 @@ const App = () => {
 
   // Listen for settings tab open event
   useEffect(() => {
-    const handleOpenSettings = () => {
+    const handleOpenSettings = (): void => {
       setActiveTab("settings");
     };
 
@@ -88,12 +97,12 @@ const App = () => {
       window.removeEventListener("openSettingsTab", handleOpenSettings);
   }, []);
 
-  const handleTabChange = (tabId) => {
+  const handleTabChange = (tabId: TabId): void => {
     console.log("App: Tab changed to:", tabId);
     setActiveTab(tabId);
   };
 
-  const handleAuth = (success, userData = null) => {
+  const handleAuth = (success: boolean, userData: UserData | null = null): void => {
     console.log("App: Auth handler called:", success, userData);
     if (success && userData) {
       // Successful authentication with user data
@@ -110,7 +119,7 @@ const App = () => {
     }
   };
 
-  const handleFreeMode = () => {
+  const handleFreeMode = (): void => {
     console.log("App: Free mode selected");
     setIsFreeMode(true);
     setIsAuthenticated(false);
@@ -118,7 +127,7 @@ const App = () => {
     updateStorage({ authToken: false });
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = (): void => {
     console.log("App: Sign out");
     setIsAuthenticated(false);
     setIsFreeMode(true);
@@ -129,7 +138,7 @@ const App = () => {
     });
   };
 
-  const handleCloseAuthOverlay = () => {
+  const handleCloseAuthOverlay = (): void => {
     setShowAuthOverlay(false);
   };
 
@@ -145,7 +154,7 @@ const App = () => {
   // Only show auth overlay if explicitly requested (like from Account tab)
   console.log("App: Show auth overlay:", showAuthOverlay);
 
-  let currentTab = null;
+  let currentTab: React.ReactNode = null;
 
   switch (activeTab) {
     case "today": {
@@ -222,4 +231,4 @@ const App = () => {
   );
 };
 
-export default App;
+export default App; 

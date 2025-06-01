@@ -1,11 +1,30 @@
 import React, { useState } from 'react';
+import { StorageData, UserInfo } from '../../types/storage';
 
-const AccountTab = ({ data, isAuthenticated, isFreeMode, onSignOut, onAuth, setAuthMode }) => {
-  const [syncStatus, setSyncStatus] = useState('synced');
-  const [lastSyncTime, setLastSyncTime] = useState('Just now');
+type AuthMode = 'signin' | 'signup';
+
+interface AccountTabProps {
+  data: StorageData;
+  isAuthenticated: boolean;
+  isFreeMode: boolean;
+  onSignOut: () => void;
+  onAuth: (success: boolean) => void;
+  setAuthMode?: (mode: AuthMode) => void;
+}
+
+const AccountTab: React.FC<AccountTabProps> = ({ 
+  data, 
+  isAuthenticated, 
+  isFreeMode, 
+  onSignOut, 
+  onAuth, 
+  setAuthMode 
+}) => {
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced');
+  const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
   const { userInfo } = data;
 
-  const handleSyncNow = async () => {
+  const handleSyncNow = async (): Promise<void> => {
     setSyncStatus('syncing');
     
     // Simulate sync process
@@ -15,7 +34,7 @@ const AccountTab = ({ data, isAuthenticated, isFreeMode, onSignOut, onAuth, setA
     }, 2000);
   };
 
-  const handleCreateAccount = () => {
+  const handleCreateAccount = (): void => {
     // Set auth mode to signup and trigger the auth overlay
     if (setAuthMode) {
       setAuthMode('signup');
@@ -23,7 +42,7 @@ const AccountTab = ({ data, isAuthenticated, isFreeMode, onSignOut, onAuth, setA
     onAuth(true); // Request to show auth overlay
   };
 
-  const handleSignIn = () => {
+  const handleSignIn = (): void => {
     // Set auth mode to signin and trigger the auth overlay
     if (setAuthMode) {
       setAuthMode('signin');
@@ -66,7 +85,7 @@ const AccountTab = ({ data, isAuthenticated, isFreeMode, onSignOut, onAuth, setA
             <div className="account-info">
               <div className="account-field">
                 <label>Username</label>
-                <div className="account-value">{userInfo.username}</div>
+                <div className="account-value">{userInfo.name || userInfo.email.split('@')[0]}</div>
               </div>
               <div className="account-field">
                 <label>Email</label>
