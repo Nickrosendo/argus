@@ -19,8 +19,6 @@ interface UserData {
 }
 
 const App: React.FC = () => {
-  console.log("App: Component rendering test 123...");
-
   const [activeTab, setActiveTab] = useState<TabId>("today");
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [authMode, setAuthMode] = useState<AuthMode>("signin"); // 'signin' or 'signup'
@@ -57,21 +55,8 @@ const App: React.FC = () => {
     }
   ) as { data: StorageData; loading: boolean; updateStorage: (updates: Partial<StorageData>) => void };
 
-  console.log("App: Current state:", {
-    activeTab,
-    isAuthenticated,
-    isFreeMode,
-    loading,
-    storageData,
-  });
-
   // Check authentication status
   useEffect(() => {
-    console.log(
-      "App: Auth effect triggered with:",
-      storageData.authToken,
-      storageData.userInfo
-    );
     if (storageData.authToken && storageData.userInfo) {
       setIsAuthenticated(true);
       setIsFreeMode(false);
@@ -98,12 +83,10 @@ const App: React.FC = () => {
   }, []);
 
   const handleTabChange = (tabId: TabId): void => {
-    console.log("App: Tab changed to:", tabId);
     setActiveTab(tabId);
   };
 
   const handleAuth = (success: boolean, userData: UserData | null = null): void => {
-    console.log("App: Auth handler called:", success, userData);
     if (success && userData) {
       // Successful authentication with user data
       setIsAuthenticated(true);
@@ -120,7 +103,6 @@ const App: React.FC = () => {
   };
 
   const handleFreeMode = (): void => {
-    console.log("App: Free mode selected");
     setIsFreeMode(true);
     setIsAuthenticated(false);
     setShowAuthOverlay(false); // Hide overlay when choosing free mode
@@ -128,7 +110,6 @@ const App: React.FC = () => {
   };
 
   const handleSignOut = (): void => {
-    console.log("App: Sign out");
     setIsAuthenticated(false);
     setIsFreeMode(true);
     setShowAuthOverlay(false); // Hide overlay on sign out
@@ -143,16 +124,12 @@ const App: React.FC = () => {
   };
 
   if (loading) {
-    console.log("App: Still loading...");
     return (
       <div className="loading-container">
         <div className="loading">Loading...</div>
       </div>
     );
   }
-
-  // Only show auth overlay if explicitly requested (like from Account tab)
-  console.log("App: Show auth overlay:", showAuthOverlay);
 
   let currentTab: React.ReactNode = null;
 
@@ -198,12 +175,6 @@ const App: React.FC = () => {
     }
   }
 
-  console.log(
-    "App: About to render app, current tab:",
-    currentTab,
-    "activeTab:",
-    activeTab
-  );
   return (
     <div className="app">
       {showAuthOverlay && (

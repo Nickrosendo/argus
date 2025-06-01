@@ -1,3 +1,11 @@
+// Setup DOM environment for React Testing Library
+import { TextEncoder, TextDecoder } from 'util';
+import '@testing-library/jest-dom';
+
+// Polyfill for TextEncoder/TextDecoder
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
 // Mock for browser APIs
 const mockStorage = {
   local: {
@@ -34,7 +42,8 @@ const mockRuntime = {
   onMessage: {
     addListener: jest.fn()
   },
-  sendMessage: jest.fn()
+  sendMessage: jest.fn(),
+  getURL: jest.fn((path) => `chrome-extension://test/${path}`)
 };
 
 // Mock Chrome API
@@ -78,26 +87,7 @@ class LocalStorageMock {
 
 global.localStorage = new LocalStorageMock();
 
-// Mock document.createElement for charts
-document.createElement = jest.fn().mockImplementation((tag) => {
-  if (tag === 'canvas') {
-    return {
-      getContext: jest.fn().mockReturnValue({
-        measureText: jest.fn().mockReturnValue({ width: 100 }),
-        fillText: jest.fn(),
-        clearRect: jest.fn(),
-        fillRect: jest.fn(),
-        beginPath: jest.fn(),
-        arc: jest.fn(),
-        fill: jest.fn(),
-        stroke: jest.fn(),
-        moveTo: jest.fn(),
-        lineTo: jest.fn(),
-        closePath: jest.fn()
-      }),
-      width: 400,
-      height: 400
-    };
-  }
-  return {};
-}); 
+// Mock window methods
+global.window.addEventListener = jest.fn();
+global.window.removeEventListener = jest.fn();
+global.window.dispatchEvent = jest.fn(); 

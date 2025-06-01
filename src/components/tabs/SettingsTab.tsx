@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageData, Settings } from '../../types/storage';
 
 // Browser API compatibility
@@ -11,21 +11,44 @@ interface SettingsTabProps {
 
 const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
   const { settings = {}, blockedSites = [] } = data;
-  const [localSettings, setLocalSettings] = useState<Settings>({
+  
+  // Memoize the default settings to prevent infinite loops
+  const defaultSettings = useMemo(() => ({
     idleTime: 5,
     dailyLimit: 8,
     showNotifications: true,
     enableBlocking: false,
+  }), []);
+
+  const [localSettings, setLocalSettings] = useState<Settings>({
+    ...defaultSettings,
     ...settings
   });
   const [newBlockedSite, setNewBlockedSite] = useState<string>('');
   const [localBlockedSites, setLocalBlockedSites] = useState<string[]>(blockedSites);
 
-  // Update local state when data changes
+  // Use refs to track previous values
+  const prevSettingsRef = useRef<Partial<Settings> | undefined>();
+  const prevBlockedSitesRef = useRef<string[]>([]);
+
+  // Update local state when data changes, but only if the actual values changed
   useEffect(() => {
-    setLocalSettings(prev => ({ ...prev, ...settings }));
-    setLocalBlockedSites(blockedSites);
-  }, [settings, blockedSites]);
+    const newSettings = { ...defaultSettings, ...settings };
+    
+    // Only update if the settings have actually changed
+    if (JSON.stringify(prevSettingsRef.current) !== JSON.stringify(settings)) {
+      setLocalSettings(newSettings);
+      prevSettingsRef.current = settings;
+    }
+  }, [settings, defaultSettings]);
+
+  useEffect(() => {
+    // Only update if the blocked sites have actually changed
+    if (JSON.stringify(prevBlockedSitesRef.current) !== JSON.stringify(blockedSites)) {
+      setLocalBlockedSites(blockedSites);
+      prevBlockedSitesRef.current = blockedSites;
+    }
+  }, [blockedSites]);
 
   const handleSettingChange = (key: keyof Settings, value: any): void => {
     const newSettings = { ...localSettings, [key]: value };

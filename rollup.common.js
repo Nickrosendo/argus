@@ -31,7 +31,8 @@ export function createConfig(platform) {
       // TypeScript plugin
       typescript({
         tsconfig: './tsconfig.json',
-        sourceMap: true
+        sourceMap: true,
+        exclude: ['tests/**/*', '**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx']
       }),
       
       // Resolve node modules
@@ -49,7 +50,7 @@ export function createConfig(platform) {
       // Babel transpilation
       babel({
         babelHelpers: 'bundled',
-        exclude: 'node_modules/**',
+        exclude: ['node_modules/**', 'tests/**/*'],
         extensions: ['.js', '.jsx', '.ts', '.tsx'],
         presets: ['@babel/preset-env', '@babel/preset-react']
       }),

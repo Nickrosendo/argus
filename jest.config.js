@@ -1,15 +1,27 @@
 module.exports = {
   testEnvironment: 'jsdom',
-  moduleFileExtensions: ['js', 'json'],
-  testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
+  moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx'],
+  testMatch: ['**/__tests__/**/*.(js|jsx|ts|tsx)', '**/?(*.)+(spec|test).(js|jsx|ts|tsx)'],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
-  setupFiles: ['./tests/setup.js'],
-  collectCoverageFrom: ['background.js', 'js/*.js', 'services/*.js', '!js/chart.min.js'],
+  setupFilesAfterEnv: ['./tests/setup.js'],
+  collectCoverageFrom: [
+    'background.js', 
+    'js/*.js', 
+    'services/*.js', 
+    'src/**/*.{ts,tsx}',
+    '!js/chart.min.js',
+    '!src/**/*.d.ts',
+    '!src/types/**/*'
+  ],
   coverageDirectory: 'coverage',
   transform: {
-    '^.+\\.js$': 'babel-jest',
+    '^.+\\.(js|jsx)$': 'babel-jest',
+    '^.+\\.(ts|tsx)$': 'babel-jest',
   },
   transformIgnorePatterns: [
     '/node_modules/(?!(@babel)/)',
   ],
+  moduleNameMapper: {
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+  },
 }; 
