@@ -94,6 +94,7 @@ describe('App Component', () => {
     blockedSites: [],
     authToken: null,
     userInfo: null,
+    freeMode: false,
   };
 
   const mockUpdateStorage = jest.fn();

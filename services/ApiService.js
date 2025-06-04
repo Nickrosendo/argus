@@ -14,7 +14,7 @@ const ApiService = {
    * API base URL
    * Should match the URL used in AuthService
    */
-  API_BASE_URL: 'http://localhost:3000',
+  API_BASE_URL: 'https://argus-api-z73bt.kinsta.app',
 
   /**
    * Make an authenticated request to the API

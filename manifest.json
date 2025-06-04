@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Argus - Screen Time Tracker",
-  "version": "1.0",
+  "version": "1.0.1",
   "description": "Monitor and visualize the time you spend on different websites",
   "permissions": [
     "storage",

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StorageData, UserInfo } from '../../types/storage';
+import { useBrowserMessaging } from '../../hooks/useBrowserMessaging';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -12,6 +13,9 @@ interface AccountTabProps {
   setAuthMode?: (mode: AuthMode) => void;
 }
 
+// Browser API compatibility
+const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
+
 const AccountTab: React.FC<AccountTabProps> = ({ 
   data, 
   isAuthenticated, 
@@ -23,15 +27,81 @@ const AccountTab: React.FC<AccountTabProps> = ({
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
   const { userInfo } = data;
+  
+  const { signout } = useBrowserMessaging();
+
+  // Load last sync time from storage on component mount
+  useEffect(() => {
+    const loadLastSyncTime = async () => {
+      try {
+        const result = await browserAPI.storage.local.get(['lastSyncTime']);
+        if (result.lastSyncTime) {
+          const syncTime = new Date(result.lastSyncTime);
+          const now = new Date();
+          const diffMinutes = Math.floor((now.getTime() - syncTime.getTime()) / (1000 * 60));
+          
+          if (diffMinutes < 1) {
+            setLastSyncTime('Just now');
+          } else if (diffMinutes < 60) {
+            setLastSyncTime(`${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`);
+          } else {
+            const diffHours = Math.floor(diffMinutes / 60);
+            setLastSyncTime(`${diffHours} hour${diffHours === 1 ? '' : 's'} ago`);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load sync time:', error);
+      }
+    };
+
+    if (isAuthenticated) {
+      loadLastSyncTime();
+    }
+  }, [isAuthenticated]);
 
   const handleSyncNow = async (): Promise<void> => {
     setSyncStatus('syncing');
     
-    // Simulate sync process
-    setTimeout(() => {
-      setSyncStatus('synced');
-      setLastSyncTime('Just now');
-    }, 2000);
+    try {
+      // Send sync message to background worker
+      const response = await browserAPI.runtime.sendMessage({ 
+        action: 'syncWithApi' 
+      });
+      
+      if (response.success) {
+        setSyncStatus('synced');
+        setLastSyncTime('Just now');
+        
+        // Store sync time
+        await browserAPI.storage.local.set({
+          lastSyncTime: Date.now()
+        });
+      } else {
+        throw new Error('Sync failed');
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      setSyncStatus('synced'); // Reset status even on error
+    }
+  };
+
+  const handleSignOut = async (): Promise<void> => {
+    try {
+      // Call background worker to handle sign out
+      const response = await signout();
+      
+      if (response.success) {
+        onSignOut(); // Notify parent component
+      } else {
+        console.error('Sign out failed:', response.error);
+        // Still call onSignOut to update UI state
+        onSignOut();
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Still call onSignOut to update UI state
+      onSignOut();
+    }
   };
 
   const handleCreateAccount = (): void => {
@@ -117,7 +187,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
               >
                 {syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}
               </button>
-              <button onClick={onSignOut} className="warning-btn">
+              <button onClick={handleSignOut} className="warning-btn">
                 Sign Out
               </button>
             </div>

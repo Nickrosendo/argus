@@ -14,7 +14,7 @@ const AuthService = {
    * API base URL
    * In a production environment, this should be configurable or loaded from environment variables
    */
-  API_BASE_URL: 'http://localhost:3000',
+  API_BASE_URL: 'https://argus-api-z73bt.kinsta.app',
 
   /**
    * Sign up a new user

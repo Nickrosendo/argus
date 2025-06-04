@@ -42,7 +42,37 @@ const mockRuntime = {
   onMessage: {
     addListener: jest.fn()
   },
-  sendMessage: jest.fn(),
+  sendMessage: jest.fn().mockImplementation((message) => {
+    // Mock authentication responses
+    if (message?.action === 'signin' || message?.action === 'signup') {
+      return Promise.resolve({
+        success: true,
+        data: {
+          token: `mock-token-${Date.now()}`,
+          user: {
+            id: `user-${Date.now()}`,
+            email: message.action === 'signup' && message.email ? message.email : `${message.username}@example.com`,
+            name: message.username
+          }
+        }
+      });
+    }
+    
+    if (message?.action === 'signout') {
+      return Promise.resolve({
+        success: true
+      });
+    }
+    
+    if (message?.action === 'checkAuthentication') {
+      return Promise.resolve({
+        isAuthenticated: false
+      });
+    }
+    
+    // Default response for other messages
+    return Promise.resolve({ success: false });
+  }),
   getURL: jest.fn((path) => `chrome-extension://test/${path}`)
 };
 

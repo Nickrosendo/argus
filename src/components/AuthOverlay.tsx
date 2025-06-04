@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserInfo } from '../types/storage';
+import { useBrowserMessaging } from '../hooks/useBrowserMessaging';
 
 type AuthMode = 'signin' | 'signup';
 
@@ -37,6 +38,8 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ authMode, setAuthMode, onAuth
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState<boolean>(false);
+  
+  const { signin, signup } = useBrowserMessaging();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
@@ -59,23 +62,28 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ authMode, setAuthMode, onAuth
     setErrors({});
 
     try {
-      // Simulate API call - replace with actual auth service
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call background service worker to handle authentication
+      const response = authMode === 'signin' 
+        ? await signin(formData.username, formData.password)
+        : await signup(formData.username, formData.password, formData.email);
       
-      // Mock successful authentication
-      const userData: UserData = {
-        token: 'mock-token-' + Date.now(),
-        user: {
-          id: 'user-' + Date.now(),
-          email: formData.email || `${formData.username}@example.com`,
-          name: formData.username
-        }
-      };
-      
-      onAuth(true, userData);
+      console.log('Authentication response:', response);
+      if (response.success && response.data) {
+        const userData: UserData = {
+          token: response.data.token,
+          user: response.data.user
+        };
+        
+        onAuth(true, userData);
+      } else {
+        setErrors({
+          general: response.error || 'Authentication failed. Please try again.'
+        });
+      }
     } catch (error) {
+      console.error('Authentication error:', error);
       setErrors({
-        general: 'Authentication failed. Please try again.'
+        general: 'Authentication failed. Please check your connection and try again.'
       });
     } finally {
       setLoading(false);
@@ -97,6 +105,10 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ authMode, setAuthMode, onAuth
     
     if (authMode === 'signup' && !formData.email.trim()) {
       newErrors.email = 'Email is required';
+    }
+    
+    if (authMode === 'signup' && formData.email.trim() && !/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
     }
     
     return newErrors;

@@ -8,6 +8,7 @@ import SettingsTab from "./tabs/SettingsTab";
 import AccountTab from "./tabs/AccountTab";
 import Footer from "./Footer";
 import { useBrowserStorage } from "../hooks/useBrowserStorage";
+import { useBrowserMessaging } from "../hooks/useBrowserMessaging";
 import { StorageData, UserInfo } from "../types/storage";
 
 type TabId = "today" | "stats" | "history" | "settings" | "account";
@@ -24,6 +25,9 @@ const App: React.FC = () => {
   const [authMode, setAuthMode] = useState<AuthMode>("signin"); // 'signin' or 'signup'
   const [isFreeMode, setIsFreeMode] = useState<boolean>(true); // Start in free mode by default
   const [showAuthOverlay, setShowAuthOverlay] = useState<boolean>(false); // Add state for auth overlay
+  const [authCheckComplete, setAuthCheckComplete] = useState<boolean>(false);
+
+  const { checkAuthentication } = useBrowserMessaging();
 
   const {
     data: storageData,
@@ -38,6 +42,7 @@ const App: React.FC = () => {
       "blockedSites",
       "authToken",
       "userInfo",
+      "freeMode",
     ],
     {
       sites: {},
@@ -52,24 +57,43 @@ const App: React.FC = () => {
       blockedSites: [],
       authToken: null,
       userInfo: null,
+      freeMode: true,
     }
   ) as { data: StorageData; loading: boolean; updateStorage: (updates: Partial<StorageData>) => void };
 
-  // Check authentication status
+  // Check authentication status with background worker
   useEffect(() => {
-    if (storageData.authToken && storageData.userInfo) {
-      setIsAuthenticated(true);
-      setIsFreeMode(false);
-    } else if (storageData.authToken === false) {
-      // Explicitly set to false means user chose free mode
-      setIsAuthenticated(false);
-      setIsFreeMode(true);
-    } else {
-      // No auth state set - default to free mode
-      setIsAuthenticated(false);
-      setIsFreeMode(true);
+    const checkAuthStatus = async () => {
+      try {
+        const response = await checkAuthentication();
+        const hasTokenAndUser = storageData.authToken && storageData.userInfo;
+        
+        if (response.isAuthenticated && hasTokenAndUser) {
+          setIsAuthenticated(true);
+          setIsFreeMode(false);
+        } else if (storageData.authToken === false || storageData.freeMode === true) {
+          // Explicitly set to false means user chose free mode
+          setIsAuthenticated(false);
+          setIsFreeMode(true);
+        } else {
+          // Default to free mode if no clear auth state
+          setIsAuthenticated(false);
+          setIsFreeMode(true);
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        // Default to free mode on error
+        setIsAuthenticated(false);
+        setIsFreeMode(true);
+      } finally {
+        setAuthCheckComplete(true);
+      }
+    };
+
+    if (!loading) {
+      checkAuthStatus();
     }
-  }, [storageData.authToken, storageData.userInfo]);
+  }, [storageData.authToken, storageData.userInfo, storageData.freeMode, loading, checkAuthentication]);
 
   // Listen for settings tab open event
   useEffect(() => {
@@ -95,6 +119,7 @@ const App: React.FC = () => {
       updateStorage({
         authToken: userData.token,
         userInfo: userData.user,
+        freeMode: false,
       });
     } else if (success && !userData) {
       // This is a request to show the auth overlay
@@ -106,7 +131,10 @@ const App: React.FC = () => {
     setIsFreeMode(true);
     setIsAuthenticated(false);
     setShowAuthOverlay(false); // Hide overlay when choosing free mode
-    updateStorage({ authToken: false });
+    updateStorage({ 
+      authToken: false,
+      freeMode: true,
+    });
   };
 
   const handleSignOut = (): void => {
@@ -116,6 +144,7 @@ const App: React.FC = () => {
     updateStorage({
       authToken: null,
       userInfo: null,
+      freeMode: true,
     });
   };
 
@@ -123,7 +152,7 @@ const App: React.FC = () => {
     setShowAuthOverlay(false);
   };
 
-  if (loading) {
+  if (loading || !authCheckComplete) {
     return (
       <div className="loading-container">
         <div className="loading">Loading...</div>
