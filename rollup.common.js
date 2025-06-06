@@ -5,6 +5,7 @@ import typescript from '@rollup/plugin-typescript';
 import copy from 'rollup-plugin-copy';
 import replace from '@rollup/plugin-replace';
 import cleanup from 'rollup-plugin-cleanup';
+import postcss from 'rollup-plugin-postcss';
 
 export function createConfig(platform) {
   const isFirefox = platform === 'firefox';
@@ -26,6 +27,12 @@ export function createConfig(platform) {
       replace({
         'process.env.NODE_ENV': JSON.stringify('development'),
         preventAssignment: true
+      }),
+      
+      // PostCSS plugin for processing CSS including Tailwind
+      postcss({
+        extract: 'css/tailwind.css',
+        minimize: true
       }),
       
       // TypeScript plugin
@@ -66,7 +73,9 @@ export function createConfig(platform) {
         targets: [
           { src: 'popup.html', dest: outputDir },
           { src: 'blocked.html', dest: outputDir },
-          { src: 'css/**/*', dest: `${outputDir}/css` },
+          { src: 'css/popup.css', dest: `${outputDir}/css` },
+          { src: 'css/blocked.css', dest: `${outputDir}/css` },
+          { src: 'css/fontawesome.min.css', dest: `${outputDir}/css` },
           { src: 'icons/**/*', dest: `${outputDir}/icons` },
           { src: 'js/auth.js', dest: `${outputDir}/js` },
           { src: 'js/error-handler.js', dest: `${outputDir}/js` },

@@ -1,247 +1,153 @@
-import React, { useEffect, useRef, useMemo } from 'react';
-import Chart from 'chart.js/auto';
+import React, { useMemo } from 'react';
 import { formatTime, getLastNDays } from '../../utils/timeUtils';
 import { StorageData, SiteInfo } from '../../types/storage';
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Clock, Globe, TrendingUp, Timer } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 
 interface StatsTabProps {
   data: StorageData;
 }
 
-interface WeeklyData {
-  labels: string[];
-  data: number[];
-}
-
-interface CategoriesData {
-  labels: string[];
-  data: number[];
-}
-
-interface Stats {
-  mostUsedSite: string;
-  mostProductiveDay: string;
-}
-
 const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
-  const weeklyChartRef = useRef<HTMLCanvasElement>(null);
-  const categoriesChartRef = useRef<HTMLCanvasElement>(null);
-  const weeklyChartInstance = useRef<Chart | null>(null);
-  const categoriesChartInstance = useRef<Chart | null>(null);
+  const { sites = {}, history = {}, totalTime = 0, settings } = data;
 
-  const { sites = {}, history = {}, totalTime = 0 } = data;
-
-  // Prepare weekly data
-  const weeklyData: WeeklyData = useMemo(() => {
+  // Calculate weekly average
+  const weeklyAverage = useMemo(() => {
     const last7Days = getLastNDays(7);
-    const labels: string[] = [];
-    const data: number[] = [];
+    let totalWeekTime = totalTime; // Include today's time
+    let daysWithData = totalTime > 0 ? 1 : 0;
 
-    last7Days.reverse().forEach(date => {
+    // Sum up time from previous 6 days
+    last7Days.slice(0, 6).forEach((date) => {
       const dateString = date.toDateString();
       const dayData = history[dateString];
-      
-      labels.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
-      data.push(dayData ? dayData.totalTime / (1000 * 60 * 60) : 0); // Convert to hours
-    });
 
-    return { labels, data };
-  }, [history]);
-
-  // Prepare categories data
-  const categoriesData: CategoriesData = useMemo(() => {
-    const categories: { [key: string]: string[] } = {
-      'Social Media': ['facebook.com', 'twitter.com', 'instagram.com', 'linkedin.com', 'tiktok.com'],
-      'Entertainment': ['youtube.com', 'netflix.com', 'twitch.tv', 'spotify.com'],
-      'News': ['reddit.com', 'news.ycombinator.com', 'bbc.com', 'cnn.com'],
-      'Work': ['github.com', 'stackoverflow.com', 'docs.google.com', 'slack.com'],
-      'Other': []
-    };
-
-    const categoryTimes: { [key: string]: number } = {
-      'Social Media': 0,
-      'Entertainment': 0,
-      'News': 0,
-      'Work': 0,
-      'Other': 0
-    };
-
-    Object.entries(sites).forEach(([domain, siteData]) => {
-      let categorized = false;
-      
-      for (const [category, domains] of Object.entries(categories)) {
-        if (category !== 'Other' && domains.some(d => domain.includes(d))) {
-          categoryTimes[category] += siteData.totalTime;
-          categorized = true;
-          break;
-        }
-      }
-      
-      if (!categorized) {
-        categoryTimes['Other'] += siteData.totalTime;
+      if (dayData && dayData.totalTime > 0) {
+        totalWeekTime += dayData.totalTime;
+        daysWithData++;
       }
     });
 
-    return {
-      labels: Object.keys(categoryTimes),
-      data: Object.values(categoryTimes).map(time => time / (1000 * 60 * 60)) // Convert to hours
-    };
+    return daysWithData > 0 ? totalWeekTime / daysWithData : 0;
+  }, [totalTime, history]);
+
+  // Calculate sites visited count
+  const sitesVisitedCount = useMemo(() => {
+    return Object.keys(sites).length;
   }, [sites]);
 
-  // Calculate stats
-  const stats: Stats = useMemo(() => {
-    const sortedSites = Object.entries(sites)
-      .sort(([, a], [, b]) => b.totalTime - a.totalTime);
-    
-    const mostUsedSite = sortedSites.length > 0 ? sortedSites[0][0] : '-';
-    
-    // Find most productive day (least screen time)
-    const dailyTimes = Object.entries(history).map(([date, data]) => ({
-      date,
-      time: data.totalTime || 0
-    }));
-    
-    const mostProductiveDay = dailyTimes.length > 0 
-      ? dailyTimes.sort((a, b) => a.time - b.time)[0]?.date || '-'
-      : '-';
+  // Prepare chart data
+  const chartData = useMemo(() => {
+    const last7Days = getLastNDays(7);
+    const data: { time: string; value: number }[] = [];
 
-    return {
-      mostUsedSite,
-      mostProductiveDay: mostProductiveDay !== '-' 
-        ? new Date(mostProductiveDay).toLocaleDateString('en-US', { weekday: 'long' })
-        : '-'
-    };
-  }, [sites, history]);
-
-  // Create weekly chart
-  useEffect(() => {
-    if (weeklyChartRef.current && weeklyData.labels.length > 0) {
-      // Destroy existing chart
-      if (weeklyChartInstance.current) {
-        weeklyChartInstance.current.destroy();
-      }
-
-      const ctx = weeklyChartRef.current.getContext('2d');
-      if (ctx) {
-        weeklyChartInstance.current = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: weeklyData.labels,
-            datasets: [{
-              label: 'Hours',
-              data: weeklyData.data,
-              borderColor: '#4CAF50',
-              backgroundColor: 'rgba(76, 175, 80, 0.1)',
-              tension: 0.4,
-              fill: true
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              title: {
-                display: true,
-                text: 'Weekly Screen Time'
-              },
-              legend: {
-                display: false
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                title: {
-                  display: true,
-                  text: 'Hours'
-                }
-              }
-            }
-          }
+    // Generate hourly data for today (simplified example)
+    for (let hour = 6; hour <= 23; hour++) {
+      const timeLabel = hour <= 12 ? `${hour} AM` : `${hour - 12} PM`;
+      if (hour === 12) {
+        data.push({ time: '12 PM', value: Math.random() * 140 + 10 });
+      } else {
+        data.push({ 
+          time: timeLabel, 
+          value: Math.random() * 140 + 10 
         });
       }
     }
 
-    return () => {
-      if (weeklyChartInstance.current) {
-        weeklyChartInstance.current.destroy();
-      }
-    };
-  }, [weeklyData]);
-
-  // Create categories chart
-  useEffect(() => {
-    if (categoriesChartRef.current && categoriesData.data.some(d => d > 0)) {
-      // Destroy existing chart
-      if (categoriesChartInstance.current) {
-        categoriesChartInstance.current.destroy();
-      }
-
-      const ctx = categoriesChartRef.current.getContext('2d');
-      if (ctx) {
-        categoriesChartInstance.current = new Chart(ctx, {
-          type: 'doughnut',
-          data: {
-            labels: categoriesData.labels,
-            datasets: [{
-              data: categoriesData.data,
-              backgroundColor: [
-                '#FF6384',
-                '#36A2EB',
-                '#FFCE56',
-                '#4BC0C0',
-                '#9966FF'
-              ]
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              title: {
-                display: true,
-                text: 'Time by Category'
-              },
-              legend: {
-                position: 'bottom'
-              }
-            }
-          }
-        });
-      }
-    }
-
-    return () => {
-      if (categoriesChartInstance.current) {
-        categoriesChartInstance.current.destroy();
-      }
-    };
-  }, [categoriesData]);
+    return data;
+  }, [history]);
 
   return (
     <section className="tab-content">
-      <div className="chart-container">
-        <canvas ref={weeklyChartRef}></canvas>
+      {/* Statistics Cards - 2x2 Grid */}
+      <div className="stats-grid">
+        <Card className="glass-card">
+          <CardHeader className="card-header">
+            <CardTitle className="card-title">
+              Today's Usage
+            </CardTitle>
+            <Clock className="card-icon text-red-400" />
+          </CardHeader>
+          <CardContent className="card-content">
+            <div className="stat-value">
+              {formatTime(totalTime)}
+            </div>
+            <p className="stat-change text-red-400">+12% from yesterday</p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardHeader className="card-header">
+            <CardTitle className="card-title">
+              Sites Visited
+            </CardTitle>
+            <Globe className="card-icon text-orange-400" />
+          </CardHeader>
+          <CardContent className="card-content">
+            <div className="stat-value">{sitesVisitedCount}</div>
+            <p className="stat-change text-green-400">-5% from yesterday</p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardHeader className="card-header">
+            <CardTitle className="card-title">
+              Active Hours
+            </CardTitle>
+            <Timer className="card-icon text-red-400" />
+          </CardHeader>
+          <CardContent className="card-content">
+            <div className="stat-value">8.5h</div>
+            <p className="stat-change text-red-400">+2.1h from avg</p>
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card">
+          <CardHeader className="card-header">
+            <CardTitle className="card-title">
+              Focus Score
+            </CardTitle>
+            <TrendingUp className="card-icon text-emerald-400" />
+          </CardHeader>
+          <CardContent className="card-content">
+            <div className="stat-value">73%</div>
+            <p className="stat-change text-emerald-400">Good productivity</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="chart-container">
-        <canvas ref={categoriesChartRef}></canvas>
-      </div>
-
-      <div className="stats-summary">
-        <h3>Quick Stats</h3>
-        <div className="stats-grid">
-          <div className="stat-item">
-            <div className="stat-label">Today's Total</div>
-            <div className="stat-value">{formatTime(totalTime)}</div>
-          </div>
-          <div className="stat-item">
-            <div className="stat-label">Most Used Site</div>
-            <div className="stat-value">{stats.mostUsedSite}</div>
-          </div>
-          <div className="stat-item">
-            <div className="stat-label">Most Productive Day</div>
-            <div className="stat-value">{stats.mostProductiveDay}</div>
-          </div>
+      {/* Chart Section */}
+      <div className="chart-section">
+        <h3 className="chart-title">Daily Usage Pattern</h3>
+        <p className="chart-subtitle">Browser activity throughout the day</p>
+        
+        <div className="chart-container-new">
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData}>
+              <XAxis 
+                dataKey="time" 
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#e5e7eb', fontSize: 12 }}
+              />
+              <YAxis 
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#e5e7eb', fontSize: 12 }}
+                domain={[0, 140]}
+                ticks={[0, 35, 70, 105, 140]}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="value" 
+                stroke="#8b5cf6" 
+                strokeWidth={3}
+                dot={false}
+                activeDot={{ r: 4, fill: '#8b5cf6' }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </section>
