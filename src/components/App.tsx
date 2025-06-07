@@ -3,6 +3,8 @@ import Header from "./Header";
 import AuthOverlay from "./AuthOverlay";
 import StatsTab from "./tabs/StatsTab";
 import HistoryTab from "./tabs/HistoryTab";
+import SitesTab from "./tabs/SitesTab";
+import FocusTab from "./tabs/FocusTab";
 import SettingsTab from "./tabs/SettingsTab";
 import AccountTab from "./tabs/AccountTab";
 import Footer from "./Footer";
@@ -10,7 +12,7 @@ import { useBrowserStorage } from "../hooks/useBrowserStorage";
 import { useBrowserMessaging } from "../hooks/useBrowserMessaging";
 import { StorageData, UserInfo } from "../types/storage";
 
-type TabId = "stats" | "history" | "settings" | "account";
+type TabId = "stats" | "history" | "sites" | "focus" | "settings" | "account";
 
 type AuthMode = "signin" | "signup";
 
@@ -40,7 +42,7 @@ const App: React.FC = () => {
     }
   );
 
-  const handleTabChange = (tabId: "stats" | "history"): void => {
+  const handleTabChange = (tabId: "stats" | "history" | "sites" | "focus"): void => {
     setActiveTab(tabId);
   };
 
@@ -156,6 +158,14 @@ const App: React.FC = () => {
     }
     case "history": {
       currentTab = <HistoryTab data={currentStorageData} />;
+      break;
+    }
+    case "sites": {
+      currentTab = <SitesTab data={currentStorageData} />;
+      break;
+    }
+    case "focus": {
+      currentTab = <FocusTab data={currentStorageData} updateStorage={updateStorage} />;
       break;
     }
     case "settings": {

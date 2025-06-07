@@ -1,8 +1,8 @@
 import React from 'react';
-import { Home, BarChart3, Globe, Clock, Eye } from "lucide-react";
+import { Home, BarChart3, Globe, Shield } from "lucide-react";
 import MenuPopup from './MenuPopup';
 
-type TabId = "stats" | "history";
+type TabId = "stats" | "history" | "sites" | "focus";
 type MenuAction = "settings" | "account";
 
 interface Tab {
@@ -28,14 +28,9 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const tabs: Tab[] = [
     { id: 'stats', label: 'Stats', icon: Home },
-    { id: 'history', label: 'History', icon: BarChart3 }
-  ];
-
-  // Additional navigation icons (for future features)
-  const additionalIcons = [
-    { icon: Globe, label: 'Sites' },
-    { icon: Clock, label: 'Time' },
-    { icon: Eye, label: 'Monitor' }
+    { id: 'history', label: 'History', icon: BarChart3 },
+    { id: 'sites', label: 'Sites', icon: Globe },
+    { id: 'focus', label: 'Focus', icon: Shield }
   ];
 
   return (
@@ -53,19 +48,6 @@ const Header: React.FC<HeaderProps> = ({
               className={`nav-icon-btn ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => onTabChange(tab.id)}
               aria-label={tab.label}
-            >
-              <IconComponent className="nav-icon-svg" />
-            </button>
-          );
-        })}
-        
-        {additionalIcons.map((item, index) => {
-          const IconComponent = item.icon;
-          return (
-            <button
-              key={`additional-${index}`}
-              className="nav-icon-btn"
-              aria-label={item.label}
             >
               <IconComponent className="nav-icon-svg" />
             </button>
