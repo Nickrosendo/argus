@@ -4,7 +4,6 @@
   "description": "A Chrome and Firefox extension that monitors and visualizes the time you spend on different websites",
   "main": "background.js",
   "scripts": {
-    "generate-icons": "node create-icons.js",
     "clean": "rimraf dist",
     "build": "npm run build:chrome && npm run build:firefox",
     "build:chrome": "rollup --config rollup.chrome.js",
@@ -95,7 +94,6 @@
     "archiver": "^5.3.2",
     "autoprefixer": "^10.4.20",
     "babel-jest": "^29.7.0",
-    "canvas": "^2.11.2",
     "chokidar": "^3.6.0",
     "globals": "^15.9.0",
     "identity-obj-proxy": "^3.0.0",
