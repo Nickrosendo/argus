@@ -120,4 +120,13 @@ global.localStorage = new LocalStorageMock();
 // Mock window methods
 global.window.addEventListener = jest.fn();
 global.window.removeEventListener = jest.fn();
-global.window.dispatchEvent = jest.fn(); 
+global.window.dispatchEvent = jest.fn();
+
+// Enable React 18 act environment and silence console noise
+global.IS_REACT_ACT_ENVIRONMENT = true;
+
+beforeAll(() => {
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+});
