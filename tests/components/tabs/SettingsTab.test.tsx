@@ -129,26 +129,22 @@ describe('SettingsTab Component', () => {
   });
 
   describe('Settings Updates', () => {
-    it('updates idle time setting', async () => {
-      const user = userEvent.setup();
+    it('updates idle time setting', () => {
       render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
-      
+
       const idleTimeInput = screen.getByLabelText(/Consider idle after/);
-      await user.clear(idleTimeInput);
-      await user.type(idleTimeInput, '15');
+      fireEvent.change(idleTimeInput, { target: { value: '15' } });
       
       expect(mockUpdateStorage).toHaveBeenCalledWith({
         settings: expect.objectContaining({ idleTime: 15 })
       });
     });
 
-    it('updates daily limit setting', async () => {
-      const user = userEvent.setup();
+    it('updates daily limit setting', () => {
       render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
-      
+
       const dailyLimitInput = screen.getByLabelText(/Daily screen time goal/);
-      await user.clear(dailyLimitInput);
-      await user.type(dailyLimitInput, '4.5');
+      fireEvent.change(dailyLimitInput, { target: { value: '4.5' } });
       
       expect(mockUpdateStorage).toHaveBeenCalledWith({
         settings: expect.objectContaining({ dailyLimit: 4.5 })

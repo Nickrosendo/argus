@@ -11,14 +11,15 @@ const mockUseBrowserStorage = require('../../src/hooks/useBrowserStorage').useBr
 
 // Mock child components to isolate App component testing
 jest.mock('../../src/components/Header', () => {
-  return function MockHeader({ activeTab, onTabChange }: any) {
+  return function MockHeader({ onTabChange, onMenuAction }: any) {
     return (
       <div data-testid="mock-header">
-        <button onClick={() => onTabChange('today')} data-testid="today-tab">Today</button>
         <button onClick={() => onTabChange('stats')} data-testid="stats-tab">Stats</button>
         <button onClick={() => onTabChange('history')} data-testid="history-tab">History</button>
-        <button onClick={() => onTabChange('settings')} data-testid="settings-tab">Settings</button>
-        <button onClick={() => onTabChange('account')} data-testid="account-tab">Account</button>
+        <button onClick={() => onTabChange('sites')} data-testid="sites-tab">Sites</button>
+        <button onClick={() => onTabChange('focus')} data-testid="focus-tab">Focus</button>
+        <button onClick={() => onMenuAction('settings')} data-testid="settings-action">Settings</button>
+        <button onClick={() => onMenuAction('account')} data-testid="account-action">Account</button>
       </div>
     );
   };
@@ -38,11 +39,6 @@ jest.mock('../../src/components/AuthOverlay', () => {
   };
 });
 
-jest.mock('../../src/components/tabs/TodayTab', () => {
-  return function MockTodayTab({ data, updateStorage }: any) {
-    return <div data-testid="today-tab-content">Today Tab</div>;
-  };
-});
 
 jest.mock('../../src/components/tabs/StatsTab', () => {
   return function MockStatsTab({ data }: any) {
@@ -127,25 +123,24 @@ describe('App Component', () => {
       render(<App />);
       
       expect(screen.getByTestId('mock-header')).toBeInTheDocument();
-      expect(screen.getByTestId('today-tab-content')).toBeInTheDocument();
+      expect(screen.getByTestId('stats-tab-content')).toBeInTheDocument();
       expect(screen.getByTestId('mock-footer')).toBeInTheDocument();
     });
 
-    it('should start with Today tab active by default', () => {
+    it('should start with Stats tab active by default', () => {
       render(<App />);
-      
-      expect(screen.getByTestId('today-tab-content')).toBeInTheDocument();
+
+      expect(screen.getByTestId('stats-tab-content')).toBeInTheDocument();
     });
   });
 
   describe('Tab Navigation', () => {
-    it('should switch to Stats tab when stats tab is clicked', () => {
+    it('should keep Stats tab active when stats tab is clicked', () => {
       render(<App />);
-      
+
       fireEvent.click(screen.getByTestId('stats-tab'));
-      
+
       expect(screen.getByTestId('stats-tab-content')).toBeInTheDocument();
-      expect(screen.queryByTestId('today-tab-content')).not.toBeInTheDocument();
     });
 
     it('should switch to History tab when history tab is clicked', () => {
@@ -154,40 +149,40 @@ describe('App Component', () => {
       fireEvent.click(screen.getByTestId('history-tab'));
       
       expect(screen.getByTestId('history-tab-content')).toBeInTheDocument();
-      expect(screen.queryByTestId('today-tab-content')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stats-tab-content')).not.toBeInTheDocument();
     });
 
     it('should switch to Settings tab when settings tab is clicked', () => {
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('settings-tab'));
+      fireEvent.click(screen.getByTestId('settings-action'));
       
       expect(screen.getByTestId('settings-tab-content')).toBeInTheDocument();
-      expect(screen.queryByTestId('today-tab-content')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stats-tab-content')).not.toBeInTheDocument();
     });
 
     it('should switch to Account tab when account tab is clicked', () => {
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-tab'));
+      fireEvent.click(screen.getByTestId('account-action'));
       
       expect(screen.getByTestId('account-tab-content')).toBeInTheDocument();
-      expect(screen.queryByTestId('today-tab-content')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stats-tab-content')).not.toBeInTheDocument();
     });
 
     it('should handle openSettingsTab event', async () => {
       render(<App />);
       
       // First verify the initial state
-      expect(screen.getByTestId('today-tab-content')).toBeInTheDocument();
+      expect(screen.getByTestId('stats-tab-content')).toBeInTheDocument();
       
       // Since the event listener might not work in the test environment,
       // let's test the equivalent functionality by clicking the settings tab
       // This tests that the settings tab can be activated
-      fireEvent.click(screen.getByTestId('settings-tab'));
+      fireEvent.click(screen.getByTestId('settings-action'));
       
       expect(screen.getByTestId('settings-tab-content')).toBeInTheDocument();
-      expect(screen.queryByTestId('today-tab-content')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stats-tab-content')).not.toBeInTheDocument();
     });
   });
 
@@ -205,7 +200,7 @@ describe('App Component', () => {
 
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-tab'));
+      fireEvent.click(screen.getByTestId('account-action'));
       
       // The AccountTab should receive isAuthenticated as true
       expect(screen.getByTestId('account-tab-content')).toBeInTheDocument();
@@ -223,7 +218,7 @@ describe('App Component', () => {
 
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-tab'));
+      fireEvent.click(screen.getByTestId('account-action'));
       
       expect(screen.getByTestId('account-tab-content')).toBeInTheDocument();
     });
@@ -231,7 +226,7 @@ describe('App Component', () => {
     it('should handle successful authentication', async () => {
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-tab'));
+      fireEvent.click(screen.getByTestId('account-action'));
       fireEvent.click(screen.getByTestId('trigger-auth'));
       
       // Should show auth overlay
@@ -244,6 +239,7 @@ describe('App Component', () => {
         expect(mockUpdateStorage).toHaveBeenCalledWith({
           authToken: 'test-token',
           userInfo: { id: '1', email: 'test@example.com', name: 'Test User' },
+          freeMode: false,
         });
       });
     });
@@ -251,7 +247,7 @@ describe('App Component', () => {
     it('should handle free mode selection', async () => {
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-tab'));
+      fireEvent.click(screen.getByTestId('account-action'));
       fireEvent.click(screen.getByTestId('trigger-auth'));
       
       // Should show auth overlay
@@ -261,7 +257,7 @@ describe('App Component', () => {
       fireEvent.click(screen.getByTestId('free-mode'));
       
       await waitFor(() => {
-        expect(mockUpdateStorage).toHaveBeenCalledWith({ authToken: false });
+        expect(mockUpdateStorage).toHaveBeenCalledWith({ freeMode: true });
       });
     });
 
@@ -278,13 +274,14 @@ describe('App Component', () => {
 
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-tab'));
+      fireEvent.click(screen.getByTestId('account-action'));
       fireEvent.click(screen.getByTestId('sign-out'));
       
       await waitFor(() => {
         expect(mockUpdateStorage).toHaveBeenCalledWith({
           authToken: null,
           userInfo: null,
+          freeMode: true,
         });
       });
     });
@@ -292,7 +289,7 @@ describe('App Component', () => {
     it('should close auth overlay when close button is clicked', () => {
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-tab'));
+      fireEvent.click(screen.getByTestId('account-action'));
       fireEvent.click(screen.getByTestId('trigger-auth'));
       
       // Should show auth overlay
@@ -307,7 +304,7 @@ describe('App Component', () => {
   });
 
   describe('Data Passing to Components', () => {
-    it('should pass correct props to TodayTab', () => {
+    it('should pass correct props to StatsTab', () => {
       const storageData = {
         ...defaultStorageData,
         sites: { 'example.com': { totalTime: 1000, favicon: 'favicon.ico' } },
@@ -322,34 +319,19 @@ describe('App Component', () => {
 
       render(<App />);
       
-      // TodayTab should be rendered with the correct data
-      expect(screen.getByTestId('today-tab-content')).toBeInTheDocument();
+      // StatsTab should be rendered with the correct data
+      expect(screen.getByTestId('stats-tab-content')).toBeInTheDocument();
     });
 
     it('should pass updateStorage function to components that need it', () => {
       render(<App />);
       
       // Check that components that need updateStorage get it
-      expect(screen.getByTestId('today-tab-content')).toBeInTheDocument();
+      expect(screen.getByTestId('stats-tab-content')).toBeInTheDocument();
       
-      fireEvent.click(screen.getByTestId('settings-tab'));
+      fireEvent.click(screen.getByTestId('settings-action'));
       expect(screen.getByTestId('settings-tab-content')).toBeInTheDocument();
     });
   });
 
-  describe('Error Handling', () => {
-    it('should handle invalid tab IDs gracefully', () => {
-      render(<App />);
-      
-      // Try to switch to an invalid tab - should default to TodayTab
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      // Simulate clicking an invalid tab
-      fireEvent.click(screen.getByTestId('today-tab'));
-      
-      expect(screen.getByTestId('today-tab-content')).toBeInTheDocument();
-      
-      consoleSpy.mockRestore();
-    });
-  });
 }); 

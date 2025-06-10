@@ -76,12 +76,13 @@ The extension now uses a modern React architecture with:
 
 ### Key Components
 
-- **App.jsx**: Main application state and routing
-- **TodayTab.jsx**: Today's screen time with progress tracking
-- **StatsTab.jsx**: Charts and statistics with Chart.js integration
-- **HistoryTab.jsx**: Historical data with date navigation
-- **SettingsTab.jsx**: Settings management and website blocking
-- **AccountTab.jsx**: User authentication and account management
+- **App.tsx**: Main application state and routing
+- **StatsTab.tsx**: Current day statistics and charts
+- **HistoryTab.tsx**: Historical data with date navigation
+- **SitesTab.tsx**: Per-site time details
+- **FocusTab.tsx**: Focus mode controls
+- **SettingsTab.tsx**: Settings management and website blocking
+- **AccountTab.tsx**: User authentication and account management
 
 ## Browser Extension Development
 
