@@ -28,9 +28,10 @@ All React components were migrated from `.jsx` to `.tsx`:
 - `src/components/Header.tsx` - Navigation header
 - `src/components/Footer.tsx` - Application footer
 - `src/components/AuthOverlay.tsx` - Authentication overlay
-- `src/components/tabs/TodayTab.tsx` - Today's stats tab
-- `src/components/tabs/StatsTab.tsx` - Statistics tab with charts
+- `src/components/tabs/StatsTab.tsx` - Current day statistics and charts
 - `src/components/tabs/HistoryTab.tsx` - Historical data tab
+- `src/components/tabs/SitesTab.tsx` - Per-site details
+- `src/components/tabs/FocusTab.tsx` - Focus mode controls
 - `src/components/tabs/SettingsTab.tsx` - Settings configuration tab
 - `src/components/tabs/AccountTab.tsx` - Account management tab
 
