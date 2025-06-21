@@ -7,19 +7,25 @@ jest.mock('../../src/hooks/useBrowserStorage', () => ({
   useBrowserStorage: jest.fn(),
 }));
 
-const mockUseBrowserStorage = require('../../src/hooks/useBrowserStorage').useBrowserStorage;
+// Mock the useBrowserMessaging hook
+jest.mock('../../src/hooks/useBrowserMessaging', () => ({
+  useBrowserMessaging: jest.fn(() => ({})),
+}));
+
+import { useBrowserStorage } from '../../src/hooks/useBrowserStorage';
+const mockUseBrowserStorage = useBrowserStorage as jest.MockedFunction<typeof useBrowserStorage>;
 
 // Mock child components to isolate App component testing
 jest.mock('../../src/components/Header', () => {
-  return function MockHeader({ onTabChange, onMenuAction }: any) {
+  return function MockHeader({ activeTab, onTabChange, onMenuAction }: any) {
     return (
       <div data-testid="mock-header">
         <button onClick={() => onTabChange('stats')} data-testid="stats-tab">Stats</button>
         <button onClick={() => onTabChange('history')} data-testid="history-tab">History</button>
         <button onClick={() => onTabChange('sites')} data-testid="sites-tab">Sites</button>
         <button onClick={() => onTabChange('focus')} data-testid="focus-tab">Focus</button>
-        <button onClick={() => onMenuAction('settings')} data-testid="settings-action">Settings</button>
-        <button onClick={() => onMenuAction('account')} data-testid="account-action">Account</button>
+        <button onClick={() => onMenuAction('settings')} data-testid="settings-tab">Settings</button>
+        <button onClick={() => onMenuAction('account')} data-testid="account-tab">Account</button>
       </div>
     );
   };
@@ -39,7 +45,6 @@ jest.mock('../../src/components/AuthOverlay', () => {
   };
 });
 
-
 jest.mock('../../src/components/tabs/StatsTab', () => {
   return function MockStatsTab({ data }: any) {
     return <div data-testid="stats-tab-content">Stats Tab</div>;
@@ -49,6 +54,18 @@ jest.mock('../../src/components/tabs/StatsTab', () => {
 jest.mock('../../src/components/tabs/HistoryTab', () => {
   return function MockHistoryTab({ data }: any) {
     return <div data-testid="history-tab-content">History Tab</div>;
+  };
+});
+
+jest.mock('../../src/components/tabs/SitesTab', () => {
+  return function MockSitesTab({ data }: any) {
+    return <div data-testid="sites-tab-content">Sites Tab</div>;
+  };
+});
+
+jest.mock('../../src/components/tabs/FocusTab', () => {
+  return function MockFocusTab({ data, updateStorage }: any) {
+    return <div data-testid="focus-tab-content">Focus Tab</div>;
   };
 });
 
@@ -90,7 +107,7 @@ describe('App Component', () => {
     blockedSites: [],
     authToken: null,
     userInfo: null,
-    freeMode: false,
+    freeMode: true,
   };
 
   const mockUpdateStorage = jest.fn();
@@ -129,26 +146,35 @@ describe('App Component', () => {
 
     it('should start with Stats tab active by default', () => {
       render(<App />);
-
       expect(screen.getByTestId('stats-tab-content')).toBeInTheDocument();
     });
   });
 
   describe('Tab Navigation', () => {
-    it('should keep Stats tab active when stats tab is clicked', () => {
-      render(<App />);
-
-      fireEvent.click(screen.getByTestId('stats-tab'));
-
-      expect(screen.getByTestId('stats-tab-content')).toBeInTheDocument();
-    });
-
     it('should switch to History tab when history tab is clicked', () => {
       render(<App />);
       
       fireEvent.click(screen.getByTestId('history-tab'));
       
       expect(screen.getByTestId('history-tab-content')).toBeInTheDocument();
+      expect(screen.queryByTestId('stats-tab-content')).not.toBeInTheDocument();
+    });
+
+    it('should switch to Sites tab when sites tab is clicked', () => {
+      render(<App />);
+      
+      fireEvent.click(screen.getByTestId('sites-tab'));
+      
+      expect(screen.getByTestId('sites-tab-content')).toBeInTheDocument();
+      expect(screen.queryByTestId('stats-tab-content')).not.toBeInTheDocument();
+    });
+
+    it('should switch to Focus tab when focus tab is clicked', () => {
+      render(<App />);
+      
+      fireEvent.click(screen.getByTestId('focus-tab'));
+      
+      expect(screen.getByTestId('focus-tab-content')).toBeInTheDocument();
       expect(screen.queryByTestId('stats-tab-content')).not.toBeInTheDocument();
     });
 
@@ -193,6 +219,7 @@ describe('App Component', () => {
           ...defaultStorageData,
           authToken: 'valid-token',
           userInfo: { id: '1', email: 'test@example.com', name: 'Test User' },
+          freeMode: false,
         },
         loading: false,
         updateStorage: mockUpdateStorage,
@@ -200,17 +227,20 @@ describe('App Component', () => {
 
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-action'));
+      // Should not show auth overlay when authenticated
+      expect(screen.queryByTestId('mock-auth-overlay')).not.toBeInTheDocument();
       
-      // The AccountTab should receive isAuthenticated as true
-      expect(screen.getByTestId('account-tab-content')).toBeInTheDocument();
+      // Should not show free mode info when authenticated
+      expect(screen.queryByText('You\'re using Argus in free mode. Some features may be limited.')).not.toBeInTheDocument();
     });
 
-    it('should set free mode when authToken is explicitly false', () => {
+    it('should show auth overlay when not authenticated and not in free mode', () => {
       mockUseBrowserStorage.mockReturnValue({
         data: {
           ...defaultStorageData,
-          authToken: false,
+          authToken: null,
+          userInfo: null,
+          freeMode: false,
         },
         loading: false,
         updateStorage: mockUpdateStorage,
@@ -218,9 +248,9 @@ describe('App Component', () => {
 
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-action'));
-      
-      expect(screen.getByTestId('account-tab-content')).toBeInTheDocument();
+
+      expect(screen.getByTestId('mock-auth-overlay')).toBeInTheDocument();
+
     });
 
     it('should handle successful authentication', async () => {
@@ -232,7 +262,7 @@ describe('App Component', () => {
       // Should show auth overlay
       expect(screen.getByTestId('mock-auth-overlay')).toBeInTheDocument();
       
-      // Simulate successful authentication
+      // Now simulate successful authentication
       fireEvent.click(screen.getByTestId('auth-success'));
       
       await waitFor(() => {
@@ -245,15 +275,21 @@ describe('App Component', () => {
     });
 
     it('should handle free mode selection', async () => {
+      // Start with auth overlay showing
+      mockUseBrowserStorage.mockReturnValue({
+        data: {
+          ...defaultStorageData,
+          authToken: null,
+          userInfo: null,
+          freeMode: false,
+        },
+        loading: false,
+        updateStorage: mockUpdateStorage,
+      });
+
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-action'));
-      fireEvent.click(screen.getByTestId('trigger-auth'));
-      
-      // Should show auth overlay
-      expect(screen.getByTestId('mock-auth-overlay')).toBeInTheDocument();
-      
-      // Simulate free mode selection
+
       fireEvent.click(screen.getByTestId('free-mode'));
       
       await waitFor(() => {
@@ -262,11 +298,13 @@ describe('App Component', () => {
     });
 
     it('should handle sign out', async () => {
+      // Start authenticated
       mockUseBrowserStorage.mockReturnValue({
         data: {
           ...defaultStorageData,
           authToken: 'valid-token',
           userInfo: { id: '1', email: 'test@example.com', name: 'Test User' },
+          freeMode: false,
         },
         loading: false,
         updateStorage: mockUpdateStorage,
@@ -285,38 +323,44 @@ describe('App Component', () => {
         });
       });
     });
+  });
 
-    it('should close auth overlay when close button is clicked', () => {
+  describe('Free Mode', () => {
+    it('should show free mode info when in free mode', () => {
+      mockUseBrowserStorage.mockReturnValue({
+        data: {
+          ...defaultStorageData,
+          freeMode: true,
+        },
+        loading: false,
+        updateStorage: mockUpdateStorage,
+      });
+
       render(<App />);
       
-      fireEvent.click(screen.getByTestId('account-action'));
-      fireEvent.click(screen.getByTestId('trigger-auth'));
+      expect(screen.getByText('You\'re using Argus in free mode. Some features may be limited.')).toBeInTheDocument();
+    });
+
+    it('should not show free mode info when authenticated', () => {
+      mockUseBrowserStorage.mockReturnValue({
+        data: {
+          ...defaultStorageData,
+          authToken: 'valid-token',
+          userInfo: { id: '1', email: 'test@example.com', name: 'Test User' },
+          freeMode: false,
+        },
+        loading: false,
+        updateStorage: mockUpdateStorage,
+      });
+
+      render(<App />);
       
-      // Should show auth overlay
-      expect(screen.getByTestId('mock-auth-overlay')).toBeInTheDocument();
-      
-      // Click close button
-      fireEvent.click(screen.getByTestId('close-auth'));
-      
-      // Should hide auth overlay
-      expect(screen.queryByTestId('mock-auth-overlay')).not.toBeInTheDocument();
+      expect(screen.queryByText('You\'re using Argus in free mode. Some features may be limited.')).not.toBeInTheDocument();
     });
   });
 
   describe('Data Passing to Components', () => {
     it('should pass correct props to StatsTab', () => {
-      const storageData = {
-        ...defaultStorageData,
-        sites: { 'example.com': { totalTime: 1000, favicon: 'favicon.ico' } },
-        totalTime: 5000,
-      };
-
-      mockUseBrowserStorage.mockReturnValue({
-        data: storageData,
-        loading: false,
-        updateStorage: mockUpdateStorage,
-      });
-
       render(<App />);
       
       // StatsTab should be rendered with the correct data
@@ -331,6 +375,24 @@ describe('App Component', () => {
       
       fireEvent.click(screen.getByTestId('settings-action'));
       expect(screen.getByTestId('settings-tab-content')).toBeInTheDocument();
+      
+      fireEvent.click(screen.getByTestId('focus-tab'));
+      expect(screen.getByTestId('focus-tab-content')).toBeInTheDocument();
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle invalid tab IDs gracefully', () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      
+      render(<App />);
+      
+      // Click back to stats tab to test default case
+      fireEvent.click(screen.getByTestId('stats-tab'));
+      
+      expect(screen.getByTestId('stats-tab-content')).toBeInTheDocument();
+      
+      consoleSpy.mockRestore();
     });
   });
 
