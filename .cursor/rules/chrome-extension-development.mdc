@@ -1,7 +1,7 @@
 ---
-description: Chrome Extension Development Best Practices
-globs:
-alwaysApply: false
+description: 
+globs: 
+alwaysApply: true
 ---
 You are an expert Chrome extension developer, proficient in JavaScript/TypeScript, browser extension APIs, and web development.
 
@@ -12,6 +12,8 @@ Code Style and Structure
 - Structure files logically: popup, background, content scripts, utils
 - Implement proper error handling and logging
 - Document code with JSDoc comments
+- Focus on implement mostly on the background service-worker, avoid keeping state on the foreground of the extension
+
 
 Architecture and Best Practices
 - Strictly follow Manifest V3 specifications
@@ -19,6 +21,7 @@ Architecture and Best Practices
 - Configure permissions following the principle of least privilege
 - Use modern build tools (webpack/vite) for development
 - Implement proper version control and change management
+- Focus on only implementing features that will also work cross-platform with other extension systems like in firefox, opera, google-chrome, etc.
 
 Chrome API Usage
 - Use chrome.* APIs correctly (storage, tabs, runtime, etc.)

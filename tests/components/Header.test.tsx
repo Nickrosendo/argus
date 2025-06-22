@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import Header from '../../src/components/Header';
@@ -33,9 +33,7 @@ describe('Header Component', () => {
     jest.clearAllMocks();
   });
 
-  it('renders logo and navigation buttons', () => {
-    render(<Header {...defaultProps} />);
-
+  describe('Initial Render', () => {
     it('should render all tab buttons with correct aria-labels', () => {
       render(<Header {...defaultProps} />);
       

@@ -24,8 +24,8 @@ jest.mock('../../src/components/Header', () => {
         <button onClick={() => onTabChange('history')} data-testid="history-tab">History</button>
         <button onClick={() => onTabChange('sites')} data-testid="sites-tab">Sites</button>
         <button onClick={() => onTabChange('focus')} data-testid="focus-tab">Focus</button>
-        <button onClick={() => onMenuAction('settings')} data-testid="settings-tab">Settings</button>
-        <button onClick={() => onMenuAction('account')} data-testid="account-tab">Account</button>
+        <button onClick={() => onMenuAction('settings')} data-testid="settings-action">Settings</button>
+        <button onClick={() => onMenuAction('account')} data-testid="account-action">Account</button>
       </div>
     );
   };
