@@ -14,7 +14,6 @@ Code Style and Structure
 - Document code with JSDoc comments
 - Focus on implement mostly on the background service-worker, avoid keeping state on the foreground of the extension
 
-
 Architecture and Best Practices
 - Strictly follow Manifest V3 specifications
 - Divide responsibilities between background, content scripts and popup
