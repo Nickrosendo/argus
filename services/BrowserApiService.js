@@ -440,14 +440,23 @@ const BrowserApiService = {
   },
 
   /**
-   * Adds a listener for web navigation events (deprecated - now using declarativeNetRequest)
+   * Adds a listener for web navigation events
    * @param {Function} callback The callback function
    */
   addWebNavigationListener(callback) {
-    // Commented out since we now use declarativeNetRequest for blocking
-    // if (api.webNavigation) {
-    //   api.webNavigation.onBeforeNavigate.addListener(callback);
-    // }
+    if (api.webNavigation) {
+      api.webNavigation.onBeforeNavigate.addListener(callback);
+    }
+  },
+
+  /**
+   * Adds a listener for web navigation committed events (when navigation is completed)
+   * @param {Function} callback The callback function
+   */
+  addWebNavigationCommittedListener(callback) {
+    if (api.webNavigation) {
+      api.webNavigation.onCommitted.addListener(callback);
+    }
   },
 
   /**

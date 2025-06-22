@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { StorageData } from '../../types/storage';
-import { Shield, Clock, AlertTriangle, Play, Pause, RotateCcw, Plus, X } from 'lucide-react';
+import { Shield, Clock, Play, Pause, RotateCcw } from 'lucide-react';
 
 interface FocusTabProps {
   data: StorageData;
-  updateStorage: (updates: Partial<StorageData>) => void;
 }
 
 interface TimerState {
@@ -14,32 +13,29 @@ interface TimerState {
   isComplete: boolean;
 }
 
-const FocusTab: React.FC<FocusTabProps> = ({ data, updateStorage }) => {
-  const { blockedSites = [], settings } = data;
+const FocusTab: React.FC<FocusTabProps> = ({ data }) => {
+  console.log('Focus tab data: ', data);
   
   // Timer state
   const [timer, setTimer] = useState<TimerState>({
-    minutes: 25,
+    minutes: 30,
     seconds: 0,
     isRunning: false,
     isComplete: false
   });
   
   const [timerDuration, setTimerDuration] = useState(25); // in minutes
-  const [newSite, setNewSite] = useState('');
-  const [isBlocking, setIsBlocking] = useState(false);
 
   // Focus session statistics (simplified for demo)
   const focusStats = useMemo(() => {
-    const today = new Date().toDateString();
     // In a real implementation, these would come from stored session data
     return {
-      sessionsToday: 12,
-      focusTime: '5h 30m',
-      sitesBlocked: blockedSites.length,
-      successRate: 89
+      sessionsToday: 0,
+      focusTime: '',
+      sitesBlocked: 0,
+      successRate: 0
     };
-  }, [blockedSites]);
+  }, []);
 
   // Timer effect
   useEffect(() => {
@@ -53,8 +49,7 @@ const FocusTab: React.FC<FocusTabProps> = ({ data, updateStorage }) => {
           } else if (prev.minutes > 0) {
             return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
           } else {
-            // Timer complete
-            setIsBlocking(false);
+            
             return { ...prev, isRunning: false, isComplete: true };
           }
         });
@@ -68,12 +63,10 @@ const FocusTab: React.FC<FocusTabProps> = ({ data, updateStorage }) => {
 
   const startTimer = () => {
     setTimer(prev => ({ ...prev, isRunning: true, isComplete: false }));
-    setIsBlocking(true);
   };
 
   const pauseTimer = () => {
     setTimer(prev => ({ ...prev, isRunning: false }));
-    setIsBlocking(false);
   };
 
   const resetTimer = () => {
@@ -83,7 +76,6 @@ const FocusTab: React.FC<FocusTabProps> = ({ data, updateStorage }) => {
       isRunning: false,
       isComplete: false
     });
-    setIsBlocking(false);
   };
 
   const setDuration = (minutes: number) => {
@@ -96,19 +88,6 @@ const FocusTab: React.FC<FocusTabProps> = ({ data, updateStorage }) => {
         isComplete: false
       });
     }
-  };
-
-  const addBlockedSite = () => {
-    if (newSite.trim() && blockedSites.indexOf(newSite.trim()) === -1) {
-      const updatedSites = [...blockedSites, newSite.trim()];
-      updateStorage({ blockedSites: updatedSites });
-      setNewSite('');
-    }
-  };
-
-  const removeBlockedSite = (site: string) => {
-    const updatedSites = blockedSites.filter(s => s !== site);
-    updateStorage({ blockedSites: updatedSites });
   };
 
   const formatTime = (minutes: number, seconds: number): string => {
@@ -208,62 +187,6 @@ const FocusTab: React.FC<FocusTabProps> = ({ data, updateStorage }) => {
                 50m
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* Blocked Sites Section */}
-        <div className="blocked-sites-section">
-          <div className="blocked-sites-header">
-            <AlertTriangle className="blocked-sites-icon" />
-            <h3 className="blocked-sites-title">Blocked Sites</h3>
-          </div>
-          <p className="blocked-sites-subtitle">Websites to block during focus sessions</p>
-          
-          <div className="add-site-form">
-            <input
-              type="text"
-              value={newSite}
-              onChange={(e) => setNewSite(e.target.value)}
-              placeholder="Enter website (e.g., facebook.com)"
-              className="add-site-input"
-              onKeyPress={(e) => e.key === 'Enter' && addBlockedSite()}
-            />
-            <button 
-              className="add-site-btn"
-              onClick={addBlockedSite}
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="blocked-sites-list">
-            {blockedSites.length === 0 ? (
-              <div className="no-blocked-sites">
-                No websites blocked yet
-              </div>
-            ) : (
-              blockedSites.map((site, index) => (
-                <div key={index} className="blocked-site-item">
-                  <div className="blocked-site-info">
-                    <div className="blocked-site-dot" />
-                    <span className="blocked-site-name">{site}</span>
-                  </div>
-                  <button
-                    className="remove-site-btn"
-                    onClick={() => removeBlockedSite(site)}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="blocking-status">
-            <span className="blocking-status-label">Blocking Status</span>
-            <span className={`blocking-status-badge ${isBlocking ? 'active' : 'inactive'}`}>
-              {isBlocking ? 'Active' : 'Inactive'}
-            </span>
           </div>
         </div>
 

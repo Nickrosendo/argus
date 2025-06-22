@@ -27,21 +27,26 @@ let lastSyncTime = 0;
 let realTimeUpdateTimer = null;
 let updateCounter = 0; // Track number of updates for debugging
 
-// Initialize the extension
-browserApiService.addRuntimeInstalledListener(() => {
-  initializeExtension();
-});
+// // Initialize the extension
+// browserApiService.addRuntimeInstalledListener(() => {
+//   initializeExtension();
+// });
+//
+// // For Firefox with Manifest V2, we need to initialize on startup
+// if (typeof browser !== "undefined") {
+//   initializeExtension();
+// }
 
-// For Firefox with Manifest V2, we need to initialize on startup
-if (typeof browser !== "undefined") {
-  initializeExtension();
-}
+console.log("Argus background service worker starting up...");
 
 async function initializeExtension() {
+  console.log("Initializing Argus extension...");
+  
   // Remove any existing alarms to prevent duplicates
   await browserApiService.clearAlarm(ALARM_NAME);
   await browserApiService.clearAlarm(TEMP_UNBLOCK_CHECK_ALARM);
   await browserApiService.clearAlarm(API_SYNC_ALARM);
+  console.log("Cleared existing alarms");
 
   // Create alarms
   browserApiService.createAlarm(ALARM_NAME, {
@@ -59,8 +64,13 @@ async function initializeExtension() {
     delayInMinutes: 1,
   });
 
+  console.log("Alarms created for periodic updates and checks");
+
   // Start real-time tracking
   startRealTimeTracking();
+
+  console.log("Real-time tracking started");
+  console.log("Initializing browser storage and state...");
 
   // Initialize storage if needed
   const result = await browserApiService.getStorage([
@@ -73,6 +83,8 @@ async function initializeExtension() {
     "lastSyncTime",
     "freeMode",
   ]);
+
+  console.log('Storage initialized with initial state:', result);
 
   // Initialize storage values if not set
   if (!result.sites) {
@@ -120,6 +132,10 @@ async function initializeExtension() {
 
   // Add window focus listeners to handle browser window switching
   browserApiService.addWindowFocusListener(handleWindowFocus);
+
+  // Add web navigation listeners for blocking checks
+  browserApiService.addWebNavigationListener(handleBeforeNavigate);
+  /* browserApiService.addWebNavigationCommittedListener(handleNavigationCommitted */);
 
   // Get the current active tab immediately and start tracking
   await getCurrentActiveTab();
@@ -220,6 +236,26 @@ async function initializeExtension() {
           isFreeMode
         };
         sendResponse({ success: true, status });
+      } else if (message.action === "checkUrlBlocked") {
+        // Check if a specific URL is blocked
+        isUrlBlocked(message.url)
+          .then((isBlocked) => {
+            sendResponse({ success: true, isBlocked });
+          })
+          .catch((error) => {
+            console.error("Error checking URL blocked status:", error);
+            sendResponse({ success: false, error: error.message });
+          });
+      } else if (message.action === "getBlockedAttempts") {
+        // Get blocked attempts for analytics
+        browserApiService.getStorage(['blockedAttempts'])
+          .then((result) => {
+            sendResponse({ success: true, blockedAttempts: result.blockedAttempts || {} });
+          })
+          .catch((error) => {
+            console.error("Error getting blocked attempts:", error);
+            sendResponse({ success: false, error: error.message });
+          });
       } else if (message.action === "signin") {
         try {
           const { username, password } = message;
@@ -356,7 +392,11 @@ async function initializeExtension() {
   // Initialize network blocking rules
   console.log("Initializing network blocking rules...");
   await updateBlockedSites();
+
+  // Initialize website blocking listeners
+  console.log("Website blocking system initialized successfully");
 }
+initializeExtension()
 
 // Get the current active tab to initialize or recover tracking
 async function getCurrentActiveTab() {
@@ -442,15 +482,31 @@ async function handleTabActivated(activeInfo) {
 
 // Handle tab updated event
 async function handleTabUpdated(tabId, changeInfo, tab) {
-  if (!isTracking || !changeInfo.url || !tab.active) return;
+  if (!isTracking || !tab.active) return;
 
-  // Immediately update time for previous tab
-  await updateTimeForCurrentTab();
-  handleTabChange(tab);
-  
-  // Ensure real-time tracking is active
-  if (!realTimeUpdateTimer) {
-    startRealTimeTracking();
+  // Check for URL changes and potential blocking
+  if (changeInfo.url) {
+    // Check if the new URL should be blocked
+    // try {
+    //   const shouldBlock = await isUrlBlocked(changeInfo.url);
+    //   if (shouldBlock) {
+    //     console.log(`Blocking URL change to ${changeInfo.url} in tab ${tabId}`);
+    //     await redirectToBlockedPage(tabId, changeInfo.url);
+    //     await trackBlockedAttempt(changeInfo.url);
+    //     return; // Don't continue with normal tab handling
+    //   }
+    // } catch (error) {
+      // console.error("Error checking URL in tab update:", error);
+    // }
+
+    // Immediately update time for previous tab
+    await updateTimeForCurrentTab();
+    handleTabChange(tab);
+    
+    // Ensure real-time tracking is active
+    if (!realTimeUpdateTimer) {
+      startRealTimeTracking();
+    }
   }
 }
 
@@ -846,4 +902,165 @@ async function handleTemporaryUnblock(domain, expirationTime) {
 
   // Update the network blocking rules immediately to reflect the temporary unblock
   await updateBlockedSites();
+}
+
+// Handle website navigation for blocking checks
+async function handleBeforeNavigate(details) {
+  console.log('Handling before navigate for URL:', details);
+  // Only handle main frame navigation (not iframes, images, etc.)
+  if (details.frameId !== 0) return;
+  
+  try {
+    const shouldBlock = await isUrlBlocked(details.url);
+    console.log('should block: ', shouldBlock);
+    if (shouldBlock) {
+      console.log(`Blocking navigation to ${details.url}`);
+      // The declarativeNetRequest rules should handle the redirect
+      // But we can also track the block attempt
+      await trackBlockedAttempt(details.url);
+    }
+  } catch (error) {
+    console.error("Error checking blocked URL:", error);
+  }
+}
+
+async function handleNavigationCommitted(details) {
+  console.log('Handling committed navigation for URL:', details);
+  // Only handle main frame navigation (not iframes, images, etc.)
+  if (details.frameId !== 0) return;
+  
+  try {
+    // Double-check for any navigation that might have bypassed declarativeNetRequest
+    const shouldBlock = await isUrlBlocked(details.url);
+    console.log('should block committed navigation: ', shouldBlock);
+    if (shouldBlock) {
+      console.log(`Blocking committed navigation to ${details.url}`);
+      // Redirect to blocked page
+      await redirectToBlockedPage(details.tabId, details.url);
+    }
+  } catch (error) {
+    console.error("Error checking committed navigation:", error);
+  }
+}
+
+// Check if a URL should be blocked
+async function isUrlBlocked(url) {
+  try {
+    // Skip extension URLs and special URLs
+    if (url.startsWith('chrome://') || 
+        url.startsWith('chrome-extension://') || 
+        url.startsWith('moz-extension://') || 
+        url.startsWith('about:') ||
+        url.startsWith('edge://') ||
+        url.startsWith('safari-extension://')) {
+      return false;
+    }
+
+    // Get blocking configuration
+    const result = await browserApiService.getStorage([
+      'blockingEnabled',
+      'blockedSites',
+      'freeMode'
+    ]);
+
+    console.log('Checking if URL is blocked:', url);
+    console.log('Storage result for blocking:', result);
+    
+    const blockingEnabled = result.blockingEnabled || false;
+    const blockedSites = result.blockedSites || [];
+    const isFreeMode = result.freeMode === true;
+
+    // If blocking is not enabled, don't block anything
+    if (!blockingEnabled || blockedSites.length === 0) {
+      return false;
+    }
+
+    // Parse the URL to get the domain
+    let domain;
+    try {
+      const urlObj = new URL(url);
+      domain = urlObj.hostname.toLowerCase();
+    } catch (error) {
+      console.error("Invalid URL:", url);
+      return false;
+    }
+    console.log(`Checking domain ${domain} against blocked sites`);
+
+    console.log(`Blocked sites: ${blockedSites}`);
+    // Check if the domain is in the blocked list
+    for (const blockedSite of blockedSites) {
+      const cleanBlockedSite = blockedSite.replace(/^www\./, '').toLowerCase();
+      const cleanDomain = domain.replace(/^www\./, '');
+
+      // Check exact match or subdomain match
+      if (cleanDomain === cleanBlockedSite || 
+          cleanDomain.endsWith(`.${cleanBlockedSite}`)) {
+        
+        // Check if it's temporarily unblocked
+        if (isTemporarilyUnblocked(cleanBlockedSite)) {
+          console.log(`Site ${cleanBlockedSite} is temporarily unblocked`);
+          return false;
+        }
+
+        // In free mode, apply additional restrictions if needed
+        if (isFreeMode) {
+          // For now, free mode users can block sites same as premium
+          // but we could add additional logic here
+        }
+
+        return true;
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Error checking if URL is blocked:", error);
+    return false;
+  }
+}
+
+// Track blocked attempts for analytics/debugging
+async function trackBlockedAttempt(url) {
+  try {
+    const result = await browserApiService.getStorage(['blockedAttempts']);
+    const blockedAttempts = result.blockedAttempts || {};
+    
+    const domain = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    const today = new Date().toDateString();
+    
+    if (!blockedAttempts[today]) {
+      blockedAttempts[today] = {};
+    }
+    
+    blockedAttempts[today][domain] = (blockedAttempts[today][domain] || 0) + 1;
+    
+    // Keep only last 7 days of blocked attempts
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    Object.keys(blockedAttempts).forEach(date => {
+      if (new Date(date) < sevenDaysAgo) {
+        delete blockedAttempts[date];
+      }
+    });
+    
+    await browserApiService.setStorage({ blockedAttempts });
+    
+    console.log(`Blocked attempt recorded for ${domain}`);
+  } catch (error) {
+    console.error("Error tracking blocked attempt:", error);
+  }
+}
+
+// Redirect to blocked page (fallback for cases where declarativeNetRequest doesn't work)
+async function redirectToBlockedPage(tabId, url) {
+  try {
+    const domain = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    const blockedPageUrl = browserApiService.getExtensionUrl(`blocked.html?domain=${encodeURIComponent(domain)}&url=${encodeURIComponent(url)}`);
+    
+    await browserApiService.updateTab(tabId, blockedPageUrl);
+    console.log(`Redirected tab ${tabId} to blocked page for ${domain}`);
+  } catch (error) {
+    console.error("Error redirecting to blocked page:", error);
+  }
 }

@@ -3,6 +3,8 @@ import Chart from 'chart.js/auto';
 import authService from '../services/AuthService';
 import apiService from '../services/ApiService';
 
+console.log('initializing popup script');
+
 // Add global error handler for debugging extension issues
 window.addEventListener('error', function(event) {
   console.error('Script error:', event.filename, event.lineno, event.message);
@@ -597,6 +599,7 @@ function setupSettingsHandlers() {
   // Handle website blocking toggle
   const blockingToggle = document.getElementById('enable-blocking');
   blockingToggle.addEventListener('change', () => {
+    console.log('handler for blocking toggle changed:', blockingToggle.checked);
     browserAPI.storage.local.set({ blockingEnabled: blockingToggle.checked }, () => {
       // Update the blocking rules
       updateBlockingRules();

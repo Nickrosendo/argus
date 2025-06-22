@@ -34,7 +34,7 @@ const App: React.FC = () => {
         idleTime: 5,
         dailyLimit: 8,
         showNotifications: true,
-        enableBlocking: false,
+        enableBlocking: true,
       },
       userInfo: null,
       authToken: null,
@@ -165,7 +165,7 @@ const App: React.FC = () => {
       break;
     }
     case "focus": {
-      currentTab = <FocusTab data={currentStorageData} updateStorage={updateStorage} />;
+      currentTab = <FocusTab data={currentStorageData} />;
       break;
     }
     case "settings": {
