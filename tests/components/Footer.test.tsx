@@ -3,19 +3,24 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Footer from '../../src/components/Footer';
 
+// Mock package.json
+jest.mock('../../package.json', () => ({
+  version: '1.0.1'
+}), { virtual: true });
+
 describe('Footer Component', () => {
   describe('Rendering', () => {
     it('should render the footer component', () => {
       render(<Footer />);
       
-      expect(screen.getByText('v1.0.0')).toBeInTheDocument();
+      expect(screen.getByText('v1.0.1')).toBeInTheDocument();
       expect(screen.getByText('Privacy Policy')).toBeInTheDocument();
     });
 
     it('should render version information', () => {
       render(<Footer />);
       
-      expect(screen.getByText('v1.0.0')).toBeInTheDocument();
+      expect(screen.getByText('v1.0.1')).toBeInTheDocument();
     });
 
     it('should render privacy policy link', () => {

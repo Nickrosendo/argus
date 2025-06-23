@@ -6,6 +6,12 @@ import copy from 'rollup-plugin-copy';
 import replace from '@rollup/plugin-replace';
 import cleanup from 'rollup-plugin-cleanup';
 import postcss from 'rollup-plugin-postcss';
+import json from '@rollup/plugin-json';
+import { readFileSync } from 'fs';
+
+// Read version from package.json
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf8'));
+const version = packageJson.version;
 
 export function createConfig(platform) {
   const isFirefox = platform === 'firefox';
@@ -23,9 +29,13 @@ export function createConfig(platform) {
       chunkFileNames: 'chunks/[name]-[hash].js'
     },
     plugins: [
-      // Replace environment variables
+      // JSON plugin for importing JSON files
+      json(),
+      
+      // Replace environment variables and version
       replace({
         'process.env.NODE_ENV': JSON.stringify('development'),
+        '__VERSION__': JSON.stringify(version),
         preventAssignment: true
       }),
       
@@ -83,7 +93,11 @@ export function createConfig(platform) {
           { 
             src: isFirefox ? 'manifest-firefox.json' : 'manifest.json', 
             dest: outputDir,
-            rename: 'manifest.json'
+            rename: 'manifest.json',
+            transform: (contents) => {
+              // Replace version placeholder with actual version from package.json
+              return contents.toString().replace('"version": "1.0.1"', `"version": "${version}"`);
+            }
           }
         ]
       })

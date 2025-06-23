@@ -104,7 +104,7 @@ const App: React.FC = () => {
     if (!loading && storageData) {
       const { userInfo, authToken, freeMode } = storageData;
 
-      if (userInfo && authToken && userInfo.email) {
+      if (userInfo && authToken && (userInfo as UserInfo).email) {
         setIsAuthenticated(true);
         setIsFreeMode(false);
       } else if (freeMode) {

@@ -292,7 +292,7 @@ const BrowserApiService = {
           // Clean the site domain
           const cleanSite = site.replace(/^www\./, '').toLowerCase();
 
-          // Redirect main frame requests to blocked page
+          // Redirect main frame requests to blocked page - exact domain
           rules.push({
             id: ruleId++,
             priority: 2,
@@ -303,18 +303,18 @@ const BrowserApiService = {
               }
             },
             condition: {
-              urlFilter: `||${cleanSite}/*`,
+              urlFilter: `*://${cleanSite}/*`,
               resourceTypes: ["main_frame"]
             }
           });
 
-          // Block all other resources (scripts, images, etc.)
+          // Block all other resources for exact domain
           rules.push({
             id: ruleId++,
             priority: 1,
             action: { type: "block" },
             condition: {
-              urlFilter: `||${cleanSite}/*`,
+              urlFilter: `*://${cleanSite}/*`,
               resourceTypes: ["sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "other"]
             }
           });
@@ -332,7 +332,7 @@ const BrowserApiService = {
                 }
               },
               condition: {
-                urlFilter: `||www.${cleanSite}/*`,
+                urlFilter: `*://www.${cleanSite}/*`,
                 resourceTypes: ["main_frame"]
               }
             });
@@ -343,13 +343,13 @@ const BrowserApiService = {
               priority: 1,
               action: { type: "block" },
               condition: {
-                urlFilter: `||www.${cleanSite}/*`,
+                urlFilter: `*://www.${cleanSite}/*`,
                 resourceTypes: ["sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "other"]
               }
             });
           }
 
-          // Handle subdomains
+          // Handle subdomains - redirect main frames
           rules.push({
             id: ruleId++,
             priority: 2,
@@ -360,17 +360,18 @@ const BrowserApiService = {
               }
             },
             condition: {
-              urlFilter: `||*.${cleanSite}/*`,
+              urlFilter: `*://*.${cleanSite}/*`,
               resourceTypes: ["main_frame"]
             }
           });
 
+          // Handle subdomains - block other resources
           rules.push({
             id: ruleId++,
             priority: 1,
             action: { type: "block" },
             condition: {
-              urlFilter: `||*.${cleanSite}/*`,
+              urlFilter: `*://*.${cleanSite}/*`,
               resourceTypes: ["sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "other"]
             }
           });

@@ -1,9 +1,21 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { formatTime, getLastNDays } from '../../utils/timeUtils';
 import { StorageData, SiteInfo } from '../../types/storage';
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Clock, Globe, TrendingUp, Timer } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Legend } from 'recharts';
+import { Clock, Globe, TrendingUp, Timer, BarChart3, TrendingDown } from "lucide-react";
+import { 
+  LineChart, 
+  Line, 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  ResponsiveContainer, 
+  Legend, 
+  Tooltip,
+  CartesianGrid,
+  ReferenceLine
+} from 'recharts';
 
 interface StatsTabProps {
   data: StorageData;
@@ -11,6 +23,8 @@ interface StatsTabProps {
 
 const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
   const { sites = {}, history = {}, totalTime = 0, settings } = data;
+  const [chartType, setChartType] = useState<'line' | 'area'>('area');
+  const [selectedMetric, setSelectedMetric] = useState<'both' | 'usage' | 'focus'>('both');
 
   // Calculate today's date string for history lookup
   const todayDateString = useMemo(() => new Date().toDateString(), []);
@@ -250,6 +264,63 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
     return hourlyData;
   }, [totalTime, history, focusScore]);
 
+  // Custom tooltip component for better interactivity
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="chart-tooltip">
+          <p className="tooltip-label">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="tooltip-value" style={{ color: entry.color }}>
+              {entry.name}: {entry.value}
+              {entry.dataKey === 'usage' ? ' min' : '%'}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Custom tick component for better time label formatting
+  const CustomTick = ({ x, y, payload }: any) => {
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text 
+          x={0} 
+          y={0} 
+          dy={16} 
+          textAnchor="middle" 
+          fill="#e5e7eb" 
+          fontSize="11"
+          transform="rotate(-30)"
+        >
+          {payload.value}
+        </text>
+      </g>
+    );
+  };
+
+  // Calculate peak usage hour and focus trends
+  const chartAnalytics = useMemo(() => {
+    if (!chartData.length) return { peakHour: 'N/A', avgFocus: 0, trend: 'stable' };
+    
+    const peakUsage = Math.max(...chartData.map(d => d.usage));
+    const peakHour = chartData.find(d => d.usage === peakUsage)?.time || 'N/A';
+    const avgFocus = Math.round(chartData.reduce((sum, d) => sum + d.focus, 0) / chartData.length);
+    
+    // Calculate trend (comparing first half vs second half of the day)
+    const firstHalf = chartData.slice(0, Math.floor(chartData.length / 2));
+    const secondHalf = chartData.slice(Math.floor(chartData.length / 2));
+    const firstHalfAvg = firstHalf.reduce((sum, d) => sum + d.usage, 0) / firstHalf.length;
+    const secondHalfAvg = secondHalf.reduce((sum, d) => sum + d.usage, 0) / secondHalf.length;
+    
+    const trend = secondHalfAvg > firstHalfAvg ? 'increasing' : 
+                  secondHalfAvg < firstHalfAvg ? 'decreasing' : 'stable';
+    
+    return { peakHour, avgFocus, trend };
+  }, [chartData]);
+
   return (
     <section className="tab-content">
       {/* Statistics Cards - 2x2 Grid */}
@@ -317,54 +388,201 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
         </Card>
       </div>
 
-      {/* Chart Section */}
+      {/* Enhanced Chart Section */}
       <div className="chart-section">
-        <h3 className="chart-title">Daily Usage Pattern</h3>
-        <p className="chart-subtitle">Browser activity and focus throughout the day</p>
+        <div className="chart-header">
+          <div className="chart-title-section">
+            <h3 className="chart-title">Daily Usage Pattern</h3>
+            <p className="chart-subtitle">Browser activity and focus throughout the day</p>
+          </div>
+          
+          <div className="chart-controls">
+            <div className="chart-type-toggle">
+              <button 
+                className={`chart-btn ${chartType === 'area' ? 'active' : ''}`}
+                onClick={() => setChartType('area')}
+                title="Area Chart"
+              >
+                <BarChart3 size={16} />
+              </button>
+              <button 
+                className={`chart-btn ${chartType === 'line' ? 'active' : ''}`}
+                onClick={() => setChartType('line')}
+                title="Line Chart"
+              >
+                <TrendingUp size={16} />
+              </button>
+            </div>
+            
+            <div className="metric-filter">
+              <select 
+                value={selectedMetric} 
+                onChange={(e) => setSelectedMetric(e.target.value as 'both' | 'usage' | 'focus')}
+                className="metric-select"
+              >
+                <option value="both">Both Metrics</option>
+                <option value="usage">Usage Only</option>
+                <option value="focus">Focus Only</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Chart Analytics Summary */}
+        <div className="chart-analytics">
+          <div className="analytics-item">
+            <Clock size={14} />
+            <span>Peak: {chartAnalytics.peakHour}</span>
+          </div>
+          <div className="analytics-item">
+            <TrendingUp size={14} />
+            <span>Avg Focus: {chartAnalytics.avgFocus}%</span>
+          </div>
+          <div className="analytics-item">
+            {chartAnalytics.trend === 'increasing' ? <TrendingUp size={14} /> : 
+             chartAnalytics.trend === 'decreasing' ? <TrendingDown size={14} /> : 
+             <BarChart3 size={14} />}
+            <span>Trend: {chartAnalytics.trend}</span>
+          </div>
+        </div>
         
-        <div className="chart-container-new">
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={chartData}>
-              <XAxis 
-                dataKey="time" 
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: '#e5e7eb', fontSize: 12 }}
-              />
-              <YAxis 
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: '#e5e7eb', fontSize: 12 }}
-                domain={[0, 'dataMax']}
-              />
-              <Legend 
-                wrapperStyle={{ 
-                  paddingTop: '20px',
-                  fontSize: '12px',
-                  color: '#e5e7eb'
-                }}
-                iconType="line"
-              />
-              <Line 
-                type="monotone" 
-                dataKey="usage" 
-                stroke="#8b5cf6" 
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ r: 4, fill: '#8b5cf6' }}
-                name="Usage (minutes)"
-              />
-              <Line 
-                type="monotone" 
-                dataKey="focus" 
-                stroke="#10b981" 
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, fill: '#10b981' }}
-                name="Focus Score (%)"
-                strokeDasharray="5 5"
-              />
-            </LineChart>
+        <div className="chart-container-enhanced">
+          <ResponsiveContainer width="100%" height={350}>
+            {chartType === 'area' ? (
+              <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
+                <defs>
+                  <linearGradient id="usageGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                  </linearGradient>
+                  <linearGradient id="focusGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(139, 92, 246, 0.1)" />
+                <XAxis 
+                  dataKey="time" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={<CustomTick />}
+                  interval={2}
+                  height={50}
+                />
+                <YAxis 
+                  yAxisId="usage"
+                  orientation="left"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#e5e7eb', fontSize: 11 }}
+                  domain={[0, 'dataMax + 10']}
+                />
+                <YAxis 
+                  yAxisId="focus"
+                  orientation="right" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#e5e7eb', fontSize: 11 }}
+                  domain={[0, 100]}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend 
+                  wrapperStyle={{ 
+                    paddingTop: '15px',
+                    fontSize: '12px',
+                    color: '#e5e7eb'
+                  }}
+                  iconType="rect"
+                />
+                {(selectedMetric === 'both' || selectedMetric === 'usage') && (
+                  <Area
+                    yAxisId="usage"
+                    type="monotone"
+                    dataKey="usage"
+                    stroke="#8b5cf6"
+                    strokeWidth={2}
+                    fill="url(#usageGradient)"
+                    name="Usage (minutes)"
+                    dot={false}
+                    activeDot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#ffffff' }}
+                  />
+                )}
+                {(selectedMetric === 'both' || selectedMetric === 'focus') && (
+                  <Area
+                    yAxisId="focus"
+                    type="monotone"
+                    dataKey="focus"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    fill="url(#focusGradient)"
+                    name="Focus Score (%)"
+                    dot={false}
+                    activeDot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#ffffff' }}
+                  />
+                )}
+              </AreaChart>
+            ) : (
+              <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(139, 92, 246, 0.1)" />
+                <XAxis 
+                  dataKey="time" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={<CustomTick />}
+                  interval={2}
+                  height={50}
+                />
+                <YAxis 
+                  yAxisId="usage"
+                  orientation="left"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#e5e7eb', fontSize: 11 }}
+                  domain={[0, 'dataMax + 10']}
+                />
+                <YAxis 
+                  yAxisId="focus"
+                  orientation="right" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#e5e7eb', fontSize: 11 }}
+                  domain={[0, 100]}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend 
+                  wrapperStyle={{ 
+                    paddingTop: '15px',
+                    fontSize: '12px',
+                    color: '#e5e7eb'
+                  }}
+                  iconType="line"
+                />
+                {(selectedMetric === 'both' || selectedMetric === 'usage') && (
+                  <Line 
+                    yAxisId="usage"
+                    type="monotone" 
+                    dataKey="usage" 
+                    stroke="#8b5cf6" 
+                    strokeWidth={3}
+                    dot={{ r: 3, fill: '#8b5cf6' }}
+                    activeDot={{ r: 5, fill: '#8b5cf6', strokeWidth: 2, stroke: '#ffffff' }}
+                    name="Usage (minutes)"
+                  />
+                )}
+                {(selectedMetric === 'both' || selectedMetric === 'focus') && (
+                  <Line 
+                    yAxisId="focus"
+                    type="monotone" 
+                    dataKey="focus" 
+                    stroke="#10b981" 
+                    strokeWidth={3}
+                    dot={{ r: 3, fill: '#10b981' }}
+                    activeDot={{ r: 5, fill: '#10b981', strokeWidth: 2, stroke: '#ffffff' }}
+                    name="Focus Score (%)"
+                  />
+                )}
+              </LineChart>
+            )}
           </ResponsiveContainer>
         </div>
       </div>

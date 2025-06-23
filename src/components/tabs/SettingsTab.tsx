@@ -86,32 +86,27 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
   };
 
   const updateBlockingRules = (sites: string[], enabled: boolean): void => {
-    console.log('handler for blocking toggle changed');
-    browserAPI.storage.local.set({ blockingEnabled: enabled }, () => {
-      // Update the blocking rules
-      console.log('updated blocking storage: ', enabled, sites);
-    });
-
-    if (!browserAPI.declarativeNetRequest) { 
-      console.log('Skipping declarativeNetRequest setup')
-      return;
-    }
-
-    // Remove existing rules
-    browserAPI.declarativeNetRequest.getDynamicRules((existingRules: any[]) => {
-      const ruleIds = existingRules.map(rule => rule.id);
+    console.log('Updating blocking rules via background script:', enabled, sites);
+    
+    // Update storage with both blocking enabled state and sites
+    browserAPI.storage.local.set({ 
+      blockingEnabled: enabled,
+      blockedSites: sites 
+    }, () => {
+      console.log('Updated blocking storage:', enabled, sites);
       
-      if (browserAPI.declarativeNetRequest) {
-        browserAPI.declarativeNetRequest.updateDynamicRules({
-          removeRuleIds: ruleIds,
-          addRules: enabled ? sites.map((site, index) => ({
-            id: index + 1,
-            priority: 1,
-            action: { type: 'redirect', redirect: { url: browserAPI.runtime.getURL('blocked.html') } },
-            condition: { urlFilter: `*://*.${site}/*` }
-          })) : []
-        });
-      }
+      // Send message to background script to update the actual blocking rules
+      browserAPI.runtime.sendMessage({
+        action: 'updateBlockedSites'
+      }).then((response: any) => {
+        if (response && response.success) {
+          console.log('Blocking rules updated successfully');
+        } else {
+          console.error('Failed to update blocking rules:', response?.error);
+        }
+      }).catch((error: any) => {
+        console.error('Error sending updateBlockedSites message:', error);
+      });
     });
   };
 

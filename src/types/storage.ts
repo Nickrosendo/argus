@@ -40,6 +40,7 @@ export interface StorageData {
   authToken?: string | boolean | null;
   userInfo?: UserInfo | null;
   freeMode: boolean;
+  lastUpdated?: string;
 }
 
 export type StorageKey = keyof StorageData;

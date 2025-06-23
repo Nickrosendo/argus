@@ -1,3 +1,5 @@
+// This file will be moved to src/background.ts
+
 // Argus - Time tracking background service worker
 import browserApiService from "./services/BrowserApiService";
 import authService from "./services/AuthService";
@@ -135,7 +137,7 @@ async function initializeExtension() {
 
   // Add web navigation listeners for blocking checks
   browserApiService.addWebNavigationListener(handleBeforeNavigate);
-  /* browserApiService.addWebNavigationCommittedListener(handleNavigationCommitted */);
+  // browserApiService.addWebNavigationCommittedListener(handleNavigationCommitted);
 
   // Get the current active tab immediately and start tracking
   await getCurrentActiveTab();
@@ -487,17 +489,17 @@ async function handleTabUpdated(tabId, changeInfo, tab) {
   // Check for URL changes and potential blocking
   if (changeInfo.url) {
     // Check if the new URL should be blocked
-    // try {
-    //   const shouldBlock = await isUrlBlocked(changeInfo.url);
-    //   if (shouldBlock) {
-    //     console.log(`Blocking URL change to ${changeInfo.url} in tab ${tabId}`);
-    //     await redirectToBlockedPage(tabId, changeInfo.url);
-    //     await trackBlockedAttempt(changeInfo.url);
-    //     return; // Don't continue with normal tab handling
-    //   }
-    // } catch (error) {
-      // console.error("Error checking URL in tab update:", error);
-    // }
+    try {
+      const shouldBlock = await isUrlBlocked(changeInfo.url);
+      if (shouldBlock) {
+        console.log(`Blocking URL change to ${changeInfo.url} in tab ${tabId}`);
+        await redirectToBlockedPage(tabId, changeInfo.url);
+        await trackBlockedAttempt(changeInfo.url);
+        return; // Don't continue with normal tab handling
+      }
+    } catch (error) {
+      console.error("Error checking URL in tab update:", error);
+    }
 
     // Immediately update time for previous tab
     await updateTimeForCurrentTab();

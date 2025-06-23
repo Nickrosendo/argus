@@ -5,13 +5,13 @@ module.exports = {
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
   setupFilesAfterEnv: ['./tests/setup.js'],
   collectCoverageFrom: [
-    'background.js', 
-    'js/*.js', 
-    'services/*.js', 
-    'src/**/*.{ts,tsx}',
-    '!js/chart.min.js',
-    '!src/**/*.d.ts',
-    '!src/types/**/*'
+    'src/**/*.{js,jsx,ts,tsx}',
+    'background.js',
+    'js/blocked.js',
+    '!js/auth.js',
+    '!js/error-handler.js',
+    '!**/node_modules/**',
+    '!**/tests/**',
   ],
   coverageDirectory: 'coverage',
   transform: {

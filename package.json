@@ -1,6 +1,6 @@
 {
   "name": "argus-screen-time",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A Chrome and Firefox extension that monitors and visualizes the time you spend on different websites",
   "main": "background.js",
   "scripts": {
@@ -20,7 +20,8 @@
     "dev": "npm run watch:chrome & npm run watch:firefox",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "sync-version": "node scripts/sync-version.js"
   },
   "keywords": [
     "chrome-extension",
@@ -81,6 +82,7 @@
     "@eslint/js": "^9.9.0",
     "@rollup/plugin-babel": "^6.0.4",
     "@rollup/plugin-commonjs": "^28.0.3",
+    "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-replace": "^6.0.2",
     "@rollup/plugin-typescript": "^12.1.2",
