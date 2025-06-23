@@ -7,7 +7,7 @@ const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 interface UseBrowserStorageReturn<T> {
   data: T;
   loading: boolean;
-  updateStorage: (updates: Partial<T>) => void;
+  updateStorage: (updates: Partial<StorageData>) => void;
 }
 
 export function useBrowserStorage<T extends Partial<StorageData>>(
@@ -31,7 +31,7 @@ export function useBrowserStorage<T extends Partial<StorageData>>(
     const handleStorageChange = (changes: { [key: string]: any }, areaName: string): void => {
       console.log('useBrowserStorage: Storage changed:', changes, areaName);
       if (areaName === 'local') {
-        const updatedData: Partial<T> = {};
+        const updatedData: Partial<StorageData> = {};
         for (const key in changes) {
           if (keys.includes(key as StorageKey)) {
             (updatedData as any)[key] = changes[key].newValue;
@@ -51,7 +51,7 @@ export function useBrowserStorage<T extends Partial<StorageData>>(
     };
   }, [keys.join(',')]); // Convert keys array to string for dependency
 
-  const updateStorage = (updates: Partial<T>): void => {
+  const updateStorage = (updates: Partial<StorageData>): void => {
     console.log('useBrowserStorage: Updating storage:', updates);
     browserAPI.storage.local.set(updates as any, () => {
       if (browserAPI.runtime.lastError) {

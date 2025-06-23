@@ -4,7 +4,7 @@ import { StorageData, Settings } from '../../types/storage';
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
-interface SettingsTabProps {
+export interface SettingsTabProps {
   data: StorageData;
   updateStorage: (updates: Partial<StorageData>) => void;
 }
@@ -60,7 +60,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
     if (!newBlockedSite.trim()) return;
     
     const site = newBlockedSite.trim().toLowerCase();
-    if (localBlockedSites.includes(site)) return;
+    if (localBlockedSites?.includes?.(site)) return;
     
     const updatedSites = [...localBlockedSites, site];
     setLocalBlockedSites(updatedSites);
@@ -86,23 +86,27 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
   };
 
   const updateBlockingRules = (sites: string[], enabled: boolean): void => {
-    if (!browserAPI.declarativeNetRequest) return;
-
-    // Remove existing rules
-    browserAPI.declarativeNetRequest.getDynamicRules((existingRules: any[]) => {
-      const ruleIds = existingRules.map(rule => rule.id);
+    console.log('Updating blocking rules via background script:', enabled, sites);
+    
+    // Update storage with both blocking enabled state and sites
+    browserAPI.storage.local.set({ 
+      blockingEnabled: enabled,
+      blockedSites: sites 
+    }, () => {
+      console.log('Updated blocking storage:', enabled, sites);
       
-      if (browserAPI.declarativeNetRequest) {
-        browserAPI.declarativeNetRequest.updateDynamicRules({
-          removeRuleIds: ruleIds,
-          addRules: enabled ? sites.map((site, index) => ({
-            id: index + 1,
-            priority: 1,
-            action: { type: 'redirect', redirect: { url: browserAPI.runtime.getURL('blocked.html') } },
-            condition: { urlFilter: `*://*.${site}/*` }
-          })) : []
-        });
-      }
+      // Send message to background script to update the actual blocking rules
+      browserAPI.runtime.sendMessage({
+        action: 'updateBlockedSites'
+      }).then((response: any) => {
+        if (response && response.success) {
+          console.log('Blocking rules updated successfully');
+        } else {
+          console.error('Failed to update blocking rules:', response?.error);
+        }
+      }).catch((error: any) => {
+        console.error('Error sending updateBlockedSites message:', error);
+      });
     });
   };
 
@@ -222,7 +226,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
                 type="text"
                 value={newBlockedSite}
                 onChange={(e) => setNewBlockedSite(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder="example.com"
               />
               <button onClick={handleAddBlockedSite}>Add Site</button>

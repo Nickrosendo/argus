@@ -1,43 +1,65 @@
 import React from 'react';
+import { Home, BarChart3, Globe, Shield } from "lucide-react";
+import MenuPopup from './MenuPopup';
 
-type TabId = "today" | "stats" | "history" | "settings" | "account";
+type TabId = "stats" | "history" | "sites" | "focus";
+type MenuAction = "settings" | "account";
 
 interface Tab {
   id: TabId;
   label: string;
+  icon: React.ComponentType<any>;
 }
 
 interface HeaderProps {
-  activeTab: TabId;
+  activeTab: TabId | "settings" | "account";
   onTabChange: (tabId: TabId) => void;
+  onMenuAction: (action: MenuAction) => void;
+  isAuthenticated: boolean;
+  isFreeMode: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  activeTab, 
+  onTabChange,
+  onMenuAction,
+  isAuthenticated,
+  isFreeMode
+}) => {
   const tabs: Tab[] = [
-    { id: 'today', label: 'Today' },
-    { id: 'stats', label: 'Stats' },
-    { id: 'history', label: 'History' },
-    { id: 'settings', label: 'Settings' },
-    { id: 'account', label: 'Account' }
+    { id: 'stats', label: 'Stats', icon: Home },
+    { id: 'history', label: 'History', icon: BarChart3 },
+    { id: 'sites', label: 'Sites', icon: Globe },
+    { id: 'focus', label: 'Focus', icon: Shield }
   ];
 
   return (
-    <header>
+    <header className="header-container">
       <div className="logo">
         <img src="icons/icon48.png" alt="Argus Logo" />
         <h1>Argus</h1>
       </div>
-      <nav>
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => onTabChange(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <nav className="icon-navigation">
+        {tabs.map(tab => {
+          const IconComponent = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              className={`nav-icon-btn ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => onTabChange(tab.id)}
+              aria-label={tab.label}
+            >
+              <IconComponent className="nav-icon-svg" />
+            </button>
+          );
+        })}
       </nav>
+      
+      <MenuPopup 
+        onAction={onMenuAction}
+        isAuthenticated={isAuthenticated}
+        isFreeMode={isFreeMode}
+      />
     </header>
   );
 };

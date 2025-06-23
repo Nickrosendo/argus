@@ -284,29 +284,108 @@ const BrowserApiService = {
   async updateBlockedSites(blockedSites, isBlockingEnabled) {
     try {
       // Generate rules for each site in the blocked list
-      const rules = blockedSites.map((site, index) => ({
-        id: index + 1, // Rule IDs must be positive integers
-        priority: 1,
-        action: { type: "block" },
-        condition: {
-          urlFilter: `||${site}/*`,
-          resourceTypes: ["main_frame", "sub_frame"]
-        }
-      }));
+      const rules = [];
+      let ruleId = 1;
 
-      if (isBlockingEnabled && rules.length > 0) {
-        // Clear existing rules and add new ones
-        await api.declarativeNetRequest.updateDynamicRules({
-          removeRuleIds: await this.getExistingRuleIds(),
-          addRules: rules
-        });
-      } else {
-        // Remove all rules if blocking is disabled
-        await api.declarativeNetRequest.updateDynamicRules({
-          removeRuleIds: await this.getExistingRuleIds(),
-          addRules: []
-        });
+      if (isBlockingEnabled && blockedSites.length > 0) {
+        for (const site of blockedSites) {
+          // Clean the site domain
+          const cleanSite = site.replace(/^www\./, '').toLowerCase();
+
+          // Redirect main frame requests to blocked page - exact domain
+          rules.push({
+            id: ruleId++,
+            priority: 2,
+            action: { 
+              type: "redirect",
+              redirect: {
+                url: this.getExtensionUrl(`blocked.html?domain=${encodeURIComponent(cleanSite)}`)
+              }
+            },
+            condition: {
+              urlFilter: `*://${cleanSite}/*`,
+              resourceTypes: ["main_frame"]
+            }
+          });
+
+          // Block all other resources for exact domain
+          rules.push({
+            id: ruleId++,
+            priority: 1,
+            action: { type: "block" },
+            condition: {
+              urlFilter: `*://${cleanSite}/*`,
+              resourceTypes: ["sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "other"]
+            }
+          });
+
+          // Handle www variant if not already included
+          if (!cleanSite.startsWith('www.')) {
+            // Redirect www variant main frames
+            rules.push({
+              id: ruleId++,
+              priority: 2,
+              action: { 
+                type: "redirect",
+                redirect: {
+                  url: this.getExtensionUrl(`blocked.html?domain=${encodeURIComponent(cleanSite)}`)
+                }
+              },
+              condition: {
+                urlFilter: `*://www.${cleanSite}/*`,
+                resourceTypes: ["main_frame"]
+              }
+            });
+
+            // Block www variant other resources
+            rules.push({
+              id: ruleId++,
+              priority: 1,
+              action: { type: "block" },
+              condition: {
+                urlFilter: `*://www.${cleanSite}/*`,
+                resourceTypes: ["sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "other"]
+              }
+            });
+          }
+
+          // Handle subdomains - redirect main frames
+          rules.push({
+            id: ruleId++,
+            priority: 2,
+            action: { 
+              type: "redirect",
+              redirect: {
+                url: this.getExtensionUrl(`blocked.html?domain=${encodeURIComponent(cleanSite)}`)
+              }
+            },
+            condition: {
+              urlFilter: `*://*.${cleanSite}/*`,
+              resourceTypes: ["main_frame"]
+            }
+          });
+
+          // Handle subdomains - block other resources
+          rules.push({
+            id: ruleId++,
+            priority: 1,
+            action: { type: "block" },
+            condition: {
+              urlFilter: `*://*.${cleanSite}/*`,
+              resourceTypes: ["sub_frame", "stylesheet", "script", "image", "font", "object", "xmlhttprequest", "ping", "csp_report", "media", "websocket", "other"]
+            }
+          });
+        }
       }
+
+      // Clear existing rules and add new ones
+      await api.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: await this.getExistingRuleIds(),
+        addRules: rules
+      });
+
+      console.log(`Updated declarativeNetRequest rules: ${rules.length} total rules for ${blockedSites.length} sites`);
+
     } catch (error) {
       console.error('Error updating blocked sites:', error);
     }
@@ -368,6 +447,29 @@ const BrowserApiService = {
   addWebNavigationListener(callback) {
     if (api.webNavigation) {
       api.webNavigation.onBeforeNavigate.addListener(callback);
+    }
+  },
+
+  /**
+   * Adds a listener for web navigation committed events (when navigation is completed)
+   * @param {Function} callback The callback function
+   */
+  addWebNavigationCommittedListener(callback) {
+    if (api.webNavigation) {
+      api.webNavigation.onCommitted.addListener(callback);
+    }
+  },
+
+  /**
+   * Adds a listener for window focus changes
+   * @param {Function} callback The callback function
+   */
+  addWindowFocusListener(callback) {
+    if (api.windows && api.windows.onFocusChanged) {
+      api.windows.onFocusChanged.addListener((windowId) => {
+        // windowId === -1 means no window is focused
+        callback(windowId !== -1);
+      });
     }
   },
 

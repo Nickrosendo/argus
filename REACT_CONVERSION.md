@@ -20,9 +20,10 @@ src/
 │   ├── Footer.jsx              # Footer component
 │   ├── AuthOverlay.jsx         # Authentication overlay
 │   └── tabs/
-│       ├── TodayTab.jsx        # Today's screen time
-│       ├── StatsTab.jsx        # Statistics and charts
+│       ├── StatsTab.jsx        # Current day statistics and charts
 │       ├── HistoryTab.jsx      # Historical data
+│       ├── SitesTab.jsx        # Per-site details
+│       ├── FocusTab.jsx        # Focus mode controls
 │       ├── SettingsTab.jsx     # Settings management
 │       └── AccountTab.jsx      # Account management
 ├── hooks/

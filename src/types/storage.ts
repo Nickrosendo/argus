@@ -37,9 +37,10 @@ export interface StorageData {
   history: HistoryData;
   settings: Settings;
   blockedSites: string[];
-  authToken: string | boolean | null;
-  userInfo: UserInfo | null;
+  authToken?: string | boolean | null;
+  userInfo?: UserInfo | null;
   freeMode: boolean;
+  lastUpdated?: string;
 }
 
 export type StorageKey = keyof StorageData;

@@ -1,28 +1,9 @@
-// Tests for popup.js utility functions
+// Tests for utility functions from the React implementation
+import { formatTime, getLastNDays } from '../src/utils/timeUtils';
 
-// We'll manually recreate the functions for testing
-// since we can't easily import them from popup.js directly
-
-describe('Popup Utility Functions', () => {
+describe('Time Utility Functions', () => {
   // Test formatTime function
   describe('formatTime', () => {
-    // Recreate the formatTime function for testing
-    const formatTime = (milliseconds) => {
-      if (!milliseconds) return '0m';
-  
-      const seconds = Math.floor(milliseconds / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-  
-      if (hours > 0) {
-        return `${hours}h ${minutes % 60}m`;
-      } else if (minutes > 0) {
-        return `${minutes}m`;
-      } else {
-        return `${seconds}s`;
-      }
-    };
-
     test('should handle null/undefined/0 values', () => {
       expect(formatTime(null)).toBe('0m');
       expect(formatTime(undefined)).toBe('0m');
@@ -52,17 +33,6 @@ describe('Popup Utility Functions', () => {
 
   // Test getLastNDays function
   describe('getLastNDays', () => {
-    // Recreate the getLastNDays function for testing
-    const getLastNDays = (n) => {
-      const result = [];
-      for (let i = 0; i < n; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        result.push(date);
-      }
-      return result;
-    };
-
     test('should return an array of date objects', () => {
       const dates = getLastNDays(5);
       expect(dates).toBeInstanceOf(Array);
@@ -105,17 +75,6 @@ describe('Popup Utility Functions', () => {
   describe('calculateWeeklyAverage', () => {
     // Recreate a simplified version of the function for testing
     const calculateWeeklyAverage = (history, todayTime) => {
-      // Create getLastNDays function for this test
-      const getLastNDays = (n) => {
-        const result = [];
-        for (let i = 0; i < n; i++) {
-          const date = new Date();
-          date.setDate(date.getDate() - i);
-          result.push(date);
-        }
-        return result;
-      };
-
       const last7Days = getLastNDays(7);
       let totalWeekTime = todayTime; // Include today's time
       let daysWithData = todayTime > 0 ? 1 : 0;
