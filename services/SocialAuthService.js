@@ -18,7 +18,7 @@ export const SocialAuthService = {
       authUrl: 'https://accounts.google.com/oauth/authorize',
       tokenUrl: 'https://oauth2.googleapis.com/token',
       userInfoUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
-      clientId: '450760387971-ierhhjcfqk21pn7v062mh8gda3iml283.apps.googleusercontent.com.apps.googleusercontent.com',
+      clientId: '450760387971-ierhhjcfqk21pn7v062mh8gda3iml283.apps.googleusercontent.com',
       redirectUri: browserAPI.identity ? browserAPI.identity.getRedirectURL() : 'chrome-extension://hjcigmcmcdpphbbblkmmjlmocogceeko/oauth.html',
       scopes: ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile']
     },
@@ -91,23 +91,42 @@ export const SocialAuthService = {
    */
   async getChromeIdentityToken(config) {
     const authUrl = this.buildAuthUrl(config);
+    console.log('Chrome Identity API - Auth URL:', authUrl);
+    console.log('Chrome Identity API - Config:', config);
     
     return new Promise((resolve, reject) => {
+      // Check if identity API is available
+      if (!browserAPI.identity || !browserAPI.identity.launchWebAuthFlow) {
+        reject(new Error('Chrome Identity API not available'));
+        return;
+      }
+
+      console.log('Launching Chrome Identity web auth flow...');
       browserAPI.identity.launchWebAuthFlow(
         {
           url: authUrl,
           interactive: true
         },
         (responseUrl) => {
+          console.log('Chrome Identity response URL:', responseUrl);
+          console.log('Chrome runtime lastError:', browserAPI.runtime.lastError);
+          
           if (browserAPI.runtime.lastError) {
             reject(new Error(browserAPI.runtime.lastError.message));
             return;
           }
           
+          if (!responseUrl) {
+            reject(new Error('No response URL received from OAuth flow'));
+            return;
+          }
+          
           try {
             const token = this.extractTokenFromUrl(responseUrl);
+            console.log('Successfully extracted token from response URL');
             resolve(token);
           } catch (error) {
+            console.error('Error extracting token from URL:', error);
             reject(error);
           }
         }
@@ -157,6 +176,8 @@ export const SocialAuthService = {
    * @returns {string} Authorization URL
    */
   buildAuthUrl(config) {
+    console.log('Building auth URL with config:', config);
+    
     const params = new URLSearchParams({
       client_id: config.clientId,
       redirect_uri: config.redirectUri,
@@ -165,7 +186,16 @@ export const SocialAuthService = {
       state: Math.random().toString(36).substring(2, 15)
     });
     
-    return `${config.authUrl}?${params.toString()}`;
+    const authUrl = `${config.authUrl}?${params.toString()}`;
+    console.log('Built auth URL:', authUrl);
+    console.log('Auth URL params:', {
+      client_id: config.clientId,
+      redirect_uri: config.redirectUri,
+      response_type: 'token',
+      scope: config.scopes.join(' ')
+    });
+    
+    return authUrl;
   },
 
   /**

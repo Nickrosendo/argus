@@ -17,7 +17,7 @@
     "<all_urls>"
   ],
   "oauth2": {
-    "client_id": "450760387971-ierhhjcfqk21pn7v062mh8gda3iml283.apps.googleusercontent.com.apps.googleusercontent.com",
+    "client_id": "450760387971-ierhhjcfqk21pn7v062mh8gda3iml283.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
   },
   "web_accessible_resources": [
