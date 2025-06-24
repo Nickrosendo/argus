@@ -19,13 +19,17 @@ interface FormErrors {
 
 interface UserData {
   token: string;
-  user: UserInfo;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
 }
 
 interface AuthOverlayProps {
   authMode: AuthMode;
   setAuthMode: (mode: AuthMode) => void;
-  onAuth: (success: boolean, userData?: UserData) => void;
+  onAuth: (isAuthenticated: boolean, userData?: UserData) => void;
   onFreeMode: () => void;
   onClose?: () => void;
 }
@@ -38,8 +42,12 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ authMode, setAuthMode, onAuth
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState<boolean>(false);
+  const [socialLoading, setSocialLoading] = useState<{ google: boolean; microsoft: boolean }>({
+    google: false,
+    microsoft: false
+  });
   
-  const { signin, signup } = useBrowserMessaging();
+  const { signin, signup, socialAuth } = useBrowserMessaging();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
@@ -87,6 +95,35 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ authMode, setAuthMode, onAuth
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSocialAuth = async (provider: 'google' | 'microsoft'): Promise<void> => {
+    setSocialLoading(prev => ({ ...prev, [provider]: true }));
+    setErrors({});
+
+    try {
+      const response = await socialAuth(provider);
+      
+      if (response.success && response.data) {
+        const userData: UserData = {
+          token: response.data.token,
+          user: response.data.user
+        };
+        
+        onAuth(true, userData);
+      } else {
+        setErrors({
+          general: response.error || `${provider} authentication failed. Please try again.`
+        });
+      }
+    } catch (error) {
+      console.error(`${provider} authentication error:`, error);
+      setErrors({
+        general: `${provider} authentication failed. Please check your connection and try again.`
+      });
+    } finally {
+      setSocialLoading(prev => ({ ...prev, [provider]: false }));
     }
   };
 
@@ -151,6 +188,35 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ authMode, setAuthMode, onAuth
             Sign Up
           </button>
         </div>
+
+        {/* Social Login Buttons */}
+        <div className="social-auth-section">
+          <button 
+            className="social-auth-btn google-btn"
+            onClick={() => handleSocialAuth('google')}
+            disabled={socialLoading.google || socialLoading.microsoft}
+          >
+            <div className="social-btn-content">
+              <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" className="social-icon" />
+              {socialLoading.google ? 'Signing in...' : `Continue with Google`}
+            </div>
+          </button>
+          
+          <button 
+            className="social-auth-btn microsoft-btn"
+            onClick={() => handleSocialAuth('microsoft')}
+            disabled={socialLoading.google || socialLoading.microsoft}
+          >
+            <div className="social-btn-content">
+              <img src="https://img.icons8.com/color/16/000000/microsoft.png" alt="Microsoft" className="social-icon" />
+              {socialLoading.microsoft ? 'Signing in...' : `Continue with Outlook`}
+            </div>
+          </button>
+        </div>
+
+        <div className="auth-divider">
+          <span>or</span>
+        </div>
         
         <form onSubmit={handleFormSubmit} className="auth-form active">
           <div className="form-group">
@@ -197,20 +263,16 @@ const AuthOverlay: React.FC<AuthOverlayProps> = ({ authMode, setAuthMode, onAuth
             {errors.password && <div className="field-error">{errors.password}</div>}
           </div>
           
-          <button type="submit" className="auth-submit" disabled={loading}>
+          <button type="submit" className="auth-submit" disabled={loading || socialLoading.google || socialLoading.microsoft}>
             {loading ? 'Loading...' : (authMode === 'signin' ? 'Sign In' : 'Sign Up')}
           </button>
           
           {errors.general && <div className="auth-error">{errors.general}</div>}
         </form>
-        
-        <div className="free-mode-option">
-          <p>Or</p>
-          <button onClick={onFreeMode} className="free-mode-btn">
-            Use without account
-          </button>
-          <small>Limited features, ads may be displayed</small>
-        </div>
+
+        <button className="free-mode-btn" onClick={onFreeMode}>
+          Continue in Free Mode
+        </button>
       </div>
     </div>
   );

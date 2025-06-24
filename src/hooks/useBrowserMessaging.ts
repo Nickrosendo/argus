@@ -16,8 +16,9 @@ interface AuthSignupRequest {
   email: string;
 }
 
-interface AuthSignoutRequest {
-  action: 'signout';
+interface SocialAuthRequest {
+  action: 'socialAuth';
+  provider: 'google' | 'microsoft';
 }
 
 interface AuthResponse {
@@ -33,15 +34,19 @@ interface AuthResponse {
   error?: string;
 }
 
-interface CheckAuthRequest {
-  action: 'checkAuthentication';
-}
-
 interface CheckAuthResponse {
   isAuthenticated: boolean;
+  userData?: {
+    token: string;
+    user: {
+      id: string;
+      email: string;
+      name: string;
+    };
+  };
 }
 
-type MessageRequest = AuthSigninRequest | AuthSignupRequest | AuthSignoutRequest | CheckAuthRequest;
+type MessageRequest = AuthSigninRequest | AuthSignupRequest | SocialAuthRequest | { action: 'signout' } | { action: 'checkAuthentication' };
 type MessageResponse = AuthResponse | CheckAuthResponse;
 
 export const useBrowserMessaging = () => {
@@ -75,6 +80,13 @@ export const useBrowserMessaging = () => {
     });
   }, [sendMessage]);
 
+  const socialAuth = useCallback(async (provider: 'google' | 'microsoft'): Promise<AuthResponse> => {
+    return sendMessage<AuthResponse>({
+      action: 'socialAuth',
+      provider
+    });
+  }, [sendMessage]);
+
   const signout = useCallback(async (): Promise<AuthResponse> => {
     return sendMessage<AuthResponse>({
       action: 'signout'
@@ -91,6 +103,7 @@ export const useBrowserMessaging = () => {
     sendMessage,
     signin,
     signup,
+    socialAuth,
     signout,
     checkAuthentication
   };

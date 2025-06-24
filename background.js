@@ -5,6 +5,7 @@ import browserApiService from "./services/BrowserApiService";
 import authService from "./services/AuthService";
 import apiService from "./services/ApiService";
 import freeService from "./services/FreeService";
+import { SocialAuthService } from './services/SocialAuthService.js';
 
 // Constants
 const ALARM_NAME = "update-tracker";
@@ -28,6 +29,66 @@ let isFreeMode = false;
 let lastSyncTime = 0;
 let realTimeUpdateTimer = null;
 let updateCounter = 0; // Track number of updates for debugging
+
+// Browser API compatibility
+const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
+
+// Define domain scoring
+const domainScores = {
+  // Work/Productivity
+  'github.com': 9,
+  'stackoverflow.com': 9,
+  'docs.google.com': 8,
+  'drive.google.com': 8,
+  'notion.so': 8,
+  'slack.com': 7,
+  'trello.com': 7,
+  'asana.com': 7,
+  'monday.com': 7,
+  'clickup.com': 7,
+  'zoom.us': 6,
+  'teams.microsoft.com': 6,
+  'meet.google.com': 6,
+  
+  // Education/Learning
+  'coursera.org': 9,
+  'udemy.com': 9,
+  'khanacademy.org': 9,
+  'edx.org': 9,
+  'codecademy.com': 9,
+  'freecodecamp.org': 9,
+  'w3schools.com': 8,
+  'mdn.mozilla.org': 8,
+  'tutorialspoint.com': 7,
+  
+  // Social Media (Lower scores = more distracting)
+  'facebook.com': 2,
+  'instagram.com': 2,
+  'twitter.com': 3,
+  'tiktok.com': 1,
+  'reddit.com': 4,
+  'linkedin.com': 6,
+  'pinterest.com': 3,
+  'snapchat.com': 2,
+  
+  // Entertainment
+  'youtube.com': 3,
+  'netflix.com': 2,
+  'twitch.tv': 2,
+  'hulu.com': 2,
+  'spotify.com': 5,
+  'amazon.com': 5, // Can be work or entertainment
+  
+  // News/Information
+  'news.google.com': 7,
+  'bbc.com': 7,
+  'cnn.com': 6,
+  'reuters.com': 7,
+  'wikipedia.org': 8,
+  
+  // Default for unknown domains
+  'default': 5
+};
 
 // // Initialize the extension
 // browserApiService.addRuntimeInstalledListener(() => {
@@ -153,15 +214,25 @@ async function initializeExtension() {
   browserApiService.addRuntimeMessageListener(
     (message, sender, sendResponse) => {
       if (message.action === "updateBlockedSites") {
-        updateBlockedSites()
-          .then(() => {
-            console.log("Blocked sites updated successfully");
-            sendResponse({ success: true });
-          })
-          .catch((error) => {
-            console.error("Error updating blocked sites:", error);
-            sendResponse({ success: false, error: error.message });
-          });
+        // Handle updating blocked sites
+        try {
+          const { sites } = message;
+          console.log("Updating blocked sites:", sites);
+          
+          browserApiService.setStorage({ blockedSites: sites })
+            .then(() => {
+              // Update the declarative net request rules
+              updateBlockingRules(sites);
+              sendResponse({ success: true });
+            })
+            .catch((error) => {
+              console.error("Error updating blocked sites:", error);
+              sendResponse({ success: false, error: error.message });
+            });
+        } catch (error) {
+          console.error("Error in updateBlockedSites:", error);
+          sendResponse({ success: false, error: error.message });
+        }
       } else if (message.action === "updateTemporaryUnblocks") {
         handleTemporaryUnblock(message.domain, message.expirationTime)
           .then(() => {
@@ -379,6 +450,83 @@ async function initializeExtension() {
           sendResponse({
             success: false,
             error: error.message || "Failed to sign out",
+          });
+        }
+      } else if (message.action === "socialAuth") {
+        try {
+          const { provider } = message;
+          console.log(`Starting ${provider} social authentication...`);
+          
+          SocialAuthService.loginWithProvider(provider)
+            .then(async (socialResponse) => {
+              console.log(`${provider} auth successful, calling backend...`);
+              
+              // Call our API with the social auth data
+              const response = await fetch(`${authService.API_BASE_URL}/auth/social`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  provider: socialResponse.provider,
+                  providerId: socialResponse.user.id,
+                  accessToken: socialResponse.authToken,
+                  email: socialResponse.user.email,
+                  name: socialResponse.user.name,
+                  picture: socialResponse.user.picture
+                }),
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || `${provider} authentication failed`);
+              }
+
+              const backendResponse = await response.json();
+              
+              // Update authentication state
+              isAuthenticated = true;
+              isFreeMode = false;
+
+              // Store user info in browser storage
+              await browserApiService.setStorage({
+                authToken: backendResponse.accessToken,
+                userInfo: {
+                  id: backendResponse.user.id,
+                  email: backendResponse.user.email,
+                  name: backendResponse.user.name,
+                  picture: backendResponse.user.picture,
+                },
+                freeMode: false,
+              });
+
+              // Start API sync
+              await syncDataWithApi();
+
+              sendResponse({
+                success: true,
+                data: {
+                  token: backendResponse.accessToken,
+                  user: {
+                    id: backendResponse.user.id,
+                    email: backendResponse.user.email,
+                    name: backendResponse.user.name,
+                  },
+                },
+              });
+            })
+            .catch((error) => {
+              console.error(`${provider} authentication error:`, error);
+              sendResponse({ 
+                success: false, 
+                error: error.message || `${provider} authentication failed` 
+              });
+            });
+        } catch (error) {
+          console.error("Social auth error:", error);
+          sendResponse({
+            success: false,
+            error: error.message || "Social authentication failed",
           });
         }
       }

@@ -83,6 +83,7 @@ export function createConfig(platform) {
         targets: [
           { src: 'popup.html', dest: outputDir },
           { src: 'blocked.html', dest: outputDir },
+          { src: 'oauth.html', dest: outputDir },
           { src: 'css/popup.css', dest: `${outputDir}/css` },
           { src: 'css/blocked.css', dest: `${outputDir}/css` },
           { src: 'css/fontawesome.min.css', dest: `${outputDir}/css` },
