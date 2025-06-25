@@ -18,9 +18,8 @@
     "package:firefox": "node scripts/package.js --firefox",
     "release": "npm run clean && npm run build && npm run package",
     "dev": "npm run watch:chrome & npm run watch:firefox",
-    "test": "jest",
+    "test": "jest --coverage",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
     "sync-version": "node scripts/sync-version.js"
   },
   "keywords": [

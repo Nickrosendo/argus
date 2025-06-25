@@ -21,6 +21,8 @@ Architecture and Best Practices
 - Use modern build tools (webpack/vite) for development
 - Implement proper version control and change management
 - Focus on only implementing features that will also work cross-platform with other extension systems like in firefox, opera, google-chrome, etc.
+- Work using the TDD pratice.
+- Follow SOLID principles.
 
 Chrome API Usage
 - Use chrome.* APIs correctly (storage, tabs, runtime, etc.)

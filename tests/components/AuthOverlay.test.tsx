@@ -64,8 +64,7 @@ describe('AuthOverlay Component', () => {
     it('should render free mode option', () => {
       render(<AuthOverlay {...defaultProps} />);
       
-      expect(screen.getByText('Use without account')).toBeInTheDocument();
-      expect(screen.getByText('Limited features, ads may be displayed')).toBeInTheDocument();
+      expect(screen.getByText('Continue in Free Mode')).toBeInTheDocument();
     });
   });
 
@@ -326,7 +325,7 @@ describe('AuthOverlay Component', () => {
       render(<AuthOverlay {...defaultProps} />);
       
       await act(async () => {
-        await user.click(screen.getByText('Use without account'));
+        await user.click(screen.getByText('Continue in Free Mode'));
       });
       
       expect(mockOnFreeMode).toHaveBeenCalled();
