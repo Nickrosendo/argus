@@ -9,12 +9,99 @@ const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 /**
  * AuthService class for handling API authentication
  */
-const AuthService = {
+class AuthService {
+  constructor() {
+    this.config = {
+      // API_BASE_URL: 'https://argus-api-z73bt.kinsta.app',
+      API_BASE_URL: process.env.API_URL,
+      endpoints: {
+        login: '/auth/login',
+        register: '/auth/register',
+        logout: '/auth/logout',
+        refresh: '/auth/refresh',
+        profile: '/auth/profile'
+      }
+    };
+    
+    // Authentication cache to minimize API requests
+    this.authCache = {
+      isAuthenticated: null,
+      lastCheck: null,
+      cacheValidityMs: 5 * 60 * 1000, // 5 minutes cache
+      token: null
+    };
+  }
+
   /**
-   * API base URL
-   * In a production environment, this should be configurable or loaded from environment variables
+   * Check if the user is authenticated with intelligent caching
+   * This method caches the authentication status to minimize API requests
+   * @param {boolean} forceRefresh Force a fresh check ignoring cache
+   * @returns {Promise<boolean>} True if authenticated, false otherwise
    */
-  API_BASE_URL: 'https://argus-api-z73bt.kinsta.app',
+  async isAuthenticated(forceRefresh = false) {
+    try {
+      const token = await this.getToken();
+      
+      if (!token) {
+        // No token means definitely not authenticated
+        this.authCache.isAuthenticated = false;
+        this.authCache.lastCheck = Date.now();
+        this.authCache.token = null;
+        return false;
+      }
+      
+      // If token changed, invalidate cache
+      if (this.authCache.token !== token) {
+        this.authCache.isAuthenticated = null;
+        this.authCache.lastCheck = null;
+        this.authCache.token = token;
+      }
+      
+      // Check if we have a valid cached result and don't need to force refresh
+      const now = Date.now();
+      const cacheValid = this.authCache.lastCheck && 
+                        (now - this.authCache.lastCheck) < this.authCache.cacheValidityMs;
+      
+      if (!forceRefresh && cacheValid && this.authCache.isAuthenticated !== null) {
+        console.log('AuthService: Using cached authentication status:', this.authCache.isAuthenticated);
+        return this.authCache.isAuthenticated;
+      }
+      
+      // Need to verify token with server
+      console.log('AuthService: Verifying token with server...');
+      const verified = await this.verifyToken(token);
+      
+      // Update cache
+      this.authCache.isAuthenticated = verified;
+      this.authCache.lastCheck = now;
+      this.authCache.token = token;
+      
+      if (!verified) {
+        // Token is invalid, clear it
+        await this.clearToken();
+        this.authCache.token = null;
+      }
+      
+      return verified;
+    } catch (error) {
+      console.error('Auth check error:', error);
+      // On error, invalidate cache and return false
+      this.authCache.isAuthenticated = false;
+      this.authCache.lastCheck = Date.now();
+      return false;
+    }
+  }
+
+  /**
+   * Clear authentication cache
+   * Call this when authentication state changes (login, logout, etc.)
+   */
+  clearAuthCache() {
+    this.authCache.isAuthenticated = null;
+    this.authCache.lastCheck = null;
+    this.authCache.token = null;
+    console.log('AuthService: Authentication cache cleared');
+  }
 
   /**
    * Sign up a new user
@@ -25,7 +112,7 @@ const AuthService = {
    */
   async signup(username, password, email) {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/auth/signup`, {
+      const response = await fetch(`${this.config.API_BASE_URL}/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -47,12 +134,15 @@ const AuthService = {
       // Save the access token to local storage
       await this.saveToken(data.accessToken);
       
+      // Clear cache since authentication state changed
+      this.clearAuthCache();
+      
       return data;
     } catch (error) {
       console.error('Signup error:', error);
       throw error;
     }
-  },
+  }
 
   /**
    * Sign in an existing user
@@ -62,7 +152,7 @@ const AuthService = {
    */
   async signin(username, password) {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/auth/signin`, {
+      const response = await fetch(`${this.config.API_BASE_URL}/auth/signin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -83,12 +173,15 @@ const AuthService = {
       // Save the access token to local storage
       await this.saveToken(data.accessToken);
       
+      // Clear cache since authentication state changed
+      this.clearAuthCache();
+      
       return data;
     } catch (error) {
       console.error('Signin error:', error);
       throw error;
     }
-  },
+  }
 
   /**
    * Sign out the current user
@@ -97,34 +190,14 @@ const AuthService = {
   async signout() {
     try {
       await this.clearToken();
+      
+      // Clear cache since authentication state changed
+      this.clearAuthCache();
     } catch (error) {
       console.error('Signout error:', error);
       throw error;
     }
-  },
-
-  /**
-   * Check if the user is authenticated
-   * @returns {Promise<boolean>} True if authenticated, false otherwise
-   */
-  async isAuthenticated() {
-    try {
-      const token = await this.getToken();
-      
-      if (!token) {
-        return false;
-      }
-      
-      // Verify the token by making a request to a protected endpoint
-      // We could also decode the JWT and check if it's expired, but
-      // this approach verifies with the server
-      const verified = await this.verifyToken(token);
-      return verified;
-    } catch (error) {
-      console.error('Auth check error:', error);
-      return false;
-    }
-  },
+  }
 
   /**
    * Verify if a token is valid
@@ -133,7 +206,7 @@ const AuthService = {
    */
   async verifyToken(token) {
     try {
-      const response = await fetch(`${this.API_BASE_URL}/auth/verify`, {
+      const response = await fetch(`${this.config.API_BASE_URL}/auth/verify`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -145,7 +218,7 @@ const AuthService = {
       console.error('Token verification error:', error);
       return false;
     }
-  },
+  }
 
   /**
    * Get the current authentication token
@@ -157,7 +230,7 @@ const AuthService = {
         resolve(result.authToken || null);
       });
     });
-  },
+  }
 
   /**
    * Save an authentication token
@@ -167,10 +240,12 @@ const AuthService = {
   async saveToken(token) {
     return new Promise((resolve) => {
       browserAPI.storage.local.set({ 'authToken': token }, () => {
+        // Clear cache when token changes
+        this.clearAuthCache();
         resolve();
       });
     });
-  },
+  }
 
   /**
    * Clear the authentication token
@@ -179,10 +254,12 @@ const AuthService = {
   async clearToken() {
     return new Promise((resolve) => {
       browserAPI.storage.local.remove(['authToken'], () => {
+        // Clear cache when token is removed
+        this.clearAuthCache();
         resolve();
       });
     });
-  },
+  }
 
   /**
    * Get the authenticated user data
@@ -196,7 +273,7 @@ const AuthService = {
         return null;
       }
       
-      const response = await fetch(`${this.API_BASE_URL}/auth/me`, {
+      const response = await fetch(`${this.config.API_BASE_URL}/auth/me`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -204,7 +281,11 @@ const AuthService = {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to get user data');
+        if (response.status === 401) {
+          // Token expired, clear it and cache
+          await this.clearToken();
+        }
+        throw new Error(`Failed to get user data: ${response.status}`);
       }
       
       return await response.json();
@@ -213,7 +294,26 @@ const AuthService = {
       return null;
     }
   }
-};
 
-// Export for ES modules
-export default AuthService;
+  /**
+   * Force a sync check - useful when user manually requests sync
+   * This bypasses the cache and forces a fresh authentication check
+   * @returns {Promise<boolean>} True if authenticated, false otherwise
+   */
+  async forceSyncCheck() {
+    console.log('AuthService: Force sync check requested');
+    return await this.isAuthenticated(true);
+  }
+
+  /**
+   * Get the API base URL
+   * @returns {string} The API base URL
+   */
+  get API_BASE_URL() {
+    return this.config.API_BASE_URL;
+  }
+}
+
+// Export a singleton instance
+const authService = new AuthService();
+export default authService;

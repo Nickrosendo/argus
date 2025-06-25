@@ -1,6 +1,7 @@
 /**
  * SocialAuthService
  * Handles OAuth 2.0 authentication with Google and Microsoft for social login
+ * Simplified version using Chrome Identity API without manual redirect URL handling
  */
 
 // Browser API compatibility
@@ -15,20 +16,17 @@ export const SocialAuthService = {
    */
   OAUTH_CONFIGS: {
     google: {
-      authUrl: 'https://accounts.google.com/oauth/authorize',
-      tokenUrl: 'https://oauth2.googleapis.com/token',
-      userInfoUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
-      clientId: '450760387971-ierhhjcfqk21pn7v062mh8gda3iml283.apps.googleusercontent.com',
-      redirectUri: browserAPI.identity ? browserAPI.identity.getRedirectURL() : 'chrome-extension://hjcigmcmcdpphbbblkmmjlmocogceeko/oauth.html',
-      scopes: ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile']
+      // Google uses chrome.identity.getAuthToken() with manifest oauth2 config
+      clientId: process.env.GOOGLE_CLIENT_ID || __GOOGLE_CLIENT_ID__,
+      scopes: ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+      userInfoUrl: 'https://www.googleapis.com/oauth2/v2/userinfo'
     },
     microsoft: {
+      // Microsoft uses launchWebAuthFlow with simplified URL handling
       authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-      tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-      userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-      clientId: 'YOUR_MICROSOFT_CLIENT_ID',
-      redirectUri: browserAPI.identity ? browserAPI.identity.getRedirectURL() : 'chrome-extension://YOUR_EXTENSION_ID/oauth.html',
-      scopes: ['https://graph.microsoft.com/User.Read']
+      clientId: process.env.MICROSOFT_CLIENT_ID || __MICROSOFT_CLIENT_ID__,
+      scopes: ['https://graph.microsoft.com/User.Read'],
+      userInfoUrl: 'https://graph.microsoft.com/v1.0/me'
     }
   },
 
@@ -43,13 +41,13 @@ export const SocialAuthService = {
         throw new Error(`Unsupported provider: ${provider}`);
       }
 
-      const config = this.OAUTH_CONFIGS[provider];
+      console.log(`Starting ${provider} OAuth flow...`);
       
-      // Get OAuth token
-      const authToken = await this.getOAuthToken(config);
+      // Get OAuth token using provider-specific method
+      const authToken = await this.getAuthToken(provider);
       
       // Get user information
-      const userInfo = await this.getUserInfo(config, authToken);
+      const userInfo = await this.getUserInfo(provider, authToken);
       
       // Return structured user data
       return {
@@ -58,7 +56,7 @@ export const SocialAuthService = {
         user: {
           id: userInfo.id,
           email: userInfo.email,
-          name: userInfo.name || `${userInfo.given_name || ''} ${userInfo.family_name || ''}`.trim(),
+          name: userInfo.name || userInfo.displayName || `${userInfo.given_name || ''} ${userInfo.family_name || ''}`.trim(),
           picture: userInfo.picture || userInfo.photo,
           provider
         }
@@ -70,63 +68,100 @@ export const SocialAuthService = {
   },
 
   /**
-   * Get OAuth token using Chrome identity API or manual flow
-   * @param {Object} config - OAuth configuration
+   * Get authentication token for the specified provider
+   * @param {string} provider - 'google' or 'microsoft'
    * @returns {Promise<string>} Access token
    */
-  async getOAuthToken(config) {
-    // Try Chrome identity API first (works in Chrome)
-    if (browserAPI.identity && browserAPI.identity.launchWebAuthFlow) {
-      return this.getChromeIdentityToken(config);
+  async getAuthToken(provider) {
+    if (provider === 'google') {
+      return this.getGoogleAuthToken();
+    } else if (provider === 'microsoft') {
+      return this.getMicrosoftAuthToken();
+    } else {
+      throw new Error(`Unsupported provider: ${provider}`);
     }
-    
-    // Fallback to manual OAuth flow (for Firefox and other browsers)
-    return this.getManualOAuthToken(config);
   },
 
   /**
-   * Use Chrome identity API for OAuth
-   * @param {Object} config - OAuth configuration
+   * Get Google authentication token using Chrome Identity API
    * @returns {Promise<string>} Access token
    */
-  async getChromeIdentityToken(config) {
-    const authUrl = this.buildAuthUrl(config);
-    console.log('Chrome Identity API - Auth URL:', authUrl);
-    console.log('Chrome Identity API - Config:', config);
-    
+  async getGoogleAuthToken() {
     return new Promise((resolve, reject) => {
-      // Check if identity API is available
+      if (!browserAPI.identity || !browserAPI.identity.getAuthToken) {
+        reject(new Error('Chrome Identity API not available'));
+        return;
+      }
+
+      console.log('Using Chrome Identity API for Google authentication...');
+      
+      browserAPI.identity.getAuthToken(
+        { 
+          interactive: true,
+          scopes: this.OAUTH_CONFIGS.google.scopes
+        },
+        (token) => {
+          if (browserAPI.runtime.lastError) {
+            console.error('Google auth error:', browserAPI.runtime.lastError);
+            reject(new Error(browserAPI.runtime.lastError.message));
+            return;
+          }
+          
+          if (!token) {
+            reject(new Error('No auth token received from Google'));
+            return;
+          }
+          
+          console.log('Successfully received Google auth token');
+          resolve(token);
+        }
+      );
+    });
+  },
+
+  /**
+   * Get Microsoft authentication token using simplified web auth flow
+   * @returns {Promise<string>} Access token
+   */
+  async getMicrosoftAuthToken() {
+    return new Promise((resolve, reject) => {
       if (!browserAPI.identity || !browserAPI.identity.launchWebAuthFlow) {
         reject(new Error('Chrome Identity API not available'));
         return;
       }
 
-      console.log('Launching Chrome Identity web auth flow...');
+      const config = this.OAUTH_CONFIGS.microsoft;
+      
+      // Build auth URL with automatic redirect URL from Chrome
+      const redirectUrl = browserAPI.identity.getRedirectURL();
+      const authUrl = this.buildMicrosoftAuthUrl(config, redirectUrl);
+      
+      console.log('Launching Microsoft web auth flow...');
+      console.log('Auth URL:', authUrl);
+      
       browserAPI.identity.launchWebAuthFlow(
         {
           url: authUrl,
           interactive: true
         },
         (responseUrl) => {
-          console.log('Chrome Identity response URL:', responseUrl);
-          console.log('Chrome runtime lastError:', browserAPI.runtime.lastError);
-          
           if (browserAPI.runtime.lastError) {
+            console.error('Microsoft auth error:', browserAPI.runtime.lastError);
             reject(new Error(browserAPI.runtime.lastError.message));
             return;
           }
           
           if (!responseUrl) {
-            reject(new Error('No response URL received from OAuth flow'));
+            reject(new Error('No response URL received from Microsoft OAuth'));
             return;
           }
           
           try {
             const token = this.extractTokenFromUrl(responseUrl);
-            console.log('Successfully extracted token from response URL');
+            console.log('Successfully extracted Microsoft auth token');
             resolve(token);
           } catch (error) {
-            console.error('Error extracting token from URL:', error);
+            console.error('Error extracting token from Microsoft response:', error);
             reject(error);
           }
         }
@@ -135,67 +170,22 @@ export const SocialAuthService = {
   },
 
   /**
-   * Manual OAuth flow for browsers that don't support identity API
+   * Build Microsoft OAuth authorization URL
    * @param {Object} config - OAuth configuration
-   * @returns {Promise<string>} Access token
-   */
-  async getManualOAuthToken(config) {
-    const authUrl = this.buildAuthUrl(config);
-    
-    // Create a popup window for OAuth
-    return new Promise((resolve, reject) => {
-      const popup = window.open(authUrl, 'oauth', 'width=500,height=600');
-      
-      const checkClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(checkClosed);
-          reject(new Error('OAuth popup was closed by user'));
-        }
-      }, 1000);
-      
-      // Listen for postMessage from oauth popup
-      window.addEventListener('message', (event) => {
-        if (event.origin !== window.location.origin) return;
-        
-        if (event.data.type === 'OAUTH_SUCCESS') {
-          clearInterval(checkClosed);
-          popup.close();
-          resolve(event.data.token);
-        } else if (event.data.type === 'OAUTH_ERROR') {
-          clearInterval(checkClosed);
-          popup.close();
-          reject(new Error(event.data.error));
-        }
-      }, { once: true });
-    });
-  },
-
-  /**
-   * Build OAuth authorization URL
-   * @param {Object} config - OAuth configuration
+   * @param {string} redirectUrl - Redirect URL from Chrome Identity API
    * @returns {string} Authorization URL
    */
-  buildAuthUrl(config) {
-    console.log('Building auth URL with config:', config);
-    
+  buildMicrosoftAuthUrl(config, redirectUrl) {
     const params = new URLSearchParams({
       client_id: config.clientId,
-      redirect_uri: config.redirectUri,
+      redirect_uri: redirectUrl,
       response_type: 'token',
       scope: config.scopes.join(' '),
+      response_mode: 'fragment',
       state: Math.random().toString(36).substring(2, 15)
     });
     
-    const authUrl = `${config.authUrl}?${params.toString()}`;
-    console.log('Built auth URL:', authUrl);
-    console.log('Auth URL params:', {
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      response_type: 'token',
-      scope: config.scopes.join(' ')
-    });
-    
-    return authUrl;
+    return `${config.authUrl}?${params.toString()}`;
   },
 
   /**
@@ -204,12 +194,23 @@ export const SocialAuthService = {
    * @returns {string} Access token
    */
   extractTokenFromUrl(url) {
-    const urlParams = new URLSearchParams(url.split('#')[1] || url.split('?')[1]);
-    const accessToken = urlParams.get('access_token');
+    console.log('Extracting token from URL:', url);
+    
+    // Try to get token from URL fragment first (Microsoft OAuth)
+    const fragmentParams = new URLSearchParams(url.split('#')[1] || '');
+    let accessToken = fragmentParams.get('access_token');
+    
+    // If not in fragment, try query parameters
+    if (!accessToken) {
+      const queryParams = new URLSearchParams(url.split('?')[1] || '');
+      accessToken = queryParams.get('access_token');
+    }
     
     if (!accessToken) {
-      const error = urlParams.get('error') || 'No access token received';
-      throw new Error(`OAuth error: ${error}`);
+      // Check for error in response
+      const error = fragmentParams.get('error') || new URLSearchParams(url.split('?')[1] || '').get('error') || 'No access token received';
+      const errorDescription = fragmentParams.get('error_description') || new URLSearchParams(url.split('?')[1] || '').get('error_description') || '';
+      throw new Error(`OAuth error: ${error}${errorDescription ? ` - ${errorDescription}` : ''}`);
     }
     
     return accessToken;
@@ -217,11 +218,15 @@ export const SocialAuthService = {
 
   /**
    * Get user information from provider API
-   * @param {Object} config - OAuth configuration
+   * @param {string} provider - 'google' or 'microsoft'
    * @param {string} accessToken - Access token
    * @returns {Promise<Object>} User information
    */
-  async getUserInfo(config, accessToken) {
+  async getUserInfo(provider, accessToken) {
+    const config = this.OAUTH_CONFIGS[provider];
+    
+    console.log(`Fetching user info from ${provider}...`);
+    
     const response = await fetch(config.userInfoUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -230,10 +235,13 @@ export const SocialAuthService = {
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to get user info: ${response.statusText}`);
+      throw new Error(`Failed to get user info from ${provider}: ${response.statusText}`);
     }
     
-    return response.json();
+    const userInfo = await response.json();
+    console.log(`Successfully retrieved user info from ${provider}`);
+    
+    return userInfo;
   },
 
   /**
@@ -250,5 +258,31 @@ export const SocialAuthService = {
    */
   async signInWithMicrosoft() {
     return this.loginWithProvider('microsoft');
+  },
+
+  /**
+   * Sign out from Google (revoke token)
+   * @returns {Promise<void>}
+   */
+  async signOutFromGoogle() {
+    return new Promise((resolve, reject) => {
+      if (!browserAPI.identity || !browserAPI.identity.removeCachedAuthToken) {
+        resolve(); // Gracefully handle if API not available
+        return;
+      }
+
+      // First get the cached token
+      browserAPI.identity.getAuthToken({ interactive: false }, (token) => {
+        if (token) {
+          // Remove the cached token
+          browserAPI.identity.removeCachedAuthToken({ token }, () => {
+            console.log('Google auth token removed from cache');
+            resolve();
+          });
+        } else {
+          resolve();
+        }
+      });
+    });
   }
 };

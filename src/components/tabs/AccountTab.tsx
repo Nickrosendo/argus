@@ -63,9 +63,10 @@ const AccountTab: React.FC<AccountTabProps> = ({
     setSyncStatus('syncing');
     
     try {
-      // Send sync message to background worker
+      // Send sync message to background worker with manual flag
       const response = await browserAPI.runtime.sendMessage({ 
-        action: 'syncWithApi' 
+        action: 'syncWithApi',
+        manual: true  // Mark as manual sync (user-initiated)
       });
       
       if (response.success) {

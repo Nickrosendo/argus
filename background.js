@@ -259,7 +259,10 @@ async function initializeExtension() {
             sendResponse({ success: false, error: error.message });
           });
       } else if (message.action === "syncWithApi") {
-        syncDataWithApi()
+        // Check if this is a manual sync request (user-initiated)
+        const isManualSync = message.manual === true;
+        
+        syncDataWithApi(isManualSync)
           .then(() => {
             sendResponse({ success: true });
           })
@@ -459,7 +462,7 @@ async function initializeExtension() {
           
           SocialAuthService.loginWithProvider(provider)
             .then(async (socialResponse) => {
-              console.log(`${provider} auth successful, calling backend...`);
+              console.log(`${provider} auth successful with response: `, socialResponse);
               
               // Call our API with the social auth data
               const response = await fetch(`${authService.API_BASE_URL}/auth/social`, {
@@ -901,10 +904,17 @@ async function checkAndResetUnblockData() {
 }
 
 // Sync data with the API
-async function syncDataWithApi() {
+async function syncDataWithApi(isManualSync = false) {
   // Only sync if authenticated
   if (!isAuthenticated) {
-    isAuthenticated = await authService.isAuthenticated();
+    // Use forceSyncCheck for manual syncs to bypass cache, regular check for automatic syncs
+    if (isManualSync) {
+      console.log("Manual sync requested, forcing authentication check...");
+      isAuthenticated = await authService.forceSyncCheck();
+    } else {
+      isAuthenticated = await authService.isAuthenticated();
+    }
+    
     if (!isAuthenticated) {
       console.log("Not authenticated, skipping API sync");
       return;
@@ -912,7 +922,7 @@ async function syncDataWithApi() {
   }
 
   try {
-    console.log("Syncing data with API...");
+    console.log(`Syncing data with API... (${isManualSync ? 'manual' : 'automatic'})`);
 
     // Get user data to get the userId
     const userData = await apiService.getUser();
@@ -940,13 +950,15 @@ async function syncDataWithApi() {
     lastSyncTime = Date.now();
     await browserApiService.setStorage({ lastSyncTime });
 
-    console.log("Data sync completed successfully");
+    console.log(`Data sync completed successfully (${isManualSync ? 'manual' : 'automatic'})`);
   } catch (error) {
     console.error("API sync error:", error);
 
-    // If we got an authentication error, clear the token
+    // If we got an authentication error, clear the token and cache
     if (error.message.includes("Authentication expired")) {
       isAuthenticated = false;
+      // Clear auth cache when we get authentication errors
+      authService.clearAuthCache();
     }
   }
 }

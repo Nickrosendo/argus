@@ -238,8 +238,8 @@ import freeService from '../services/FreeService.js';
         // Load user data
         await loadUserData();
 
-        // Sync data with the API
-        await syncData();
+        // Automatic sync with the API (not user-initiated)
+        await autoSync();
 
         // Update sign out button text
         if (signoutBtn) {
@@ -372,7 +372,8 @@ import freeService from '../services/FreeService.js';
 
       try {
         // Send message to background script to trigger sync
-        browserAPI.runtime.sendMessage({ action: "syncWithApi" }, (response) => {
+        // Mark as manual sync when called from syncData (user-initiated)
+        browserAPI.runtime.sendMessage({ action: "syncWithApi", manual: true }, (response) => {
           if (response && response.success) {
             // Update last sync time
             const now = new Date();
@@ -392,6 +393,39 @@ import freeService from '../services/FreeService.js';
     } catch (error) {
       console.error("Sync setup error:", error);
       if (syncStatusText) syncStatusText.textContent = "error";
+      if (syncNowBtn) syncNowBtn.disabled = false;
+    }
+  }
+
+  // Automatic sync called during authentication check (not user-initiated)
+  async function autoSync() {
+    try {
+      const isFreeMode = await freeService.isFreeMode();
+      
+      if (isFreeMode) {
+        // Don't sync in free mode
+        if (syncStatusText) syncStatusText.textContent = "not available";
+        if (lastSyncTime) lastSyncTime.textContent = "never (free mode)";
+        if (syncNowBtn) syncNowBtn.disabled = true;
+        return;
+      }
+      
+      // Send message to background script to trigger automatic sync
+      // Don't mark as manual sync - this is automatic during auth check
+      browserAPI.runtime.sendMessage({ action: "syncWithApi", manual: false }, (response) => {
+        if (response && response.success) {
+          // Update last sync time
+          const now = new Date();
+          if (lastSyncTime) lastSyncTime.textContent = now.toLocaleString();
+          if (syncStatusText) syncStatusText.textContent = "synced";
+        } else {
+          if (syncStatusText) syncStatusText.textContent = "sync failed";
+        }
+        if (syncNowBtn) syncNowBtn.disabled = false;
+      });
+    } catch (error) {
+      console.error("Auto sync error:", error);
+      if (syncStatusText) syncStatusText.textContent = "sync error";
       if (syncNowBtn) syncNowBtn.disabled = false;
     }
   }

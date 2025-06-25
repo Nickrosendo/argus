@@ -17,7 +17,7 @@
     "<all_urls>"
   ],
   "oauth2": {
-    "client_id": "450760387971-ierhhjcfqk21pn7v062mh8gda3iml283.apps.googleusercontent.com",
+    "client_id": "__GOOGLE_CLIENT_ID__",
     "scopes": ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
   },
   "web_accessible_resources": [
@@ -39,7 +39,7 @@
     "type": "module"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https://accounts.google.com https://login.microsoftonline.com https://oauth2.googleapis.com https://graph.microsoft.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' __API_URL__ https://accounts.google.com https://www.googleapis.com https://oauth2.googleapis.com https://login.microsoftonline.com https://graph.microsoft.com https://microsoftgraph.microsoft.com"
   },
   "action": {
     "default_popup": "popup.html",

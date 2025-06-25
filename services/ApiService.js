@@ -9,12 +9,20 @@ import authService from './AuthService.js';
 /**
  * ApiService class for handling API communication
  */
-const ApiService = {
-  /**
-   * API base URL
-   * Should match the URL used in AuthService
-   */
-  API_BASE_URL: 'https://argus-api-z73bt.kinsta.app',
+class ApiService {
+  constructor() {
+    this.config = {
+      // API_BASE_URL: 'https://argus-api-z73bt.kinsta.app',
+      API_BASE_URL: process.env.API_URL,
+      endpoints: {
+        users: '/users',
+        browserUsageSync: '/browser-usage/sync',
+        browserUsage: '/browser-usage',
+        screenTime: '/screen-time',
+        productivity: '/productivity'
+      }
+    };
+  }
 
   /**
    * Make an authenticated request to the API
@@ -35,7 +43,7 @@ const ApiService = {
       };
       
       // Make the request
-      const response = await fetch(`${this.API_BASE_URL}${endpoint}`, {
+      const response = await fetch(`${this.config.API_BASE_URL}${endpoint}`, {
         ...options,
         headers
       });
@@ -59,7 +67,7 @@ const ApiService = {
       console.error('API request error:', error);
       throw error;
     }
-  },
+  }
 
   /**
    * Sync browser usage data with the API
@@ -69,7 +77,7 @@ const ApiService = {
    * @returns {Promise<Object>} The synced data
    */
   async syncBrowserUsage(userId, deviceId, data) {
-    return this.request('/browser-usage/sync', {
+    return this.request(this.config.endpoints.browserUsageSync, {
       method: 'POST',
       body: JSON.stringify({
         userId,
@@ -77,7 +85,7 @@ const ApiService = {
         data
       })
     });
-  },
+  }
 
   /**
    * Get browser usage data for a user
@@ -85,16 +93,16 @@ const ApiService = {
    * @returns {Promise<Object[]>} Browser usage data
    */
   async getBrowserUsage(userId) {
-    return this.request(`/browser-usage/user/${userId}`);
-  },
+    return this.request(this.config.endpoints.browserUsage + `/user/${userId}`);
+  }
 
   /**
    * Get the current user data
    * @returns {Promise<Object>} User data
    */
   async getUser() {
-    return this.request('/auth/me');
-  },
+    return this.request(this.config.endpoints.users + '/me');
+  }
 
   /**
    * Update user preferences
@@ -103,12 +111,13 @@ const ApiService = {
    * @returns {Promise<Object>} Updated user data
    */
   async updatePreferences(userId, preferences) {
-    return this.request(`/users/${userId}/preferences`, {
+    return this.request(this.config.endpoints.users + `/${userId}/preferences`, {
       method: 'PATCH',
       body: JSON.stringify(preferences)
     });
   }
-};
+}
 
-// Export for ES modules
-export default ApiService;
+// Export a singleton instance
+const apiService = new ApiService();
+export default apiService;
