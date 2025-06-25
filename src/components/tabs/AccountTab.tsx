@@ -2,15 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { StorageData, UserInfo } from '../../types/storage';
 import { useBrowserMessaging } from '../../hooks/useBrowserMessaging';
 
-type AuthMode = 'signin' | 'signup';
-
 interface AccountTabProps {
   data: StorageData;
   isAuthenticated: boolean;
   isFreeMode: boolean;
   onSignOut: () => void;
   onAuth: (success: boolean) => void;
-  setAuthMode?: (mode: AuthMode) => void;
 }
 
 // Browser API compatibility
@@ -21,8 +18,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
   isAuthenticated, 
   isFreeMode, 
   onSignOut, 
-  onAuth, 
-  setAuthMode 
+  onAuth
 }) => {
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
@@ -105,19 +101,8 @@ const AccountTab: React.FC<AccountTabProps> = ({
     }
   };
 
-  const handleCreateAccount = (): void => {
-    // Set auth mode to signup and trigger the auth overlay
-    if (setAuthMode) {
-      setAuthMode('signup');
-    }
-    onAuth(true); // Request to show auth overlay
-  };
-
   const handleSignIn = (): void => {
-    // Set auth mode to signin and trigger the auth overlay
-    if (setAuthMode) {
-      setAuthMode('signin');
-    }
+    // Trigger the auth overlay for social authentication
     onAuth(true); // Request to show auth overlay
   };
 
@@ -126,18 +111,56 @@ const AccountTab: React.FC<AccountTabProps> = ({
       <section className="tab-content">
         <div className="free-mode-account-info">
           <div className="account-card">
-            <h2>Free Mode Account</h2>
-            <p>
-              You're currently using Argus without an account. Your data is stored only on this device 
-              and will not be synced to the cloud.
-            </p>
+            <div className="account-header">
+              <svg className="account-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+              <h2>Free Mode Account</h2>
+            </div>
+            
+            <div className="account-description">
+              <p>
+                You're currently using Argus without an account. Your data is stored only on this device 
+                and will not be synced to the cloud.
+              </p>
+              
+              <div className="free-mode-features">
+                <h3>Sign in to unlock:</h3>
+                <ul className="features-list">
+                  <li>
+                    <svg className="feature-icon" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Cross-device data synchronization
+                  </li>
+                  <li>
+                    <svg className="feature-icon" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Advanced analytics & insights
+                  </li>
+                  <li>
+                    <svg className="feature-icon" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Cloud backup & recovery
+                  </li>
+                  <li>
+                    <svg className="feature-icon" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Enhanced productivity tracking
+                  </li>
+                </ul>
+              </div>
+            </div>
             
             <div className="account-actions">
-              <button onClick={handleCreateAccount} className="primary-btn">
-                Create an Account
-              </button>
               <button onClick={handleSignIn} className="primary-btn">
-                Sign In
+                <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Sign In to Unlock Premium Features
               </button>
             </div>
           </div>
@@ -151,44 +174,54 @@ const AccountTab: React.FC<AccountTabProps> = ({
       <section className="tab-content">
         <div className="regular-account-info">
           <div className="account-card">
-            <h2>Your Account</h2>
-            
-            <div className="account-info">
-              <div className="account-field">
-                <label>Username</label>
-                <div className="account-value">{userInfo.name || userInfo.email.split('@')[0]}</div>
-              </div>
-              <div className="account-field">
-                <label>Email</label>
-                <div className="account-value">{userInfo.email}</div>
-              </div>
-              <div className="account-field">
-                <label>Account Type</label>
-                <div className="account-value">Premium</div>
+            <div className="account-header">
+              {userInfo.picture ? (
+                <img src={userInfo.picture} alt="Profile" className="profile-picture" />
+              ) : (
+                <div className="profile-placeholder">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                </div>
+              )}
+              <div className="profile-info">
+                <h2>{userInfo.name || userInfo.email.split('@')[0]}</h2>
+                <p className="user-email">{userInfo.email}</p>
+                <span className="account-badge">Premium Account</span>
               </div>
             </div>
             
-            <div className="sync-status">
-              <h3>Data Sync</h3>
-              <p>
-                Your data is <span className={`sync-status-text ${syncStatus}`}>
-                  {syncStatus === 'syncing' ? 'syncing' : 'synced'}
-                </span> with the Argus cloud.
-              </p>
-              <div className="last-sync">
-                Last sync: <span>{lastSyncTime}</span>
+            <div className="account-stats">
+              <div className="stat-item">
+                <h3>Data Sync Status</h3>
+                <div className={`sync-indicator ${syncStatus}`}>
+                  <div className="sync-dot"></div>
+                  <span className="sync-text">
+                    {syncStatus === 'syncing' ? 'Syncing...' : 'Synced'}
+                  </span>
+                </div>
+                <div className="last-sync">
+                  Last sync: <span>{lastSyncTime}</span>
+                </div>
               </div>
             </div>
             
             <div className="account-actions">
               <button 
                 onClick={handleSyncNow} 
-                className="primary-btn"
+                className="secondary-btn"
                 disabled={syncStatus === 'syncing'}
               >
+                <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                </svg>
                 {syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}
               </button>
-              <button onClick={handleSignOut} className="warning-btn">
+              
+              <button onClick={handleSignOut} className="danger-btn">
+                <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
+                </svg>
                 Sign Out
               </button>
             </div>
@@ -198,10 +231,13 @@ const AccountTab: React.FC<AccountTabProps> = ({
     );
   }
 
-  // This shouldn't happen as the auth overlay should be shown
+  // Fallback case - should not normally reach here
   return (
     <section className="tab-content">
-      <div className="loading">Loading account information...</div>
+      <div className="account-card">
+        <h2>Account</h2>
+        <p>Loading account information...</p>
+      </div>
     </section>
   );
 };

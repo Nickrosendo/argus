@@ -1,29 +1,24 @@
 import React, { useState, useEffect } from "react";
+import AuthPage from "./AuthPage";
 import Header from "./Header";
-import AuthOverlay from "./AuthOverlay";
+import Footer from "./Footer";
 import StatsTab from "./tabs/StatsTab";
 import HistoryTab from "./tabs/HistoryTab";
 import SitesTab from "./tabs/SitesTab";
 import FocusTab from "./tabs/FocusTab";
 import SettingsTab from "./tabs/SettingsTab";
 import AccountTab from "./tabs/AccountTab";
-import Footer from "./Footer";
+import { StorageData, UserInfo } from "../types/storage";
 import { useBrowserStorage } from "../hooks/useBrowserStorage";
 import { useBrowserMessaging } from "../hooks/useBrowserMessaging";
-import { StorageData, UserInfo } from "../types/storage";
 
-type TabId = "stats" | "history" | "sites" | "focus" | "settings" | "account";
-
-type AuthMode = "signin" | "signup";
+type TabId = "stats" | "history" | "sites" | "focus" | "settings" | "account" | "auth";
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
-  const [authMode, setAuthMode] = useState<AuthMode>("signin");
-  const [showAuthOverlay, setShowAuthOverlay] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isFreeMode, setIsFreeMode] = useState(false);
+  const [isFreeMode, setIsFreeMode] = useState(true);
 
-  // Use the correct hook interface with keys and default values
   const { data: storageData, loading, updateStorage } = useBrowserStorage(
     ["sites", "totalTime", "history", "settings", "userInfo", "authToken", "freeMode"],
     {
@@ -53,7 +48,6 @@ const App: React.FC = () => {
   const handleAuth = (success: boolean, userData?: { token: string; user: UserInfo }): void => {
     if (success && userData) {
       setIsAuthenticated(true);
-      setShowAuthOverlay(false);
       setIsFreeMode(false);
 
       // Update storage with authenticated user data
@@ -63,10 +57,13 @@ const App: React.FC = () => {
         freeMode: false,
       });
 
+      // Switch to stats tab after successful authentication
+      setActiveTab("stats");
+
       console.log("Authentication successful:", userData);
     } else if (success && !userData) {
-      // Request to show auth overlay
-      setShowAuthOverlay(true);
+      // Request to show auth tab
+      setActiveTab("auth");
     }
   };
 
@@ -81,22 +78,21 @@ const App: React.FC = () => {
       freeMode: true 
     });
 
-    // Show auth overlay again
-    setShowAuthOverlay(true);
+    // Show auth tab again
+    setActiveTab("auth");
 
     console.log("Sign out successful");
   };
 
   const handleFreeMode = (): void => {
     setIsFreeMode(true);
-    setShowAuthOverlay(false);
     setIsAuthenticated(false);
     updateStorage({ freeMode: true });
+    
+    // Switch to stats tab after choosing free mode
+    setActiveTab("stats");
+    
     console.log("Entering free mode");
-  };
-
-  const handleCloseAuthOverlay = (): void => {
-    setShowAuthOverlay(false);
   };
 
   // Check authentication status on app load
@@ -111,7 +107,8 @@ const App: React.FC = () => {
         setIsFreeMode(true);
         setIsAuthenticated(false);
       } else {
-        setShowAuthOverlay(true);
+        // Show auth tab if no authentication state is found
+        setActiveTab("auth");
       }
     }
   }, [loading, storageData]);
@@ -152,6 +149,15 @@ const App: React.FC = () => {
   let currentTab: React.ReactNode;
 
   switch (activeTab) {
+    case "auth": {
+      currentTab = (
+        <AuthPage
+          onAuth={handleAuth}
+          onFreeMode={handleFreeMode}
+        />
+      );
+      break;
+    }
     case "stats": {
       currentTab = <StatsTab data={currentStorageData} />;
       break;
@@ -182,7 +188,6 @@ const App: React.FC = () => {
           isFreeMode={isFreeMode}
           onSignOut={handleSignOut}
           onAuth={handleAuth}
-          setAuthMode={setAuthMode}
         />
       );
       break;
@@ -192,36 +197,32 @@ const App: React.FC = () => {
     }
   }
 
+  // Show auth tab if not authenticated and not in free mode
+  const shouldShowAuthTab = !isAuthenticated && !isFreeMode;
+  
   return (
     <div className="app">
-      
-      {showAuthOverlay && (
-        <AuthOverlay
-          authMode={authMode}
-          setAuthMode={setAuthMode}
-          onAuth={handleAuth}
-          onFreeMode={handleFreeMode}
-          onClose={handleCloseAuthOverlay}
-        />
-      )}
-
-      {isFreeMode && (
+      {isFreeMode && !shouldShowAuthTab && (
         <div id="free-mode-info" className="free-mode-info">
           You're using Argus in free mode. Some features may be limited.
         </div>
       )}
 
-      <Header 
-        activeTab={activeTab} 
-        onTabChange={handleTabChange}
-        onMenuAction={handleMenuAction}
-        isAuthenticated={isAuthenticated}
-        isFreeMode={isFreeMode}
-      />
+      {/* Only show header if not showing auth tab */}
+      {activeTab !== "auth" && (
+        <Header 
+          activeTab={activeTab as "stats" | "history" | "sites" | "focus"} 
+          onTabChange={handleTabChange}
+          onMenuAction={handleMenuAction}
+          isAuthenticated={isAuthenticated}
+          isFreeMode={isFreeMode}
+        />
+      )}
 
       <main className="main-tab-content">{currentTab}</main>
 
-      <Footer />
+      {/* Only show footer if not showing auth tab */}
+      {activeTab !== "auth" && <Footer />}
     </div>
   );
 };
