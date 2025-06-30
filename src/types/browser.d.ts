@@ -41,6 +41,7 @@ export interface DeclarativeNetRequest {
 export interface BrowserAPI {
   tabs: {
     query(queryInfo: { active?: boolean; currentWindow?: boolean }): Promise<Tab[]>;
+    create(createProperties: { url: string }): Promise<Tab>;
     onActivated: {
       addListener(callback: (activeInfo: { tabId: number; windowId: number }) => void): void;
     };

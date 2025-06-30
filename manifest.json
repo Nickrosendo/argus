@@ -24,7 +24,6 @@
     {
       "resources": [
         "blocked.html",
-        "oauth.html",
         "css/*",
         "js/*",
         "icons/*"
@@ -38,6 +37,13 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": ["https://argusextension.com/*", "http://localhost:3000/*"],
+      "js": ["js/website-communication.js"],
+      "run_at": "document_start"
+    }
+  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' __API_URL__ https://accounts.google.com https://www.googleapis.com https://oauth2.googleapis.com https://login.microsoftonline.com https://graph.microsoft.com https://microsoftgraph.microsoft.com"
   },

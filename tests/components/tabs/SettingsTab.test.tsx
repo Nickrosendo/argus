@@ -13,17 +13,28 @@ const mockBrowserAPI = {
   storage: {
     local: {
       get: jest.fn(),
+      set: jest.fn(),
       clear: jest.fn(),
     },
   },
   runtime: {
     getURL: jest.fn((path: string) => `chrome-extension://test/${path}`),
+    sendMessage: jest.fn(),
   },
+};
+
+// Mock window.FreeService for premium gating tests
+const mockFreeService = {
+  isFreeMode: jest.fn(),
+  canAddBlockedSite: jest.fn(),
 };
 
 // Set up global browser/chrome
 (global as any).chrome = mockBrowserAPI;
 (global as any).browser = mockBrowserAPI;
+(global as any).window = {
+  FreeService: mockFreeService,
+};
 
 // Mock window.confirm
 const mockConfirm = jest.fn();
@@ -316,6 +327,183 @@ describe('SettingsTab Component', () => {
       await user.click(addButton);
       
       expect(input).toHaveValue('');
+    });
+  });
+
+  describe('Premium Gating', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockBrowserAPI.storage.local.get.mockResolvedValue({
+        authToken: null,
+        userInfo: null,
+      });
+      mockFreeService.isFreeMode.mockResolvedValue(true);
+      mockFreeService.canAddBlockedSite.mockResolvedValue(true);
+    });
+
+    describe('Free Mode Limitations', () => {
+      it('should show free mode limitations', async () => {
+        mockFreeService.isFreeMode.mockResolvedValue(true);
+        
+        const dataWithSites = {
+          ...defaultData,
+          blockedSites: ['site1.com', 'site2.com'],
+        };
+
+        render(<SettingsTab data={dataWithSites} updateStorage={mockUpdateStorage} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Free Mode:/)).toBeInTheDocument();
+          expect(screen.getByText(/Limited to 3 blocked sites/)).toBeInTheDocument();
+          expect(screen.getByText(/(2\/3 used)/)).toBeInTheDocument();
+        });
+      });
+
+      it('should disable add site input when at limit', async () => {
+        mockFreeService.isFreeMode.mockResolvedValue(true);
+        mockFreeService.canAddBlockedSite.mockResolvedValue(false);
+        
+        const dataAtLimit = {
+          ...defaultData,
+          blockedSites: ['site1.com', 'site2.com', 'site3.com'],
+        };
+
+        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
+
+        await waitFor(() => {
+          const input = screen.getByPlaceholderText('example.com');
+          const button = screen.getByText('Add Site');
+          
+          expect(input).toBeDisabled();
+          expect(button).toBeDisabled();
+        });
+      });
+
+      it('should show upgrade prompt when at limit', async () => {
+        const dataAtLimit = {
+          ...defaultData,
+          blockedSites: ['site1.com', 'site2.com', 'site3.com'],
+        };
+
+        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
+
+        await waitFor(() => {
+          expect(screen.getByText(/Upgrade to Premium/)).toBeInTheDocument();
+          expect(screen.getByText(/for unlimited site blocking/)).toBeInTheDocument();
+        });
+      });
+
+      it('should open upgrade modal when upgrade link is clicked', async () => {
+        const user = userEvent.setup();
+        const dataAtLimit = {
+          ...defaultData,
+          blockedSites: ['site1.com', 'site2.com', 'site3.com'],
+        };
+
+        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
+
+        await waitFor(() => {
+          const upgradeLink = screen.getByRole('button', { name: /Upgrade to Premium/ });
+          expect(upgradeLink).toBeInTheDocument();
+        });
+
+        const upgradeLink = screen.getByRole('button', { name: /Upgrade to Premium/ });
+        await user.click(upgradeLink);
+
+        // Check for modal content instead of duplicate text
+        expect(screen.getByText("You've reached the free tier limit of 3 blocked sites.")).toBeInTheDocument();
+        expect(screen.getByText('Unlimited website blocking')).toBeInTheDocument();
+        expect(screen.getByText('Maybe Later')).toBeInTheDocument();
+        expect(screen.getByText('Upgrade Now')).toBeInTheDocument();
+      });
+
+      it('should prevent adding sites when at free limit', async () => {
+        const user = userEvent.setup();
+        mockFreeService.isFreeMode.mockResolvedValue(true);
+        
+        const dataAtLimit = {
+          ...defaultData,
+          blockedSites: ['site1.com', 'site2.com', 'site3.com'],
+        };
+
+        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
+
+        const input = screen.getByPlaceholderText('example.com');
+        const addButton = screen.getByText('Add Site');
+
+        // Verify the button is disabled when at limit
+        expect(input).toBeDisabled();
+        expect(addButton).toBeDisabled();
+
+        // Since the button is disabled, we can't click it, so just verify the UI state
+        expect(screen.getByText(/Limited to 3 blocked sites/)).toBeInTheDocument();
+        expect(screen.getByText(/(3\/3 used)/)).toBeInTheDocument();
+      });
+
+      it('should close upgrade modal', async () => {
+        const user = userEvent.setup();
+        const dataAtLimit = {
+          ...defaultData,
+          blockedSites: ['site1.com', 'site2.com', 'site3.com'],
+        };
+
+        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
+
+        await waitFor(() => {
+          const upgradeLink = screen.getByRole('button', { name: /Upgrade to Premium/ });
+          expect(upgradeLink).toBeInTheDocument();
+        });
+
+        const upgradeLink = screen.getByRole('button', { name: /Upgrade to Premium/ });
+        await user.click(upgradeLink);
+
+        const maybeLaterButton = screen.getByText('Maybe Later');
+        await user.click(maybeLaterButton);
+
+        expect(screen.queryByText("You've reached the free tier limit")).not.toBeInTheDocument();
+      });
+    });
+
+    describe('Premium Mode Behavior', () => {
+      beforeEach(() => {
+        mockFreeService.isFreeMode.mockResolvedValue(false);
+        mockBrowserAPI.storage.local.get.mockResolvedValue({
+          authToken: 'valid_token',
+          userInfo: { type: 'premium' },
+        });
+      });
+
+      it('should render correctly for premium users', () => {
+        render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
+        
+        // Premium users should see all settings options
+        expect(screen.getByLabelText('Consider idle after (minutes):')).toBeInTheDocument();
+        expect(screen.getByLabelText('Daily screen time goal (hours):')).toBeInTheDocument();
+        expect(screen.getByLabelText('Show notifications')).toBeInTheDocument();
+      });
+    });
+
+    describe('Error Handling', () => {
+      it('should handle subscription status check errors gracefully', async () => {
+        mockBrowserAPI.storage.local.get.mockRejectedValue(new Error('Storage error'));
+
+        render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
+
+        // Should still render the component without crashing
+        expect(screen.getByText('Website Blocking')).toBeInTheDocument();
+      });
+
+      it('should handle FreeService errors gracefully', async () => {
+        mockFreeService.isFreeMode.mockRejectedValue(new Error('FreeService error'));
+
+        render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
+
+        // Should default to free mode and still render
+        await waitFor(() => {
+          expect(screen.getByText('Website Blocking')).toBeInTheDocument();
+        });
+      });
+
     });
   });
 }); 

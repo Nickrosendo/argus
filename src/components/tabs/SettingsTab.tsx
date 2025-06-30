@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageData, Settings } from '../../types/storage';
+// Import FreeService for premium checking
+declare const FreeService: any;
 
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
@@ -26,6 +28,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
   });
   const [newBlockedSite, setNewBlockedSite] = useState<string>('');
   const [localBlockedSites, setLocalBlockedSites] = useState<string[]>(blockedSites);
+  const [isFreeMode, setIsFreeMode] = useState<boolean>(true);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState<boolean>(false);
 
   // Use refs to track previous values
   const prevSettingsRef = useRef<Partial<Settings> | undefined>();
@@ -50,6 +54,28 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
     }
   }, [blockedSites]);
 
+  // Check subscription status on component mount
+  useEffect(() => {
+    const checkSubscriptionStatus = async () => {
+      try {
+        // Check if FreeService is available (might be undefined in some contexts)
+        if (typeof window !== 'undefined' && (window as any).FreeService) {
+          const isFree = await (window as any).FreeService.isFreeMode();
+          setIsFreeMode(isFree);
+        } else {
+          // Fallback: check storage directly
+          const result = await browserAPI.storage.local.get(['authToken', 'userInfo']);
+          setIsFreeMode(!result.authToken || result.userInfo?.type !== 'premium');
+        }
+      } catch (error) {
+        console.error('Error checking subscription status:', error);
+        setIsFreeMode(true); // Default to free mode on error
+      }
+    };
+
+    checkSubscriptionStatus();
+  }, []);
+
   const handleSettingChange = (key: keyof Settings, value: any): void => {
     const newSettings = { ...localSettings, [key]: value };
     setLocalSettings(newSettings);
@@ -61,6 +87,12 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
     
     const site = newBlockedSite.trim().toLowerCase();
     if (localBlockedSites?.includes?.(site)) return;
+    
+    // Check free mode limitations
+    if (isFreeMode && localBlockedSites.length >= 3) {
+      setShowUpgradePrompt(true);
+      return;
+    }
     
     const updatedSites = [...localBlockedSites, site];
     setLocalBlockedSites(updatedSites);
@@ -228,9 +260,58 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
                 onChange={(e) => setNewBlockedSite(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="example.com"
+                disabled={isFreeMode && localBlockedSites.length >= 3}
               />
-              <button onClick={handleAddBlockedSite}>Add Site</button>
+              <button 
+                onClick={handleAddBlockedSite}
+                disabled={isFreeMode && localBlockedSites.length >= 3}
+              >
+                Add Site
+              </button>
             </div>
+            
+            {isFreeMode && (
+              <div className="free-mode-info">
+                <p>
+                  <strong>Free Mode:</strong> Limited to 3 blocked sites ({localBlockedSites.length}/3 used)
+                  {localBlockedSites.length >= 3 && (
+                    <span className="upgrade-prompt">
+                      {' '}• <button onClick={() => setShowUpgradePrompt(true)} className="link-btn">
+                        Upgrade to Premium
+                      </button> for unlimited site blocking
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+            
+            {showUpgradePrompt && (
+              <div className="upgrade-modal-overlay">
+                <div className="upgrade-modal">
+                  <h3>Upgrade to Premium</h3>
+                  <p>You've reached the free tier limit of 3 blocked sites.</p>
+                  <p>Upgrade to Premium to enjoy:</p>
+                  <ul>
+                    <li>Unlimited website blocking</li>
+                    <li>Cloud sync across devices</li>
+                    <li>Advanced analytics</li>
+                    <li>No advertisements</li>
+                  </ul>
+                  <div className="modal-actions">
+                    <button onClick={() => setShowUpgradePrompt(false)} className="secondary-btn">
+                      Maybe Later
+                    </button>
+                    <button onClick={() => {
+                      setShowUpgradePrompt(false);
+                      // This would trigger the payment modal in the parent component
+                      // For now, just close the prompt
+                    }} className="primary-btn">
+                      Upgrade Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

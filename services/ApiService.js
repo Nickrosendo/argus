@@ -98,10 +98,17 @@ class ApiService {
 
   /**
    * Get the current user data
-   * @returns {Promise<Object>} User data
+   * @returns {Promise<Object|null>} User data or null if not authenticated
    */
   async getUser() {
-    return this.request(this.config.endpoints.users + '/me');
+    // Check if user is authenticated first
+    const isAuthenticated = await authService.isAuthenticated();
+    if (!isAuthenticated) {
+      return null;
+    }
+    
+    // Get user data using AuthService which properly calls /auth/me
+    return await authService.getUserData();
   }
 
   /**

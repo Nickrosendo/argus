@@ -17,6 +17,19 @@ jest.mock('../../src/components/MenuPopup', () => {
   };
 });
 
+// Mock the FreeService
+jest.mock('../../services/FreeService', () => ({
+  isTabRestricted: jest.fn().mockResolvedValue(false),
+  getUpgradeUrl: jest.fn().mockReturnValue('https://upgrade.example.com')
+}));
+
+// Mock the LockIcon component
+jest.mock('../../src/components/ui/LockIcon', () => {
+  return function MockLockIcon() {
+    return <div data-testid="lock-icon">🔒</div>;
+  };
+});
+
 describe('Header Component', () => {
   const mockOnTabChange = jest.fn();
   const mockOnMenuAction = jest.fn();

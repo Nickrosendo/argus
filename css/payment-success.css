@@ -1,0 +1,168 @@
+/* Argus - Payment Success CSS */
+
+:root {
+  --primary: #4a1e8a;
+  --secondary: #d4af37;
+  --success: #10B981;
+  --text: #333;
+  --bg: #f8f7f4;
+  --card-bg: #fff;
+  --border: #ddd;
+  --shadow: rgba(0, 0, 0, 0.1);
+  --success-light: #d1fae5;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.container {
+  width: 100%;
+  max-width: 600px;
+}
+
+.success-card {
+  background: var(--card-bg);
+  border-radius: 10px;
+  box-shadow: 0 5px 20px var(--shadow);
+  padding: 30px;
+  text-align: center;
+}
+
+.logo {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+}
+
+.success-icon {
+  margin: 20px 0;
+}
+
+h1 {
+  color: var(--success);
+  font-size: 28px;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 18px;
+  margin: 15px 0;
+  color: var(--primary);
+}
+
+.success-info {
+  background-color: var(--success-light);
+  border-left: 3px solid var(--success);
+  padding: 20px;
+  text-align: left;
+  margin-bottom: 25px;
+  border-radius: 4px;
+}
+
+.success-info p {
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.success-info p:last-child {
+  margin-bottom: 0;
+}
+
+.features-unlocked {
+  background-color: #f9f9f9;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 25px;
+  text-align: left;
+}
+
+.features-unlocked ul {
+  list-style: none;
+  margin-top: 15px;
+}
+
+.features-unlocked li {
+  padding: 8px 0;
+  color: var(--success);
+  font-weight: 500;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.continue-btn,
+.close-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.continue-btn {
+  background: var(--primary);
+  border: none;
+  color: white;
+}
+
+.continue-btn:hover {
+  background: #5f2eaa;
+}
+
+.close-btn {
+  background: #f1f1f1;
+  border: 1px solid #ccc;
+  color: #555;
+}
+
+.close-btn:hover {
+  background: #e5e5e5;
+}
+
+.loading {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 5px;
+}
+
+.loading p {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+/* Responsive styles */
+@media (max-width: 600px) {
+  .actions {
+    flex-direction: column;
+  }
+  
+  .success-card {
+    padding: 20px;
+  }
+  
+  h1 {
+    font-size: 24px;
+  }
+}

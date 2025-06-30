@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Home, BarChart3, Globe, Shield } from "lucide-react";
 import MenuPopup from './MenuPopup';
+import LockIcon from './ui/LockIcon';
+import FreeService from '../../services/FreeService';
 
 type TabId = "stats" | "history" | "sites" | "focus";
 type MenuAction = "settings" | "account";
@@ -17,6 +19,7 @@ interface HeaderProps {
   onMenuAction: (action: MenuAction) => void;
   isAuthenticated: boolean;
   isFreeMode: boolean;
+  onUpgradeClick?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ 
@@ -24,14 +27,51 @@ const Header: React.FC<HeaderProps> = ({
   onTabChange,
   onMenuAction,
   isAuthenticated,
-  isFreeMode
+  isFreeMode,
+  onUpgradeClick
 }) => {
+  const [restrictedTabs, setRestrictedTabs] = useState<Set<TabId>>(new Set());
+
   const tabs: Tab[] = [
     { id: 'stats', label: 'Stats', icon: Home },
     { id: 'history', label: 'History', icon: BarChart3 },
     { id: 'sites', label: 'Sites', icon: Globe },
     { id: 'focus', label: 'Focus', icon: Shield }
   ];
+
+  // Check which tabs are restricted for free users
+  useEffect(() => {
+    const checkRestrictions = async () => {
+      const restricted = new Set<TabId>();
+      
+      for (const tab of tabs) {
+        const isRestricted = await FreeService.isTabRestricted(tab.id);
+        if (isRestricted) {
+          restricted.add(tab.id);
+        }
+      }
+      
+      setRestrictedTabs(restricted);
+    };
+
+    checkRestrictions();
+  }, [isFreeMode]);
+
+  const handleTabClick = (tabId: TabId) => {
+    if (restrictedTabs.has(tabId)) {
+      // Redirect to upgrade page for restricted tabs
+      if (onUpgradeClick) {
+        onUpgradeClick();
+      } else {
+        // Fallback to opening upgrade URL
+        const upgradeUrl = FreeService.getUpgradeUrl();
+        window.open(upgradeUrl, '_blank');
+      }
+      return;
+    }
+    
+    onTabChange(tabId);
+  };
 
   return (
     <header className="header-container">
@@ -42,14 +82,19 @@ const Header: React.FC<HeaderProps> = ({
       <nav className="icon-navigation">
         {tabs.map(tab => {
           const IconComponent = tab.icon;
+          const isRestricted = restrictedTabs.has(tab.id);
+          const isActive = activeTab === tab.id;
+          
           return (
             <button
               key={tab.id}
-              className={`nav-icon-btn ${activeTab === tab.id ? 'active' : ''}`}
-              onClick={() => onTabChange(tab.id)}
-              aria-label={tab.label}
+              className={`nav-icon-btn ${isActive ? 'active' : ''} ${isRestricted ? 'disabled' : ''}`}
+              onClick={() => handleTabClick(tab.id)}
+              aria-label={isRestricted ? `${tab.label} (Premium Feature)` : tab.label}
+              title={isRestricted ? `${tab.label} - Premium Feature. Click to upgrade.` : tab.label}
             >
               <IconComponent className="nav-icon-svg" />
+              {isRestricted && <LockIcon className="tab-lock" size={12} />}
             </button>
           );
         })}

@@ -120,15 +120,13 @@ export function createConfig(platform) {
       // Copy static files
       copy({
         targets: [
-          { src: 'popup.html', dest: outputDir },
-          { src: 'blocked.html', dest: outputDir },
-          { src: 'oauth.html', dest: outputDir },
-          { src: 'css/popup.css', dest: `${outputDir}/css` },
-          { src: 'css/blocked.css', dest: `${outputDir}/css` },
-          { src: 'css/fontawesome.min.css', dest: `${outputDir}/css` },
+          // Copy all HTML files automatically
+          { src: '*.html', dest: outputDir },
+          // Copy all CSS files automatically  
+          { src: 'css/*.css', dest: `${outputDir}/css` },
+          // Copy all standalone JS files automatically
+          { src: 'js/*.js', dest: `${outputDir}/js` },
           { src: 'icons/**/*', dest: `${outputDir}/icons` },
-          { src: 'js/auth.js', dest: `${outputDir}/js` },
-          { src: 'js/error-handler.js', dest: `${outputDir}/js` },
           { 
             src: 'services/**/*',
             dest: `${outputDir}/services`,

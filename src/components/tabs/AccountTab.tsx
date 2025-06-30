@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StorageData, UserInfo } from '../../types/storage';
 import { useBrowserMessaging } from '../../hooks/useBrowserMessaging';
+import PaymentModal from '../PaymentModal';
+import FreeService from '../../../services/FreeService';
 
 interface AccountTabProps {
   data: StorageData;
@@ -8,6 +10,15 @@ interface AccountTabProps {
   isFreeMode: boolean;
   onSignOut: () => void;
   onAuth: (success: boolean) => void;
+}
+
+interface SubscriptionInfo {
+  hasSubscription: boolean;
+  userType: string;
+  subscriptionId?: string;
+  status?: string;
+  currentPeriodEnd?: number;
+  cancelAtPeriodEnd?: boolean;
 }
 
 // Browser API compatibility
@@ -22,9 +33,55 @@ const AccountTab: React.FC<AccountTabProps> = ({
 }) => {
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced');
   const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
+  const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfo | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isLoadingSubscription, setIsLoadingSubscription] = useState(false);
+  const [isRefreshingSubscription, setIsRefreshingSubscription] = useState(false);
   const { userInfo } = data;
   
   const { signout } = useBrowserMessaging();
+
+  // Load subscription info when authenticated
+  useEffect(() => {
+    const loadSubscriptionInfo = async () => {
+      if (!isAuthenticated) return;
+      
+      setIsLoadingSubscription(true);
+      try {
+        const result = await browserAPI.storage.local.get(['authToken']);
+        const authToken = result.authToken;
+        
+        if (!authToken) {
+          // No auth token means free account
+          setSubscriptionInfo({ hasSubscription: false, userType: 'free' });
+          setIsLoadingSubscription(false);
+          return;
+        }
+
+        const response = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/subscription-status`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+        });
+
+        if (response.ok) {
+          const subscriptionData = await response.json();
+          setSubscriptionInfo(subscriptionData);
+        } else {
+          // API call failed, assume free account
+          setSubscriptionInfo({ hasSubscription: false, userType: 'free' });
+        }
+      } catch (error) {
+        console.error('Failed to load subscription info:', error);
+        // On error, assume free account
+        setSubscriptionInfo({ hasSubscription: false, userType: 'FREE' });
+      } finally {
+        setIsLoadingSubscription(false);
+      }
+    };
+
+    loadSubscriptionInfo();
+  }, [isAuthenticated]);
 
   // Load last sync time from storage on component mount
   useEffect(() => {
@@ -82,6 +139,40 @@ const AccountTab: React.FC<AccountTabProps> = ({
     }
   };
 
+  const handleRefreshSubscription = async (): Promise<void> => {
+    setIsRefreshingSubscription(true);
+    
+    try {
+      console.log('Refreshing subscription status...');
+      const isPremium = await FreeService.refreshSubscriptionStatus();
+      
+      // Reload subscription info from storage
+      const result = await browserAPI.storage.local.get(['authToken']);
+      const authToken = result.authToken;
+      
+      if (authToken) {
+        const response = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/subscription-status`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+        });
+
+        if (response.ok) {
+          const subscriptionData = await response.json();
+          setSubscriptionInfo(subscriptionData);
+        }
+      }
+      
+      // Trigger a page refresh to update restricted tabs
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Failed to refresh subscription:', error);
+    } finally {
+      setIsRefreshingSubscription(false);
+    }
+  };
+
   const handleSignOut = async (): Promise<void> => {
     try {
       // Call background worker to handle sign out
@@ -106,7 +197,110 @@ const AccountTab: React.FC<AccountTabProps> = ({
     onAuth(true); // Request to show auth overlay
   };
 
-  if (isFreeMode) {
+  const handleUpgrade = (): void => {
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = (): void => {
+    // Reload page or update state after successful payment
+    setShowPaymentModal(false);
+    // Reload subscription info
+    if (isAuthenticated) {
+      const loadSubscriptionInfo = async () => {
+        try {
+          const result = await browserAPI.storage.local.get(['authToken']);
+          const authToken = result.authToken;
+          
+          if (authToken) {
+            const response = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/subscription-status`, {
+              headers: {
+                'Authorization': `Bearer ${authToken}`,
+              },
+            });
+
+            if (response.ok) {
+              const subscriptionData = await response.json();
+              setSubscriptionInfo(subscriptionData);
+            } else {
+              setSubscriptionInfo({ hasSubscription: false, userType: 'free' });
+            }
+          } else {
+            setSubscriptionInfo({ hasSubscription: false, userType: 'free' });
+          }
+        } catch (error) {
+          console.error('Failed to reload subscription info:', error);
+          setSubscriptionInfo({ hasSubscription: false, userType: 'free' });
+        }
+      };
+      loadSubscriptionInfo();
+    }
+  };
+
+  const handleCancelSubscription = async (): Promise<void> => {
+    try {
+      const result = await browserAPI.storage.local.get(['authToken']);
+      const authToken = result.authToken;
+      
+      if (!authToken) return;
+
+      const response = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/cancel-subscription`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      });
+
+      if (response.ok) {
+        // Reload subscription info
+        const updatedResponse = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/subscription-status`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+        });
+
+        if (updatedResponse.ok) {
+          const subscriptionData = await updatedResponse.json();
+          setSubscriptionInfo(subscriptionData);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to cancel subscription:', error);
+    }
+  };
+
+  const handleReactivateSubscription = async (): Promise<void> => {
+    try {
+      const result = await browserAPI.storage.local.get(['authToken']);
+      const authToken = result.authToken;
+      
+      if (!authToken) return;
+
+      const response = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/reactivate-subscription`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      });
+
+      if (response.ok) {
+        // Reload subscription info
+        const updatedResponse = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/subscription-status`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+        });
+
+        if (updatedResponse.ok) {
+          const subscriptionData = await updatedResponse.json();
+          setSubscriptionInfo(subscriptionData);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to reactivate subscription:', error);
+    }
+  };
+
+  if (isFreeMode && !isAuthenticated) {
     return (
       <section className="tab-content">
         <div className="free-mode-account-info">
@@ -165,11 +359,61 @@ const AccountTab: React.FC<AccountTabProps> = ({
             </div>
           </div>
         </div>
+        
+        {showPaymentModal && (
+          <PaymentModal
+            isOpen={showPaymentModal}
+            onClose={() => setShowPaymentModal(false)}
+            onPaymentSuccess={handlePaymentSuccess}
+          />
+        )}
       </section>
     );
   }
 
   if (isAuthenticated && userInfo) {
+    const renderSubscriptionButton = () => {
+      if (isLoadingSubscription) {
+        return (
+          <button className="secondary-btn" disabled>
+            Loading...
+          </button>
+        );
+      }
+
+      if (!subscriptionInfo || !subscriptionInfo.hasSubscription) {
+        return (
+          <button onClick={handleUpgrade} className="primary-btn">
+            <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Upgrade to Premium
+          </button>
+        );
+      }
+
+      if (subscriptionInfo.cancelAtPeriodEnd) {
+        return (
+          <button onClick={handleReactivateSubscription} className="primary-btn">
+            <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Reactivate Subscription
+          </button>
+        );
+      }
+
+      return (
+        <button onClick={handleCancelSubscription} className="danger-btn">
+          <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M4 5a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 2a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+          </svg>
+          Cancel Subscription
+        </button>
+      );
+    };
+
     return (
       <section className="tab-content">
         <div className="regular-account-info">
@@ -178,7 +422,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
               {userInfo.picture ? (
                 <img src={userInfo.picture} alt="Profile" className="profile-picture" />
               ) : (
-                <div className="profile-placeholder">
+                <div className="profile-placeholder" role="presentation">
                   <svg viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                   </svg>
@@ -187,7 +431,16 @@ const AccountTab: React.FC<AccountTabProps> = ({
               <div className="profile-info">
                 <h2>{userInfo.name || userInfo.email.split('@')[0]}</h2>
                 <p className="user-email">{userInfo.email}</p>
-                <span className="account-badge">Premium Account</span>
+                <span className={`account-badge ${(!subscriptionInfo || !subscriptionInfo.hasSubscription) ? 'free' : 'premium'}`}>
+                  {isLoadingSubscription 
+                    ? 'Loading...' 
+                    : (!subscriptionInfo || !subscriptionInfo.hasSubscription) 
+                      ? 'Free Account' 
+                      : subscriptionInfo.cancelAtPeriodEnd 
+                        ? 'Premium (Canceling)' 
+                        : 'Premium Account'
+                  }
+                </span>
               </div>
             </div>
             
@@ -218,6 +471,20 @@ const AccountTab: React.FC<AccountTabProps> = ({
                 {syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}
               </button>
               
+              <button 
+                onClick={handleRefreshSubscription} 
+                className="secondary-btn"
+                disabled={isRefreshingSubscription}
+                title="Refresh subscription status from server"
+              >
+                <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                </svg>
+                {isRefreshingSubscription ? 'Refreshing...' : 'Refresh Status'}
+              </button>
+              
+              {renderSubscriptionButton()}
+              
               <button onClick={handleSignOut} className="danger-btn">
                 <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
@@ -227,6 +494,14 @@ const AccountTab: React.FC<AccountTabProps> = ({
             </div>
           </div>
         </div>
+        
+        {showPaymentModal && (
+          <PaymentModal
+            isOpen={showPaymentModal}
+            onClose={() => setShowPaymentModal(false)}
+            onPaymentSuccess={handlePaymentSuccess}
+          />
+        )}
       </section>
     );
   }

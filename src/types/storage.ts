@@ -30,6 +30,9 @@ export interface UserInfo {
   email: string;
   name?: string;
   picture?: string;
+  username?: string;
+  type?: 'free' | 'premium';
+  subscriptionStatus?: 'active' | 'inactive' | 'cancelled' | 'past_due';
 }
 
 export interface StorageData {

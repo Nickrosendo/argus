@@ -48,6 +48,8 @@ export const SocialAuthService = {
       
       // Get user information
       const userInfo = await this.getUserInfo(provider, authToken);
+
+      console.log('userInfo for priovider:', provider, userInfo);
       
       // Return structured user data
       return {
@@ -55,7 +57,7 @@ export const SocialAuthService = {
         authToken,
         user: {
           id: userInfo.id,
-          email: userInfo.email,
+          email: userInfo.email || userInfo.mail || userInfo.userPrincipalName,
           name: userInfo.name || userInfo.displayName || `${userInfo.given_name || ''} ${userInfo.family_name || ''}`.trim(),
           picture: userInfo.picture || userInfo.photo,
           provider
