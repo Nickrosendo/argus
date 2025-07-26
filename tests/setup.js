@@ -13,6 +13,10 @@ const mockStorage = {
     set: jest.fn(),
     remove: jest.fn(),
     clear: jest.fn(),
+  },
+  onChanged: {
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
   }
 };
 

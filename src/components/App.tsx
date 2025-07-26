@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isFreeMode, setIsFreeMode] = useState(true);
   const [restrictedTabs, setRestrictedTabs] = useState<Set<string>>(new Set());
+  const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
 
   const { data: storageData, loading, updateStorage } = useBrowserStorage(
     ["sites", "totalTime", "history", "settings", "userInfo", "authToken", "freeMode"],
@@ -76,6 +77,8 @@ const App: React.FC = () => {
           ...userData.user,
           type: 'free'
         };
+      } finally {
+        setIsCheckingSubscription(false);
       }
       
       setIsFreeMode(!isPremium);
@@ -136,6 +139,11 @@ const App: React.FC = () => {
 
   // Check authentication status on app load
   useEffect(() => {
+    // Set a timeout to prevent banner from showing indefinitely
+    const timeoutId = setTimeout(() => {
+      setIsCheckingSubscription(false);
+    }, 3000); // 3 second timeout
+
     const checkAuthStatus = async () => {
       if (!loading && storageData) {
         const { userInfo, authToken, freeMode } = storageData;
@@ -188,11 +196,16 @@ const App: React.FC = () => {
               isFree, 
               userType: userInfo.type 
             });
+          } finally {
+            setIsCheckingSubscription(false);
+            clearTimeout(timeoutId);
           }
         } else {
           // No valid authentication found (no userInfo, authToken, or email)
           setIsAuthenticated(false);
           setIsFreeMode(true);
+          setIsCheckingSubscription(false);
+          clearTimeout(timeoutId);
           
           // Only show auth tab if explicitly not in free mode
           if (freeMode === false) {
@@ -210,6 +223,9 @@ const App: React.FC = () => {
     };
     
     checkAuthStatus();
+
+    // Cleanup timeout on unmount
+    return () => clearTimeout(timeoutId);
   }, [loading, storageData]);
 
   // Check which tabs are restricted when free mode changes
@@ -351,7 +367,7 @@ const App: React.FC = () => {
   
   return (
     <div className="app">
-      {isFreeMode && !shouldShowAuthTab && (
+      {isFreeMode && !shouldShowAuthTab && !isCheckingSubscription && (
         <div id="free-mode-info" className="free-mode-info">
           You're using Argus in free mode. Some features may be limited.
         </div>
