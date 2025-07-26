@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1751252050630" clover="3.2.0">
-  <project timestamp="1751252050630" name="All files">
+<coverage generated="1753505121720" clover="3.2.0">
+  <project timestamp="1753505121720" name="All files">
     <metrics statements="1491" coveredstatements="282" conditionals="903" coveredconditionals="148" methods="291" coveredmethods="68" elements="2685" coveredelements="498" complexity="0" loc="1491" ncloc="1491" packages="10" files="26" classes="26"/>
     <package name="argus-extension">
       <metrics statements="592" coveredstatements="0" conditionals="308" coveredconditionals="0" methods="72" coveredmethods="0"/>
-      <file name="background.js" path="/Users/nickrosendo/tech/personal/argus/argus-extension/background.js">
+      <file name="background.js" path="/home/nickrosendo/tech/personal/argus/argus-extension/background.js">
         <metrics statements="592" coveredstatements="0" conditionals="308" coveredconditionals="0" methods="72" coveredmethods="0"/>
         <line num="11" count="0" type="stmt"/>
         <line num="12" count="0" type="stmt"/>
@@ -602,7 +602,7 @@
     </package>
     <package name="argus-extension.js">
       <metrics statements="68" coveredstatements="0" conditionals="24" coveredconditionals="0" methods="19" coveredmethods="0"/>
-      <file name="blocked.js" path="/Users/nickrosendo/tech/personal/argus/argus-extension/js/blocked.js">
+      <file name="blocked.js" path="/home/nickrosendo/tech/personal/argus/argus-extension/js/blocked.js">
         <metrics statements="68" coveredstatements="0" conditionals="24" coveredconditionals="0" methods="19" coveredmethods="0"/>
         <line num="4" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="7" count="0" type="stmt"/>
@@ -676,7 +676,7 @@
     </package>
     <package name="argus-extension.src">
       <metrics statements="16" coveredstatements="0" conditionals="8" coveredconditionals="0" methods="2" coveredmethods="0"/>
-      <file name="popup.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/popup.tsx">
+      <file name="popup.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/popup.tsx">
         <metrics statements="16" coveredstatements="0" conditionals="8" coveredconditionals="0" methods="2" coveredmethods="0"/>
         <line num="8" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="12" count="0" type="stmt"/>
@@ -698,7 +698,7 @@
     </package>
     <package name="argus-extension.src.components">
       <metrics statements="203" coveredstatements="115" conditionals="112" coveredconditionals="67" methods="38" coveredmethods="24"/>
-      <file name="App.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/App.tsx">
+      <file name="App.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/App.tsx">
         <metrics statements="106" coveredstatements="42" conditionals="46" coveredconditionals="20" methods="11" coveredmethods="5"/>
         <line num="19" count="1" type="stmt"/>
         <line num="20" count="4" type="stmt"/>
@@ -807,7 +807,7 @@
         <line num="350" count="2" type="cond" truecount="2" falsecount="0"/>
         <line num="352" count="2" type="stmt"/>
       </file>
-      <file name="AuthPage.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/AuthPage.tsx">
+      <file name="AuthPage.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/AuthPage.tsx">
         <metrics statements="19" coveredstatements="19" conditionals="20" coveredconditionals="19" methods="6" coveredmethods="6"/>
         <line num="19" count="1" type="stmt"/>
         <line num="20" count="28" type="stmt"/>
@@ -818,23 +818,23 @@
         <line num="30" count="8" type="stmt"/>
         <line num="32" count="8" type="stmt"/>
         <line num="33" count="8" type="stmt"/>
-        <line num="35" count="4" type="cond" truecount="4" falsecount="0"/>
-        <line num="36" count="3" type="stmt"/>
-        <line num="41" count="3" type="stmt"/>
+        <line num="35" count="7" type="cond" truecount="4" falsecount="0"/>
+        <line num="36" count="6" type="stmt"/>
+        <line num="41" count="6" type="stmt"/>
         <line num="43" count="1" type="stmt"/>
         <line num="48" count="1" type="stmt"/>
         <line num="49" count="1" type="stmt"/>
-        <line num="53" count="5" type="stmt"/>
+        <line num="53" count="8" type="stmt"/>
         <line num="57" count="28" type="stmt"/>
         <line num="75" count="6" type="stmt"/>
         <line num="90" count="2" type="stmt"/>
       </file>
-      <file name="Footer.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/Footer.tsx">
+      <file name="Footer.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/Footer.tsx">
         <metrics statements="2" coveredstatements="2" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
         <line num="5" count="1" type="stmt"/>
         <line num="6" count="5" type="stmt"/>
       </file>
-      <file name="Header.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/Header.tsx">
+      <file name="Header.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/Header.tsx">
         <metrics statements="26" coveredstatements="20" conditionals="16" coveredconditionals="8" methods="6" coveredmethods="6"/>
         <line num="25" count="1" type="stmt"/>
         <line num="33" count="30" type="stmt"/>
@@ -863,7 +863,7 @@
         <line num="88" count="120" type="stmt"/>
         <line num="92" count="5" type="stmt"/>
       </file>
-      <file name="MenuPopup.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/MenuPopup.tsx">
+      <file name="MenuPopup.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/MenuPopup.tsx">
         <metrics statements="18" coveredstatements="0" conditionals="8" coveredconditionals="0" methods="8" coveredmethods="0"/>
         <line num="12" count="0" type="stmt"/>
         <line num="13" count="0" type="stmt"/>
@@ -884,7 +884,7 @@
         <line num="52" count="0" type="stmt"/>
         <line num="60" count="0" type="stmt"/>
       </file>
-      <file name="PaymentModal.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/PaymentModal.tsx">
+      <file name="PaymentModal.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/PaymentModal.tsx">
         <metrics statements="32" coveredstatements="32" conditionals="22" coveredconditionals="20" methods="6" coveredmethods="6"/>
         <line num="20" count="1" type="stmt"/>
         <line num="58" count="1" type="cond" truecount="1" falsecount="1"/>
@@ -922,7 +922,7 @@
     </package>
     <package name="argus-extension.src.components.tabs">
       <metrics statements="520" coveredstatements="151" conditionals="429" coveredconditionals="75" methods="130" coveredmethods="42"/>
-      <file name="AccountTab.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/AccountTab.tsx">
+      <file name="AccountTab.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/AccountTab.tsx">
         <metrics statements="142" coveredstatements="70" conditionals="102" coveredconditionals="40" methods="17" coveredmethods="13"/>
         <line num="25" count="1" type="cond" truecount="1" falsecount="1"/>
         <line num="27" count="1" type="stmt"/>
@@ -1067,7 +1067,7 @@
         <line num="501" count="1" type="stmt"/>
         <line num="510" count="1" type="stmt"/>
       </file>
-      <file name="FocusTab.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/FocusTab.tsx">
+      <file name="FocusTab.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/FocusTab.tsx">
         <metrics statements="39" coveredstatements="0" conditionals="28" coveredconditionals="0" methods="18" coveredmethods="0"/>
         <line num="16" count="0" type="stmt"/>
         <line num="17" count="0" type="stmt"/>
@@ -1109,7 +1109,7 @@
         <line num="179" count="0" type="stmt"/>
         <line num="185" count="0" type="stmt"/>
       </file>
-      <file name="HistoryTab.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/HistoryTab.tsx">
+      <file name="HistoryTab.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/HistoryTab.tsx">
         <metrics statements="48" coveredstatements="0" conditionals="38" coveredconditionals="0" methods="12" coveredmethods="0"/>
         <line num="32" count="0" type="stmt"/>
         <line num="33" count="0" type="cond" truecount="0" falsecount="2"/>
@@ -1160,7 +1160,7 @@
         <line num="212" count="0" type="stmt"/>
         <line num="235" count="0" type="stmt"/>
       </file>
-      <file name="SettingsTab.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/SettingsTab.tsx">
+      <file name="SettingsTab.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/SettingsTab.tsx">
         <metrics statements="92" coveredstatements="70" conditionals="42" coveredconditionals="30" methods="30" coveredmethods="23"/>
         <line num="7" count="1" type="cond" truecount="1" falsecount="1"/>
         <line num="14" count="1" type="stmt"/>
@@ -1255,7 +1255,7 @@
         <line num="301" count="1" type="stmt"/>
         <line num="305" count="0" type="stmt"/>
       </file>
-      <file name="SitesTab.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/SitesTab.tsx">
+      <file name="SitesTab.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/SitesTab.tsx">
         <metrics statements="52" coveredstatements="0" conditionals="72" coveredconditionals="0" methods="12" coveredmethods="0"/>
         <line num="24" count="0" type="stmt"/>
         <line num="25" count="0" type="cond" truecount="0" falsecount="2"/>
@@ -1310,7 +1310,7 @@
         <line num="173" count="0" type="stmt"/>
         <line num="184" count="0" type="stmt"/>
       </file>
-      <file name="StatsTab.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/StatsTab.tsx">
+      <file name="StatsTab.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/StatsTab.tsx">
         <metrics statements="136" coveredstatements="0" conditionals="140" coveredconditionals="0" methods="35" coveredmethods="0"/>
         <line num="24" count="0" type="stmt"/>
         <line num="25" count="0" type="cond" truecount="0" falsecount="3"/>
@@ -1449,7 +1449,7 @@
         <line num="410" count="0" type="stmt"/>
         <line num="420" count="0" type="stmt"/>
       </file>
-      <file name="TodayTab.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/TodayTab.tsx">
+      <file name="TodayTab.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/tabs/TodayTab.tsx">
         <metrics statements="11" coveredstatements="11" conditionals="7" coveredconditionals="5" methods="6" coveredmethods="6"/>
         <line num="15" count="1" type="stmt"/>
         <line num="16" count="12" type="cond" truecount="1" falsecount="2"/>
@@ -1466,17 +1466,17 @@
     </package>
     <package name="argus-extension.src.components.ui">
       <metrics statements="22" coveredstatements="1" conditionals="3" coveredconditionals="0" methods="8" coveredmethods="0"/>
-      <file name="LockIcon.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/ui/LockIcon.tsx">
+      <file name="LockIcon.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/ui/LockIcon.tsx">
         <metrics statements="2" coveredstatements="0" conditionals="2" coveredconditionals="0" methods="1" coveredmethods="0"/>
         <line num="9" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="10" count="0" type="stmt"/>
       </file>
-      <file name="UpgradePrompt.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/ui/UpgradePrompt.tsx">
+      <file name="UpgradePrompt.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/ui/UpgradePrompt.tsx">
         <metrics statements="2" coveredstatements="1" conditionals="1" coveredconditionals="0" methods="1" coveredmethods="0"/>
         <line num="11" count="1" type="stmt"/>
         <line num="17" count="0" type="stmt"/>
       </file>
-      <file name="card.tsx" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/components/ui/card.tsx">
+      <file name="card.tsx" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/components/ui/card.tsx">
         <metrics statements="18" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="6" coveredmethods="0"/>
         <line num="5" count="0" type="stmt"/>
         <line num="9" count="0" type="stmt"/>
@@ -1500,7 +1500,7 @@
     </package>
     <package name="argus-extension.src.hooks">
       <metrics statements="50" coveredstatements="0" conditionals="13" coveredconditionals="0" methods="17" coveredmethods="0"/>
-      <file name="useBrowserMessaging.ts" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/hooks/useBrowserMessaging.ts">
+      <file name="useBrowserMessaging.ts" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/hooks/useBrowserMessaging.ts">
         <metrics statements="20" coveredstatements="0" conditionals="2" coveredconditionals="0" methods="7" coveredmethods="0"/>
         <line num="4" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="52" count="0" type="stmt"/>
@@ -1523,7 +1523,7 @@
         <line num="97" count="0" type="stmt"/>
         <line num="102" count="0" type="stmt"/>
       </file>
-      <file name="useBrowserStorage.ts" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/hooks/useBrowserStorage.ts">
+      <file name="useBrowserStorage.ts" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/hooks/useBrowserStorage.ts">
         <metrics statements="30" coveredstatements="0" conditionals="11" coveredconditionals="0" methods="10" coveredmethods="0"/>
         <line num="5" count="0" type="cond" truecount="0" falsecount="2"/>
         <line num="17" count="0" type="stmt"/>
@@ -1559,30 +1559,30 @@
     </package>
     <package name="argus-extension.src.lib">
       <metrics statements="1" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="0"/>
-      <file name="utils.ts" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/lib/utils.ts">
+      <file name="utils.ts" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/lib/utils.ts">
         <metrics statements="1" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="0"/>
         <line num="5" count="0" type="stmt"/>
       </file>
     </package>
     <package name="argus-extension.src.types">
       <metrics statements="0" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
-      <file name="browser.d.ts" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/types/browser.d.ts">
+      <file name="browser.d.ts" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/types/browser.d.ts">
         <metrics statements="0" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
       </file>
-      <file name="storage.ts" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/types/storage.ts">
+      <file name="storage.ts" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/types/storage.ts">
         <metrics statements="0" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
       </file>
     </package>
     <package name="argus-extension.src.utils">
       <metrics statements="19" coveredstatements="15" conditionals="6" coveredconditionals="6" methods="4" coveredmethods="2"/>
-      <file name="errorHandler.ts" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/utils/errorHandler.ts">
+      <file name="errorHandler.ts" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/utils/errorHandler.ts">
         <metrics statements="4" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
         <line num="2" count="0" type="stmt"/>
         <line num="3" count="0" type="stmt"/>
         <line num="6" count="0" type="stmt"/>
         <line num="7" count="0" type="stmt"/>
       </file>
-      <file name="timeUtils.ts" path="/Users/nickrosendo/tech/personal/argus/argus-extension/src/utils/timeUtils.ts">
+      <file name="timeUtils.ts" path="/home/nickrosendo/tech/personal/argus/argus-extension/src/utils/timeUtils.ts">
         <metrics statements="15" coveredstatements="15" conditionals="6" coveredconditionals="6" methods="2" coveredmethods="2"/>
         <line num="3" count="14" type="cond" truecount="2" falsecount="0"/>
         <line num="5" count="11" type="stmt"/>

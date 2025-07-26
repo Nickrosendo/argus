@@ -134,6 +134,11 @@ class AuthService {
       // Save the access token to local storage
       await this.saveToken(data.accessToken);
       
+      // Save user info to storage if available
+      if (data.user) {
+        await this.saveUserInfo(data.user);
+      }
+      
       // Clear cache since authentication state changed
       this.clearAuthCache();
       
@@ -173,6 +178,11 @@ class AuthService {
       // Save the access token to local storage
       await this.saveToken(data.accessToken);
       
+      // Save user info to storage if available
+      if (data.user) {
+        await this.saveUserInfo(data.user);
+      }
+      
       // Clear cache since authentication state changed
       this.clearAuthCache();
       
@@ -190,6 +200,9 @@ class AuthService {
   async signout() {
     try {
       await this.clearToken();
+      
+      // Clear stored user info
+      await this.clearUserInfo();
       
       // Clear cache since authentication state changed
       this.clearAuthCache();
@@ -262,6 +275,43 @@ class AuthService {
   }
 
   /**
+   * Get stored user information from browser storage
+   * @returns {Promise<Object|null>} The stored user info or null if not found
+   */
+  async getStoredUserInfo() {
+    return new Promise((resolve) => {
+      browserAPI.storage.local.get(['userInfo'], (result) => {
+        resolve(result.userInfo || null);
+      });
+    });
+  }
+
+  /**
+   * Save user information to browser storage
+   * @param {Object} userInfo The user information to save
+   * @returns {Promise<void>}
+   */
+  async saveUserInfo(userInfo) {
+    return new Promise((resolve) => {
+      browserAPI.storage.local.set({ 'userInfo': userInfo }, () => {
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Clear stored user information from browser storage
+   * @returns {Promise<void>}
+   */
+  async clearUserInfo() {
+    return new Promise((resolve) => {
+      browserAPI.storage.local.remove(['userInfo'], () => {
+        resolve();
+      });
+    });
+  }
+
+  /**
    * Get the authenticated user data
    * @returns {Promise<Object|null>} The user data or null if not authenticated
    */
@@ -272,7 +322,28 @@ class AuthService {
       if (!token) {
         return null;
       }
+
+      // First try to get user data from storage (includes the database ID)
+      const storedUserInfo = await this.getStoredUserInfo();
       
+      if (storedUserInfo && storedUserInfo.id) {
+        // If we have stored user info with ID, fetch fresh data using the actual database ID
+        const response = await fetch(`${this.config.API_BASE_URL}/users/${storedUserInfo.id}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          return await response.json();
+        }
+        
+        // If user-specific endpoint fails, fall back to /auth/me
+        console.warn('Failed to fetch user by ID, falling back to /auth/me');
+      }
+      
+      // Fallback to /auth/me if no stored user info or user-specific fetch failed
       const response = await fetch(`${this.config.API_BASE_URL}/auth/me`, {
         method: 'GET',
         headers: {
@@ -288,7 +359,12 @@ class AuthService {
         throw new Error(`Failed to get user data: ${response.status}`);
       }
       
-      return await response.json();
+      const userData = await response.json();
+      
+      // Store the user data for next time (so we can use the database ID)
+      await this.saveUserInfo(userData);
+      
+      return userData;
     } catch (error) {
       console.error('Get user data error:', error);
       return null;
