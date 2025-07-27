@@ -58,7 +58,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
           return;
         }
 
-        const response = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/subscription-status`, {
+        const response = await fetch(`${__API_URL__}/payments/subscription-status`, {
           headers: {
             'Authorization': `Bearer ${authToken}`,
           },
@@ -151,7 +151,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
       const authToken = result.authToken;
       
       if (authToken) {
-        const response = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/subscription-status`, {
+        const response = await fetch(`${__API_URL__}/payments/subscription-status`, {
           headers: {
             'Authorization': `Bearer ${authToken}`,
           },
@@ -212,7 +212,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
           const authToken = result.authToken;
           
           if (authToken) {
-            const response = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/subscription-status`, {
+            const response = await fetch(`${__API_URL__}/payments/subscription-status`, {
               headers: {
                 'Authorization': `Bearer ${authToken}`,
               },
@@ -243,7 +243,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
       
       if (!authToken) return;
 
-      const response = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/cancel-subscription`, {
+      const response = await fetch(`${__API_URL__}/payments/cancel-subscription`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -252,7 +252,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
 
       if (response.ok) {
         // Reload subscription info
-        const updatedResponse = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/subscription-status`, {
+        const updatedResponse = await fetch(`${__API_URL__}/payments/subscription-status`, {
           headers: {
             'Authorization': `Bearer ${authToken}`,
           },
@@ -275,7 +275,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
       
       if (!authToken) return;
 
-      const response = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/reactivate-subscription`, {
+      const response = await fetch(`${__API_URL__}/payments/reactivate-subscription`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -284,7 +284,7 @@ const AccountTab: React.FC<AccountTabProps> = ({
 
       if (response.ok) {
         // Reload subscription info
-        const updatedResponse = await fetch(`${process.env.API_URL || 'http://localhost:3000'}/payments/subscription-status`, {
+        const updatedResponse = await fetch(`${__API_URL__}/payments/subscription-status`, {
           headers: {
             'Authorization': `Bearer ${authToken}`,
           },

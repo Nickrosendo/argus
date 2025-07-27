@@ -25,6 +25,7 @@ if (envConfig.error) {
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'your_google_client_id.apps.googleusercontent.com';
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID || 'your_microsoft_client_id_here';
 const API_URL = process.env.API_URL || 'http://localhost:3000';
+const ENABLE_MICROSOFT_AUTH = process.env.ENABLE_MICROSOFT_AUTH === 'true';
 
 // Validate that environment variables are provided
 if (GOOGLE_CLIENT_ID === 'your_google_client_id.apps.googleusercontent.com') {
@@ -41,6 +42,7 @@ console.log('Environment variables loaded:');
 console.log('- GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID ? `${GOOGLE_CLIENT_ID.substring(0, 30)}...` : 'not set');
 console.log('- MICROSOFT_CLIENT_ID:', MICROSOFT_CLIENT_ID ? `${MICROSOFT_CLIENT_ID.substring(0, 30)}...` : 'not set');
 console.log('- API_URL:', API_URL);
+console.log('- ENABLE_MICROSOFT_AUTH:', ENABLE_MICROSOFT_AUTH);
 
 // Read version from package.json
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf8'));
@@ -71,10 +73,12 @@ export function createConfig(platform) {
         'process.env.GOOGLE_CLIENT_ID': JSON.stringify(GOOGLE_CLIENT_ID),
         'process.env.MICROSOFT_CLIENT_ID': JSON.stringify(MICROSOFT_CLIENT_ID),
         'process.env.API_URL': JSON.stringify(API_URL),
+        'process.env.ENABLE_MICROSOFT_AUTH': JSON.stringify(ENABLE_MICROSOFT_AUTH.toString()),
         '__VERSION__': JSON.stringify(version),
         '__GOOGLE_CLIENT_ID__': JSON.stringify(GOOGLE_CLIENT_ID),
         '__MICROSOFT_CLIENT_ID__': JSON.stringify(MICROSOFT_CLIENT_ID),
         '__API_URL__': JSON.stringify(API_URL),
+        'process.env.ENABLE_MICROSOFT_AUTH': JSON.stringify(ENABLE_MICROSOFT_AUTH.toString()),
         preventAssignment: true
       }),
       
@@ -139,9 +143,11 @@ export function createConfig(platform) {
                 content = content.replace(/process\.env\.GOOGLE_CLIENT_ID/g, `"${GOOGLE_CLIENT_ID}"`);
                 content = content.replace(/process\.env\.MICROSOFT_CLIENT_ID/g, `"${MICROSOFT_CLIENT_ID}"`);
                 content = content.replace(/process\.env\.API_URL/g, `"${API_URL}"`);
+                content = content.replace(/process\.env\.ENABLE_MICROSOFT_AUTH/g, `"${ENABLE_MICROSOFT_AUTH.toString()}"`);
                 content = content.replace(/__GOOGLE_CLIENT_ID__/g, `"${GOOGLE_CLIENT_ID}"`);
                 content = content.replace(/__MICROSOFT_CLIENT_ID__/g, `"${MICROSOFT_CLIENT_ID}"`);
                 content = content.replace(/__API_URL__/g, `"${API_URL}"`);
+                content = content.replace(/process.env.ENABLE_MICROSOFT_AUTH/g, `"${ENABLE_MICROSOFT_AUTH.toString()}"`);
                 
                 return content;
               }

@@ -1,6 +1,6 @@
 {
   "name": "argus-screen-time",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "A Chrome and Firefox extension that monitors and visualizes the time you spend on different websites",
   "main": "background.js",
   "scripts": {

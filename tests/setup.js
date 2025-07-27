@@ -121,6 +121,13 @@ class LocalStorageMock {
 
 global.localStorage = new LocalStorageMock();
 
+// Mock build-time constants
+global.__GOOGLE_CLIENT_ID__ = 'test-google-client-id';
+global.__MICROSOFT_CLIENT_ID__ = 'test-microsoft-client-id';
+global.__API_URL__ = 'http://localhost:3000';
+global.process.env.ENABLE_MICROSOFT_AUTH = 'false';
+global.__VERSION__ = '1.0.0';
+
 // Mock window methods
 global.window.addEventListener = jest.fn();
 global.window.removeEventListener = jest.fn();

@@ -217,13 +217,19 @@ async function initializeExtension() {
       if (message.action === "updateBlockedSites") {
         // Handle updating blocked sites
         try {
-          const { sites } = message;
-          console.log("Updating blocked sites:", sites);
+          console.log("Updating blocked sites from storage");
           
-          browserApiService.setStorage({ blockedSites: sites })
-            .then(() => {
+          // Get current sites and settings from storage
+          browserApiService.getStorage(['blockedSites', 'blockingEnabled', 'settings'])
+            .then(async (result) => {
+              const sites = result.blockedSites || [];
+              // Check both blockingEnabled and settings.enableBlocking for compatibility
+              const isBlockingEnabled = result.blockingEnabled || result.settings?.enableBlocking || false;
+              
+              console.log("Retrieved from storage:", { sites, isBlockingEnabled });
+              
               // Update the declarative net request rules
-              updateBlockingRules(sites);
+              await browserApiService.updateBlockedSites(sites, isBlockingEnabled);
               sendResponse({ success: true });
             })
             .catch((error) => {

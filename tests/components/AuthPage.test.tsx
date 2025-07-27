@@ -32,7 +32,15 @@ describe('AuthPage Component', () => {
       expect(screen.getByText('Monitor your browsing habits and boost productivity')).toBeInTheDocument();
       expect(screen.getByText('Sign in to get started')).toBeInTheDocument();
       expect(screen.getByText('Continue with Google')).toBeInTheDocument();
-      expect(screen.getByText('Continue with Microsoft')).toBeInTheDocument();
+      
+      // Microsoft auth button should only appear when enabled
+      const isMicrosoftAuthEnabled = process.env.ENABLE_MICROSOFT_AUTH === 'true';
+      if (isMicrosoftAuthEnabled) {
+        expect(screen.getByText('Continue with Microsoft')).toBeInTheDocument();
+      } else {
+        expect(screen.queryByText('Continue with Microsoft')).not.toBeInTheDocument();
+      }
+      
       expect(screen.getByText('Continue in Free Mode')).toBeInTheDocument();
     });
 
@@ -72,6 +80,13 @@ describe('AuthPage Component', () => {
     });
 
     it('should call social auth with Microsoft when Microsoft button is clicked', async () => {
+      const isMicrosoftAuthEnabled = process.env.ENABLE_MICROSOFT_AUTH === 'true';
+      
+      if (!isMicrosoftAuthEnabled) {
+        // Skip this test when Microsoft auth is disabled
+        return;
+      }
+
       const user = userEvent.setup();
       mockSocialAuth.mockResolvedValue({ success: true, data: { token: 'mock-token', user: { id: '1', email: 'test@example.com', name: 'Test User' } } });
 
@@ -96,6 +111,13 @@ describe('AuthPage Component', () => {
     });
 
     it('should show loading state during Microsoft authentication', async () => {
+      const isMicrosoftAuthEnabled = process.env.ENABLE_MICROSOFT_AUTH === 'true';
+      
+      if (!isMicrosoftAuthEnabled) {
+        // Skip this test when Microsoft auth is disabled
+        return;
+      }
+
       const user = userEvent.setup();
       mockSocialAuth.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ success: true, data: { token: 'mock-token', user: { id: '1', email: 'test@example.com', name: 'Test User' } } }), 100)));
 
@@ -114,12 +136,16 @@ describe('AuthPage Component', () => {
       render(<AuthPage {...defaultProps} />);
       
       const googleButton = screen.getByText('Continue with Google').closest('button');
-      const microsoftButton = screen.getByText('Continue with Microsoft').closest('button');
-      
       await user.click(googleButton!);
 
       expect(googleButton).toBeDisabled();
-      expect(microsoftButton).toBeDisabled();
+      
+      // Only check Microsoft button if it's enabled
+      const isMicrosoftAuthEnabled = process.env.ENABLE_MICROSOFT_AUTH === 'true';
+      if (isMicrosoftAuthEnabled) {
+        const microsoftButton = screen.getByText('Continue with Microsoft').closest('button');
+        expect(microsoftButton).toBeDisabled();
+      }
     });
   });
 
@@ -189,14 +215,29 @@ describe('AuthPage Component', () => {
       
       expect(screen.getByAltText('Argus Logo')).toBeInTheDocument();
       expect(screen.getByAltText('Google')).toBeInTheDocument();
-      expect(screen.getByAltText('Microsoft')).toBeInTheDocument();
+      
+      // Only check Microsoft image if auth is enabled
+      const isMicrosoftAuthEnabled = process.env.ENABLE_MICROSOFT_AUTH === 'true';
+      if (isMicrosoftAuthEnabled) {
+        expect(screen.getByAltText('Microsoft')).toBeInTheDocument();
+      } else {
+        expect(screen.queryByAltText('Microsoft')).not.toBeInTheDocument();
+      }
     });
 
     it('should have proper button labels', () => {
       render(<AuthPage {...defaultProps} />);
       
       expect(screen.getByRole('button', { name: /continue with google/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /continue with microsoft/i })).toBeInTheDocument();
+      
+      // Only check Microsoft button if it's enabled
+      const isMicrosoftAuthEnabled = process.env.ENABLE_MICROSOFT_AUTH === 'true';
+      if (isMicrosoftAuthEnabled) {
+        expect(screen.getByRole('button', { name: /continue with microsoft/i })).toBeInTheDocument();
+      } else {
+        expect(screen.queryByRole('button', { name: /continue with microsoft/i })).not.toBeInTheDocument();
+      }
+      
       expect(screen.getByRole('button', { name: /continue in free mode/i })).toBeInTheDocument();
     });
   });

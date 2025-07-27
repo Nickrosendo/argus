@@ -41,6 +41,11 @@ export const SocialAuthService = {
         throw new Error(`Unsupported provider: ${provider}`);
       }
 
+      // Check if Microsoft auth is disabled
+      if (provider === 'microsoft' && (process.env.ENABLE_MICROSOFT_AUTH === 'false' || __ENABLE_MICROSOFT_AUTH__ === 'false')) {
+        throw new Error('Microsoft authentication is currently disabled');
+      }
+
       console.log(`Starting ${provider} OAuth flow...`);
       
       // Get OAuth token using provider-specific method

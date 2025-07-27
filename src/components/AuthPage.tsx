@@ -24,6 +24,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuth, onFreeMode }) => {
   const [errors, setErrors] = useState<{ general?: string }>({});
   
   const { socialAuth } = useBrowserMessaging();
+  
+  // Feature flag for Microsoft auth
+  const isMicrosoftAuthEnabled = false;
 
   const handleSocialAuth = async (provider: 'google' | 'microsoft'): Promise<void> => {
     setSocialLoading(prev => ({ ...prev, [provider]: true }));
@@ -85,20 +88,22 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuth, onFreeMode }) => {
               </div>
             </button>
             
-            <button 
-              className="social-auth-btn microsoft-btn"
-              onClick={() => handleSocialAuth('microsoft')}
-              disabled={socialLoading.google || socialLoading.microsoft}
-            >
-              <div className="social-btn-content">
-                {socialLoading.microsoft ? (
-                  <div className="loading-spinner"></div>
-                ) : (
-                  <img src="https://img.icons8.com/color/16/000000/microsoft.png" alt="Microsoft" className="social-icon" />
-                )}
-                <span>{socialLoading.microsoft ? 'Signing in...' : 'Continue with Microsoft'}</span>
-              </div>
-            </button>
+            {isMicrosoftAuthEnabled && (
+              <button 
+                className="social-auth-btn microsoft-btn"
+                onClick={() => handleSocialAuth('microsoft')}
+                disabled={socialLoading.google || socialLoading.microsoft}
+              >
+                <div className="social-btn-content">
+                  {socialLoading.microsoft ? (
+                    <div className="loading-spinner"></div>
+                  ) : (
+                    <img src="https://img.icons8.com/color/16/000000/microsoft.png" alt="Microsoft" className="social-icon" />
+                  )}
+                  <span>{socialLoading.microsoft ? 'Signing in...' : 'Continue with Microsoft'}</span>
+                </div>
+              </button>
+            )}
           </div>
 
           {/* Error Display */}
