@@ -278,6 +278,16 @@ describe('background service worker', () => {
       expect(fake.local.sites['other.org'].totalTime).toBe(5000);
     });
 
+    it('does not track a page whose hostname would resolve to the object prototype', async () => {
+      fake.tabs[10].url = 'http://__proto__/';
+      await emit('tabUpdated', 10, { url: fake.tabs[10].url }, fake.tabs[10]);
+      await advance(10000);
+
+      expect({}.totalTime).toBeUndefined();
+      expect({}.visits).toBeUndefined();
+      expect(Object.keys(fake.local.sites || {})).toEqual([]);
+    });
+
     it('pauses while the user is idle and does not count the time away', async () => {
       await advance(5000);
       fake.idleState = 'idle';

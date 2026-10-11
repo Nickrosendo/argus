@@ -2,11 +2,16 @@ import { HistoryData, SiteData, StorageData } from '../types/storage';
 
 type UsageDay = { sites?: SiteData; totalTime?: number };
 
+const UNSAFE_KEYS = ['__proto__', 'constructor', 'prototype'];
+
 // Add the sites of one day into another, summing time and visits per site
 function mergeSites(local: SiteData = {}, remote: SiteData = {}): SiteData {
   const merged: Record<string, any> = { ...local };
 
   Object.keys(remote).forEach((domain) => {
+    // Never use a name that would resolve to the object prototype as a key
+    if (UNSAFE_KEYS.indexOf(domain) !== -1) return;
+
     const localSite = merged[domain];
     const site = remote[domain] as Record<string, any>;
 

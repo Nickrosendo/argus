@@ -3,6 +3,7 @@ import browserApiService from "../services/BrowserApiService";
 import {
   claimElapsedTime,
   getIdleThresholdSeconds,
+  isSafeSiteKey,
   pruneHistory,
 } from '../services/trackingUtils.js';
 import {
@@ -184,6 +185,13 @@ export function handleTabChange(tab) {
 
   try {
     const url = new URL(tab.url);
+    // Hostnames are used as object keys in storage; never track one that
+    // would resolve to the object prototype
+    if (!isSafeSiteKey(url.hostname)) {
+      setCurrentTab(null);
+      return;
+    }
+
     // Navigating within the same site is still the same visit
     const sameVisit =
       state.currentTab !== null &&

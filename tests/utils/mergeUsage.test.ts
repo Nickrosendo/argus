@@ -52,6 +52,16 @@ describe('mergeRemoteUsage', () => {
     expect(merged.totalTime).toBe(1000);
   });
 
+  it('should ignore a remote site name that would resolve to the object prototype', () => {
+    const remote = JSON.parse(`{"${TODAY}":{"sites":{"__proto__":{"totalTime":500},"ok.com":{"totalTime":100}},"totalTime":600}}`);
+
+    const merged: any = mergeRemoteUsage(local(), remote, TODAY);
+
+    expect(({} as any).totalTime).toBeUndefined();
+    expect(Object.getPrototypeOf(merged.sites)).toBe(Object.prototype);
+    expect(Object.keys(merged.sites).sort()).toEqual(['a.com', 'ok.com']);
+  });
+
   it('should not modify the stored local data', () => {
     const data: any = local();
 

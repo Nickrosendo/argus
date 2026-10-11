@@ -62,3 +62,17 @@ export function getIdleThresholdSeconds(settings) {
 
   return Math.max(MIN_IDLE_SECONDS, Math.round(validMinutes * 60));
 }
+
+const UNSAFE_KEYS = ['__proto__', 'constructor', 'prototype'];
+
+/**
+ * Whether a site name can be used as a key of a plain object. A page at
+ * http://__proto__/ has that hostname, and using it as a key would read and
+ * write Object.prototype instead of a stored site entry.
+ *
+ * @param {string} key The hostname or site name
+ * @returns {boolean}
+ */
+export function isSafeSiteKey(key) {
+  return typeof key === 'string' && key !== '' && !UNSAFE_KEYS.includes(key);
+}
