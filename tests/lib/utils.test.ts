@@ -1,4 +1,4 @@
-import { cn } from '../../src/lib/utils';
+import { cn, normalizeDomain } from '../../src/lib/utils';
 
 describe('utils', () => {
   describe('cn', () => {
@@ -44,6 +44,24 @@ describe('utils', () => {
     it('should merge complex conflicting classes', () => {
       const result = cn('p-2 m-2', 'p-4 text-center');
       expect(result).toBe('m-2 p-4 text-center');
+    });
+  });
+
+  describe('normalizeDomain', () => {
+    it('should reduce a pasted URL to its bare domain', () => {
+      expect(normalizeDomain('https://www.Facebook.com/')).toBe('facebook.com');
+      expect(normalizeDomain(' http://news.example.co.uk:8080/a/b?x=1#y ')).toBe('news.example.co.uk');
+    });
+
+    it('should leave a plain domain unchanged', () => {
+      expect(normalizeDomain('reddit.com')).toBe('reddit.com');
+    });
+
+    it('should return an empty string for input without a usable domain', () => {
+      expect(normalizeDomain('')).toBe('');
+      expect(normalizeDomain('   ')).toBe('');
+      expect(normalizeDomain('not a domain')).toBe('');
+      expect(normalizeDomain('https://')).toBe('');
     });
   });
 });

@@ -117,7 +117,8 @@ const FreeService = {
         const data = await response.json();
         return {
           userType: data.userType || 'free',
-          subscriptionStatus: data.subscriptionStatus || null,
+          // The API reports the Stripe status as `status`
+          subscriptionStatus: data.subscriptionStatus || data.status || null,
           ...data
         };
       } else {

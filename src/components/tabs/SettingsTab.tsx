@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageData, Settings } from '../../types/storage';
+import { normalizeDomain } from '../../lib/utils';
 // Import FreeService for premium checking
 declare const FreeService: any;
 
@@ -83,9 +84,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
   };
 
   const handleAddBlockedSite = (): void => {
-    if (!newBlockedSite.trim()) return;
-    
-    const site = newBlockedSite.trim().toLowerCase();
+    // Accept pasted URLs too: "https://www.example.com/page" -> "example.com"
+    const site = normalizeDomain(newBlockedSite);
+    if (!site) return;
     if (localBlockedSites?.includes?.(site)) return;
     
     // Check free mode limitations
@@ -159,18 +160,27 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
 
   const handleClearData = (): void => {
     if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-      browserAPI.storage.local.clear(() => {
-        updateStorage({
-          sites: {},
-          totalTime: 0,
-          history: {},
-          settings: {
-            idleTime: 5,
-            dailyLimit: 8,
-            showNotifications: true,
-            enableBlocking: false
-          },
-          blockedSites: []
+      // Clear tracking data and preferences, but keep the user signed in
+      const keysToKeep = ['authToken', 'userInfo', 'freeMode', 'deviceId'];
+      browserAPI.storage.local.get(keysToKeep, (kept: Record<string, unknown>) => {
+        browserAPI.storage.local.clear(() => {
+          browserAPI.storage.local.set(kept, () => {
+            updateStorage({
+              sites: {},
+              totalTime: 0,
+              history: {},
+              settings: {
+                idleTime: 5,
+                dailyLimit: 8,
+                showNotifications: true,
+                enableBlocking: false
+              },
+              blockedSites: []
+            });
+            setLocalBlockedSites([]);
+            // Remove the network rules too, or sites stay blocked with an empty list
+            updateBlockingRules([], false);
+          });
         });
       });
     }

@@ -41,6 +41,7 @@ export interface StorageData {
   history: HistoryData;
   settings: Settings;
   blockedSites: string[];
+  blockingEnabled?: boolean;
   authToken?: string | boolean | null;
   userInfo?: UserInfo | null;
   freeMode: boolean;

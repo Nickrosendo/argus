@@ -24,7 +24,7 @@ const App: React.FC = () => {
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
 
   const { data: storageData, loading, updateStorage } = useBrowserStorage(
-    ["sites", "totalTime", "history", "settings", "userInfo", "authToken", "freeMode"],
+    ["sites", "totalTime", "history", "settings", "blockedSites", "blockingEnabled", "userInfo", "authToken", "freeMode"],
     {
       sites: {},
       totalTime: 0,
@@ -226,7 +226,10 @@ const App: React.FC = () => {
 
     // Cleanup timeout on unmount
     return () => clearTimeout(timeoutId);
-  }, [loading, storageData]);
+    // Re-run only when the signed-in account changes. Depending on the whole
+    // storageData object would re-run this (and its API call) on every storage
+    // write, including the write this effect makes itself.
+  }, [loading, storageData?.authToken, (storageData?.userInfo as UserInfo | null)?.email]);
 
   // Check which tabs are restricted when free mode changes
   useEffect(() => {

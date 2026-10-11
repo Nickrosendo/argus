@@ -6,6 +6,7 @@ import authService from "./services/AuthService";
 import apiService from "./services/ApiService";
 import freeService from "./services/FreeService";
 import { SocialAuthService } from './services/SocialAuthService.js';
+import { claimElapsedTime, pruneHistory } from './services/trackingUtils.js';
 
 // Constants
 const ALARM_NAME = "update-tracker";
@@ -29,7 +30,7 @@ let isAuthenticated = false;
 let isFreeMode = false;
 let lastSyncTime = 0;
 let realTimeUpdateTimer = null;
-let updateCounter = 0; // Track number of updates for debugging
+let storageWriteQueue = Promise.resolve(); // Serializes read-modify-write of tracking data
 
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
@@ -106,34 +107,23 @@ console.log("Argus background service worker starting up...");
 async function initializeExtension() {
   console.log("Initializing Argus extension...");
   
-  // Remove any existing alarms to prevent duplicates
-  await browserApiService.clearAlarm(ALARM_NAME);
-  await browserApiService.clearAlarm(TEMP_UNBLOCK_CHECK_ALARM);
-  await browserApiService.clearAlarm(API_SYNC_ALARM);
-  console.log("Cleared existing alarms");
-
-  // Create alarms
-  browserApiService.createAlarm(ALARM_NAME, {
+  // Create the periodic alarms only if they are missing. Alarms survive
+  // service worker restarts, and recreating them would reset their schedule.
+  await ensureAlarm(ALARM_NAME, {
     periodInMinutes: UPDATE_INTERVAL,
     delayInMinutes: 0.02, // Start very quickly after initialization (1.2 seconds)
   });
 
-  browserApiService.createAlarm(TEMP_UNBLOCK_CHECK_ALARM, {
+  await ensureAlarm(TEMP_UNBLOCK_CHECK_ALARM, {
     periodInMinutes: 1,
     delayInMinutes: 1,
   });
 
-  browserApiService.createAlarm(API_SYNC_ALARM, {
+  await ensureAlarm(API_SYNC_ALARM, {
     periodInMinutes: API_SYNC_INTERVAL,
     delayInMinutes: 1,
   });
 
-  console.log("Alarms created for periodic updates and checks");
-
-  // Start real-time tracking
-  startRealTimeTracking();
-
-  console.log("Real-time tracking started");
   console.log("Initializing browser storage and state...");
 
   // Initialize storage if needed
@@ -147,8 +137,6 @@ async function initializeExtension() {
     "lastSyncTime",
     "freeMode",
   ]);
-
-  console.log('Storage initialized with initial state:', result);
 
   // Initialize storage values if not set
   if (!result.sites) {
@@ -188,19 +176,6 @@ async function initializeExtension() {
   // Check authentication status
   isAuthenticated = await authService.isAuthenticated();
 
-  // Set up listeners and handlers
-  browserApiService.addIdleStateListener(checkIdleState, IDLE_THRESHOLD);
-  browserApiService.addAlarmListener(handleAlarm);
-  browserApiService.addTabActivatedListener(handleTabActivated);
-  browserApiService.addTabUpdatedListener(handleTabUpdated);
-
-  // Add window focus listeners to handle browser window switching
-  browserApiService.addWindowFocusListener(handleWindowFocus);
-
-  // Add web navigation listeners for blocking checks
-  browserApiService.addWebNavigationListener(handleBeforeNavigate);
-  // browserApiService.addWebNavigationCommittedListener(handleNavigationCommitted);
-
   // Get the current active tab immediately and start tracking
   await getCurrentActiveTab();
   
@@ -211,381 +186,382 @@ async function initializeExtension() {
     lastActiveTime = Date.now();
   }
 
-  // Set up message listener
-  browserApiService.addRuntimeMessageListener(
-    (message, sender, sendResponse) => {
-      if (message.action === "updateBlockedSites") {
-        // Handle updating blocked sites
-        try {
-          console.log("Updating blocked sites from storage");
-          
-          // Get current sites and settings from storage
-          browserApiService.getStorage(['blockedSites', 'blockingEnabled', 'settings'])
-            .then(async (result) => {
-              const sites = result.blockedSites || [];
-              // Check both blockingEnabled and settings.enableBlocking for compatibility
-              const isBlockingEnabled = result.blockingEnabled || result.settings?.enableBlocking || false;
-              
-              console.log("Retrieved from storage:", { sites, isBlockingEnabled });
-              
-              // Update the declarative net request rules
-              await browserApiService.updateBlockedSites(sites, isBlockingEnabled);
-              sendResponse({ success: true });
-            })
-            .catch((error) => {
-              console.error("Error updating blocked sites:", error);
-              sendResponse({ success: false, error: error.message });
-            });
-        } catch (error) {
-          console.error("Error in updateBlockedSites:", error);
-          sendResponse({ success: false, error: error.message });
-        }
-      } else if (message.action === "updateTemporaryUnblocks") {
-        handleTemporaryUnblock(message.domain, message.expirationTime)
-          .then(() => {
-            sendResponse({ success: true });
-          })
-          .catch((error) => {
-            console.error("Error updating temporary unblocks:", error);
-            sendResponse({ success: false, error: error.message });
-          });
-      } else if (message.action === "openBlocklistSettings") {
-        browserApiService
-          .createTab(browserApiService.getExtensionUrl("popup.html"))
-          .then((popup) => {
-            // Add a small delay to make sure the popup is loaded
-            setTimeout(() => {
-              browserApiService.runtime.sendMessage({
-                action: "openSettingsTab",
-              });
-            }, 500);
-            sendResponse({ success: true });
-          })
-          .catch((error) => {
-            console.error("Error opening blocklist settings:", error);
-            sendResponse({ success: false, error: error.message });
-          });
-      } else if (message.action === "syncWithApi") {
-        // Check if this is a manual sync request (user-initiated)
-        const isManualSync = message.manual === true;
-        
-        syncDataWithApi(isManualSync)
-          .then(() => {
-            sendResponse({ success: true });
-          })
-          .catch((error) => {
-            console.error("Error syncing with api:", error);
-            sendResponse({ success: false, error: error.message });
-          });
-      } else if (message.action === "checkAuthentication") {
-        authService
-          .isAuthenticated()
-          .then((isAuthenticated) => {
-            sendResponse({ success: true, isAuthenticated });
-          })
-          .catch((error) => {
-            console.error("Error checking authentication:", error);
-            sendResponse({ success: false, error: error.message });
-          });
-      } else if (message.action === "checkFreeMode") {
-        freeService
-          .isFreeMode()
-          .then((isFreeMode) => {
-            sendResponse({ success: true, isFreeMode });
-          })
-          .catch((error) => {
-            console.error("Error checking free mode:", error);
-            sendResponse({ success: false, error: error.message });
-          });
-      } else if (message.action === "trackKeyAction") {
-        freeService
-          .trackKeyAction()
-          .then((shouldShowAd) => {
-            sendResponse({ success: true, shouldShowAd });
-          })
-          .catch((error) => {
-            console.error("Error tracking key action:", error);
-            sendResponse({ success: false, error: error.message });
-          });
-      } else if (message.action === "getTrackingStatus") {
-        // Return current tracking status for debugging
-        const status = {
-          isTracking,
-          hasCurrentTab: !!currentTab,
-          currentDomain: currentTab?.domain || null,
-          hasRealTimeTimer: !!realTimeUpdateTimer,
-          lastActiveTime: new Date(lastActiveTime).toLocaleTimeString(),
-          isAuthenticated,
-          isFreeMode
-        };
-        sendResponse({ success: true, status });
-      } else if (message.action === "checkUrlBlocked") {
-        // Check if a specific URL is blocked
-        isUrlBlocked(message.url)
-          .then((isBlocked) => {
-            sendResponse({ success: true, isBlocked });
-          })
-          .catch((error) => {
-            console.error("Error checking URL blocked status:", error);
-            sendResponse({ success: false, error: error.message });
-          });
-      } else if (message.action === "getBlockedAttempts") {
-        // Get blocked attempts for analytics
-        browserApiService.getStorage(['blockedAttempts'])
-          .then((result) => {
-            sendResponse({ success: true, blockedAttempts: result.blockedAttempts || {} });
-          })
-          .catch((error) => {
-            console.error("Error getting blocked attempts:", error);
-            sendResponse({ success: false, error: error.message });
-          });
-      } else if (message.action === "signin") {
-        try {
-          const { username, password } = message;
-          authService
-            .signin(username, password)
-            .then(async (response) => {
-              // Update authentication state
-              isAuthenticated = true;
-              isFreeMode = response.type === "free";
-
-              // Store user info in browser storage
-              await browserApiService.setStorage({
-                authToken: response.accessToken,
-                userInfo: {
-                  id: response.user.id,
-                  email: response.user.email,
-                  name: response.user.name || response.user.username,
-                  username: response.user.username,
-                },
-                freeMode: false,
-              });
-
-              // Start API sync
-              await syncDataWithApi();
-
-              sendResponse({
-                success: true,
-                data: {
-                  token: response.accessToken,
-                  user: {
-                    id: response.user.id,
-                    email: response.user.email,
-                    name: response.user.name || response.user.username,
-                  },
-                },
-              });
-            })
-            .catch((error) => {
-              console.error("Error on signin:", error);
-              sendResponse({ success: false, error: error.message });
-            });
-        } catch (error) {
-          console.error("Signin error:", error);
-          sendResponse({
-            success: false,
-            error: error.message || "Failed to sign in",
-          });
-        }
-      } else if (message.action === "signup") {
-        try {
-          const { username, password, email } = message;
-          authService
-            .signup(username, password, email)
-            .then(async (response) => {
-              // Update authentication state
-              isAuthenticated = true;
-              isFreeMode = response.type === "free";
-
-              // Store user info in browser storage
-              await browserApiService.setStorage({
-                authToken: response.accessToken,
-                userInfo: {
-                  id: response.user.id,
-                  email: response.user.email,
-                  name: response.user.name || response.user.username,
-                  username: response.user.username,
-                },
-                freeMode: isFreeMode,
-              });
-
-              // Start API sync
-              await syncDataWithApi();
-
-              return sendResponse({
-                success: true,
-                data: {
-                  token: response.accessToken,
-                  user: {
-                    id: response.user.id,
-                    email: response.user.email,
-                    name: response.user.name || response.user.username,
-                  },
-                },
-              });
-            })
-            .catch((error) => {
-              console.error("Error on signup:", error);
-              sendResponse({ success: false, error: error.message });
-            });
-        } catch (error) {
-          console.error("Signup error:", error);
-          sendResponse({
-            success: false,
-            error: error.message || "Failed to sign up",
-          });
-        }
-      } else if (message.action === "signout") {
-        try {
-          authService
-            .signout()
-            .then(async () => {
-              // Update authentication state
-              isAuthenticated = false;
-              isFreeMode = true;
-
-              // Clear user info from browser storage
-              await browserApiService.setStorage({
-                authToken: null,
-                userInfo: null,
-                freeMode: true,
-              });
-
-              sendResponse({ success: true });
-            })
-            .catch((error) => {
-              console.error("Error on signout:", error);
-              sendResponse({ success: false, error: error.message });
-            });
-        } catch (error) {
-          console.error("Signout error:", error);
-          sendResponse({
-            success: false,
-            error: error.message || "Failed to sign out",
-          });
-        }
-      } else if (message.action === "socialAuth") {
-        try {
-          const { provider } = message;
-          console.log(`Starting ${provider} social authentication...`);
-          
-          SocialAuthService.loginWithProvider(provider)
-            .then(async (socialResponse) => {
-              console.log(`${provider} auth successful with response: `, socialResponse);
-              
-              // Call our API with the social auth data
-              const response = await fetch(`${authService.API_BASE_URL}/auth/social`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  provider: socialResponse.provider,
-                  providerId: socialResponse.user.id,
-                  accessToken: socialResponse.authToken,
-                  email: socialResponse.user.email,
-                  name: socialResponse.user.name,
-                  picture: socialResponse.user.picture
-                }),
-              });
-
-              if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `${provider} authentication failed`);
-              }
-
-              const backendResponse = await response.json();
-              
-              // Update authentication state
-              isAuthenticated = true;
-              
-              // Check subscription status to determine if user is premium
-              let isPremium = false;
-              let updatedUserInfo = {
-                id: backendResponse.user.id,
-                email: backendResponse.user.email,
-                name: backendResponse.user.name,
-                picture: backendResponse.user.picture,
-                username: backendResponse.user.username,
-              };
-              
-              try {
-                const subscriptionData = await freeService.checkSubscriptionStatus(backendResponse.accessToken);
-                isPremium = subscriptionData.userType === 'premium';
-                
-                // Update user info with subscription data
-                updatedUserInfo = {
-                  ...updatedUserInfo,
-                  type: subscriptionData.userType,
-                  subscriptionStatus: subscriptionData.subscriptionStatus
-                };
-                
-                console.log("Social auth subscription check result:", subscriptionData);
-              } catch (error) {
-                console.error("Failed to check subscription status during social auth:", error);
-                // Default to free mode if subscription check fails
-                updatedUserInfo = {
-                  ...updatedUserInfo,
-                  type: 'free'
-                };
-              }
-              
-              isFreeMode = !isPremium;
-
-              // Store user info in browser storage
-              await browserApiService.setStorage({
-                authToken: backendResponse.accessToken,
-                userInfo: updatedUserInfo,
-                freeMode: !isPremium,
-              });
-
-              // Start API sync
-              await syncDataWithApi();
-
-              sendResponse({
-                success: true,
-                data: {
-                  token: backendResponse.accessToken,
-                  user: updatedUserInfo,
-                },
-              });
-            })
-            .catch((error) => {
-              console.error(`${provider} authentication error:`, error);
-              sendResponse({ 
-                success: false, 
-                error: error.message || `${provider} authentication failed` 
-              });
-            });
-        } catch (error) {
-          console.error("Social auth error:", error);
-          sendResponse({
-            success: false,
-            error: error.message || "Social authentication failed",
-          });
-        }
-      }
-      return true; // Required for async sendResponse
-    }
-  );
-
-  // Do an initial sync with the API if authenticated
-  if (isAuthenticated) {
-    await syncDataWithApi();
-  }
-
   // Initialize network blocking rules
   console.log("Initializing network blocking rules...");
   await updateBlockedSites();
 
-  // Initialize website blocking listeners
-  console.log("Website blocking system initialized successfully");
+  // Start real-time tracking once state is loaded
+  startRealTimeTracking();
+
+  console.log("Argus background initialized");
 }
-initializeExtension()
+
+// Create an alarm unless one with this name already exists
+async function ensureAlarm(name, alarmInfo) {
+  const existing = await browserAPI.alarms.get(name);
+  if (!existing) {
+    browserApiService.createAlarm(name, alarmInfo);
+  }
+}
+
+// The id of the focused browser window, or null when the browser is not focused
+async function getFocusedWindowId() {
+  try {
+    const win = await browserAPI.windows.getLastFocused();
+    return win && win.focused ? win.id : null;
+  } catch (error) {
+    console.error("Error querying focused window:", error);
+    return null;
+  }
+}
+
+// Handle messages from the popup, blocked page and content scripts
+function handleCoreMessage(message, sender, sendResponse) {
+  if (message.action === "updateBlockedSites") {
+    updateBlockedSites()
+      .then(() => {
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("Error updating blocked sites:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "updateTemporaryUnblocks") {
+    handleTemporaryUnblock(message.domain, message.expirationTime)
+      .then(() => {
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("Error updating temporary unblocks:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "openBlocklistSettings") {
+    browserApiService
+      .createTab(browserApiService.getExtensionUrl("popup.html"))
+      .then((popup) => {
+        // Add a small delay to make sure the popup is loaded
+        setTimeout(() => {
+          browserApiService.runtime.sendMessage({
+            action: "openSettingsTab",
+          });
+        }, 500);
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("Error opening blocklist settings:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "syncWithApi") {
+    // Check if this is a manual sync request (user-initiated)
+    const isManualSync = message.manual === true;
+    
+    syncDataWithApi(isManualSync)
+      .then(() => {
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("Error syncing with api:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "checkAuthentication") {
+    authService
+      .isAuthenticated()
+      .then((isAuthenticated) => {
+        sendResponse({ success: true, isAuthenticated });
+      })
+      .catch((error) => {
+        console.error("Error checking authentication:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "checkFreeMode") {
+    freeService
+      .isFreeMode()
+      .then((isFreeMode) => {
+        sendResponse({ success: true, isFreeMode });
+      })
+      .catch((error) => {
+        console.error("Error checking free mode:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "trackKeyAction") {
+    freeService
+      .trackKeyAction()
+      .then((shouldShowAd) => {
+        sendResponse({ success: true, shouldShowAd });
+      })
+      .catch((error) => {
+        console.error("Error tracking key action:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "getTrackingStatus") {
+    // Return current tracking status for debugging
+    const status = {
+      isTracking,
+      hasCurrentTab: !!currentTab,
+      currentDomain: currentTab?.domain || null,
+      hasRealTimeTimer: !!realTimeUpdateTimer,
+      lastActiveTime: new Date(lastActiveTime).toLocaleTimeString(),
+      isAuthenticated,
+      isFreeMode
+    };
+    sendResponse({ success: true, status });
+  } else if (message.action === "checkUrlBlocked") {
+    // Check if a specific URL is blocked
+    isUrlBlocked(message.url)
+      .then((isBlocked) => {
+        sendResponse({ success: true, isBlocked });
+      })
+      .catch((error) => {
+        console.error("Error checking URL blocked status:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "getBlockedAttempts") {
+    // Get blocked attempts for analytics
+    browserApiService.getStorage(['blockedAttempts'])
+      .then((result) => {
+        sendResponse({ success: true, blockedAttempts: result.blockedAttempts || {} });
+      })
+      .catch((error) => {
+        console.error("Error getting blocked attempts:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "signin") {
+    try {
+      const { username, password } = message;
+      authService
+        .signin(username, password)
+        .then(async (response) => {
+          // Update authentication state
+          isAuthenticated = true;
+          isFreeMode = response.type === "free";
+
+          // Store user info in browser storage
+          await browserApiService.setStorage({
+            authToken: response.accessToken,
+            userInfo: {
+              id: response.user.id,
+              email: response.user.email,
+              name: response.user.name || response.user.username,
+              username: response.user.username,
+            },
+            freeMode: false,
+          });
+
+          // Start API sync
+          await syncDataWithApi();
+
+          sendResponse({
+            success: true,
+            data: {
+              token: response.accessToken,
+              user: {
+                id: response.user.id,
+                email: response.user.email,
+                name: response.user.name || response.user.username,
+              },
+            },
+          });
+        })
+        .catch((error) => {
+          console.error("Error on signin:", error);
+          sendResponse({ success: false, error: error.message });
+        });
+    } catch (error) {
+      console.error("Signin error:", error);
+      sendResponse({
+        success: false,
+        error: error.message || "Failed to sign in",
+      });
+    }
+  } else if (message.action === "signup") {
+    try {
+      const { username, password, email } = message;
+      authService
+        .signup(username, password, email)
+        .then(async (response) => {
+          // Update authentication state
+          isAuthenticated = true;
+          isFreeMode = response.type === "free";
+
+          // Store user info in browser storage
+          await browserApiService.setStorage({
+            authToken: response.accessToken,
+            userInfo: {
+              id: response.user.id,
+              email: response.user.email,
+              name: response.user.name || response.user.username,
+              username: response.user.username,
+            },
+            freeMode: isFreeMode,
+          });
+
+          // Start API sync
+          await syncDataWithApi();
+
+          return sendResponse({
+            success: true,
+            data: {
+              token: response.accessToken,
+              user: {
+                id: response.user.id,
+                email: response.user.email,
+                name: response.user.name || response.user.username,
+              },
+            },
+          });
+        })
+        .catch((error) => {
+          console.error("Error on signup:", error);
+          sendResponse({ success: false, error: error.message });
+        });
+    } catch (error) {
+      console.error("Signup error:", error);
+      sendResponse({
+        success: false,
+        error: error.message || "Failed to sign up",
+      });
+    }
+  } else if (message.action === "signout") {
+    try {
+      authService
+        .signout()
+        .then(async () => {
+          // Update authentication state
+          isAuthenticated = false;
+          isFreeMode = true;
+
+          // Clear user info from browser storage
+          await browserApiService.setStorage({
+            authToken: null,
+            userInfo: null,
+            freeMode: true,
+          });
+
+          sendResponse({ success: true });
+        })
+        .catch((error) => {
+          console.error("Error on signout:", error);
+          sendResponse({ success: false, error: error.message });
+        });
+    } catch (error) {
+      console.error("Signout error:", error);
+      sendResponse({
+        success: false,
+        error: error.message || "Failed to sign out",
+      });
+    }
+  } else if (message.action === "socialAuth") {
+    try {
+      const { provider } = message;
+      console.log(`Starting ${provider} social authentication...`);
+      
+      SocialAuthService.loginWithProvider(provider)
+        .then(async (socialResponse) => {
+          console.log(`${provider} auth successful`);
+          
+          // Call our API with the social auth data
+          const response = await fetch(`${authService.API_BASE_URL}/auth/social`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              provider: socialResponse.provider,
+              providerId: socialResponse.user.id,
+              accessToken: socialResponse.authToken,
+              email: socialResponse.user.email,
+              name: socialResponse.user.name,
+              picture: socialResponse.user.picture
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `${provider} authentication failed`);
+          }
+
+          const backendResponse = await response.json();
+          
+          // Update authentication state
+          isAuthenticated = true;
+          
+          // Check subscription status to determine if user is premium
+          let isPremium = false;
+          let updatedUserInfo = {
+            id: backendResponse.user.id,
+            email: backendResponse.user.email,
+            name: backendResponse.user.name,
+            picture: backendResponse.user.picture,
+            username: backendResponse.user.username,
+          };
+          
+          try {
+            const subscriptionData = await freeService.checkSubscriptionStatus(backendResponse.accessToken);
+            isPremium = subscriptionData.userType === 'premium';
+            
+            // Update user info with subscription data
+            updatedUserInfo = {
+              ...updatedUserInfo,
+              type: subscriptionData.userType,
+              subscriptionStatus: subscriptionData.subscriptionStatus
+            };
+            
+            console.log("Social auth subscription check result:", subscriptionData);
+          } catch (error) {
+            console.error("Failed to check subscription status during social auth:", error);
+            // Default to free mode if subscription check fails
+            updatedUserInfo = {
+              ...updatedUserInfo,
+              type: 'free'
+            };
+          }
+          
+          isFreeMode = !isPremium;
+
+          // Store user info in browser storage
+          await browserApiService.setStorage({
+            authToken: backendResponse.accessToken,
+            userInfo: updatedUserInfo,
+            freeMode: !isPremium,
+          });
+
+          // Start API sync
+          await syncDataWithApi();
+
+          sendResponse({
+            success: true,
+            data: {
+              token: backendResponse.accessToken,
+              user: updatedUserInfo,
+            },
+          });
+        })
+        .catch((error) => {
+          console.error(`${provider} authentication error:`, error);
+          sendResponse({ 
+            success: false, 
+            error: error.message || `${provider} authentication failed` 
+          });
+        });
+    } catch (error) {
+      console.error("Social auth error:", error);
+      sendResponse({
+        success: false,
+        error: error.message || "Social authentication failed",
+      });
+    }
+  }
+}
 
 // Get the current active tab to initialize or recover tracking
 async function getCurrentActiveTab() {
   try {
+    // Nothing is being looked at while the browser is in the background
+    if ((await getFocusedWindowId()) === null) {
+      currentTab = null;
+      return;
+    }
+
     const tab = await browserApiService.getActiveTab();
     if (tab) {
       handleTabChange(tab);
@@ -623,14 +599,7 @@ async function checkAndResetForNewDay(lastDate) {
     const maxHistoryDays = isFreeMode ? 7 : 30;
 
     // Keep only the last X days of history
-    const historyDates = Object.keys(historicalData).sort();
-    if (historyDates.length > maxHistoryDays) {
-      const toRemove = historyDates.slice(
-        0,
-        historyDates.length - maxHistoryDays
-      );
-      toRemove.forEach((date) => delete historicalData[date]);
-    }
+    pruneHistory(historicalData, maxHistoryDays);
 
     // Reset today's data and update history
     await browserApiService.setStorage({
@@ -653,7 +622,8 @@ async function handleTabActivated(activeInfo) {
 
   try {
     const tab = await browserApiService.getTabById(activeInfo.tabId);
-    if (tab) {
+    // A tab activated in a background window is not what the user is looking at
+    if (tab && tab.windowId === (await getFocusedWindowId())) {
       handleTabChange(tab);
       // Ensure real-time tracking is active
       if (!realTimeUpdateTimer) {
@@ -684,6 +654,9 @@ async function handleTabUpdated(tabId, changeInfo, tab) {
       console.error("Error checking URL in tab update:", error);
     }
 
+    // Only the active tab of the focused window is tracked
+    if (tab.windowId !== (await getFocusedWindowId())) return;
+
     // Immediately update time for previous tab
     await updateTimeForCurrentTab();
     handleTabChange(tab);
@@ -709,6 +682,11 @@ function handleTabChange(tab) {
 
   try {
     const url = new URL(tab.url);
+    // Navigating within the same site is still the same visit
+    const sameVisit =
+      currentTab !== null &&
+      currentTab.domain === url.hostname &&
+      currentTab.visitCounted === true;
     currentTab = {
       id: tab.id,
       domain: url.hostname,
@@ -716,6 +694,7 @@ function handleTabChange(tab) {
       title: tab.title,
       favIconUrl: tab.favIconUrl,
       startTime: Date.now(),
+      visitCounted: sameVisit,
     };
     lastUpdateTime = Date.now();
   } catch (error) {
@@ -724,63 +703,72 @@ function handleTabChange(tab) {
   }
 }
 
-// Update time for the current tab before switching
-async function updateTimeForCurrentTab() {
-  if (!currentTab) return;
+// Credit the time spent on the current tab since the last update.
+// The elapsed time is claimed synchronously (the tab's clock restarts in the
+// same step), so the timer, the alarm and tab events can all call this without
+// counting an interval twice. Storage writes are queued to avoid lost updates.
+function updateTimeForCurrentTab() {
+  if (!currentTab) return storageWriteQueue;
 
+  const tab = currentTab;
   const now = Date.now();
-  const timeSpent = now - currentTab.startTime;
+  const timeSpent = claimElapsedTime(tab, now, MAX_INACTIVE_TIME);
 
-  // Verify the time spent is reasonable (less than MAX_INACTIVE_TIME)
-  // This prevents unrealistic time increments if the browser was suspended
-  const validTimeSpent =
-    timeSpent > 0 && timeSpent < MAX_INACTIVE_TIME ? timeSpent : 0;
+  if (timeSpent <= 0) return storageWriteQueue;
 
-  if (validTimeSpent > 500) {
-    // Reduced threshold to 0.5 seconds for more real-time tracking
-    try {
-      const result = await browserApiService.getStorage(["sites", "totalTime"]);
+  const isNewVisit = !tab.visitCounted;
+  tab.visitCounted = true;
 
-      if (!currentTab) return;
-      const sites = result.sites || {};
-      const domain = currentTab.domain;
+  storageWriteQueue = storageWriteQueue
+    .then(() => recordTime(tab, timeSpent, isNewVisit, now))
+    .catch((error) => console.error("Error updating time:", error));
 
-      // Update site data
-      if (!sites[domain]) {
-        sites[domain] = {
-          totalTime: 0,
-          visits: 0,
-          favicon: currentTab.favIconUrl,
-          title: currentTab.title,
-        };
-      }
+  return storageWriteQueue;
+}
 
-      sites[domain].totalTime += validTimeSpent;
-      sites[domain].visits += 1;
-      sites[domain].lastVisit = now;
+// Add time for a tab to today's totals in storage
+async function recordTime(tab, timeSpent, isNewVisit, now) {
+  let result = await browserApiService.getStorage([
+    "sites",
+    "totalTime",
+    "lastDate",
+  ]);
 
-      // Update total time
-      const totalTime = (result.totalTime || 0) + validTimeSpent;
+  // Archive the previous day first if midnight has passed since the last write
+  if (result.lastDate && result.lastDate !== new Date(now).toDateString()) {
+    await checkAndResetForNewDay(result.lastDate);
+    await checkAndResetUnblockData();
+    result = await browserApiService.getStorage(["sites", "totalTime"]);
+  }
 
-      await browserApiService.setStorage({
-        sites: sites,
-        totalTime: totalTime,
-      });
+  const sites = result.sites || {};
+  const domain = tab.domain;
 
-      // Log the update for debugging real-time tracking (every 10th update or significant time)
-      updateCounter++;
-      if (updateCounter % 10 === 0 || validTimeSpent > 10000) {
-        console.log(`Update #${updateCounter} - ${domain}: +${Math.round(validTimeSpent/1000)}s (Total: ${Math.round(sites[domain].totalTime/1000)}s)`);
-      }
+  // Update site data
+  if (!sites[domain]) {
+    sites[domain] = {
+      totalTime: 0,
+      visits: 0,
+      favicon: tab.favIconUrl,
+      title: tab.title,
+    };
+  }
 
-      // If we're authenticated and it's been a while since our last sync,
-      if (isAuthenticated && now - lastSyncTime > 5 * 60 * 1000) {
-        // Sync after 5 minutes
-        syncDataWithApi();
-      }
-    } catch (error) {
-      console.error("Error updating time:", error);
-    }
+  sites[domain].totalTime += timeSpent;
+  if (isNewVisit) {
+    sites[domain].visits += 1;
+  }
+  sites[domain].lastVisit = now;
+
+  await browserApiService.setStorage({
+    sites: sites,
+    totalTime: (result.totalTime || 0) + timeSpent,
+  });
+
+  // If we're authenticated and it's been a while since our last sync,
+  if (isAuthenticated && now - lastSyncTime > 5 * 60 * 1000) {
+    // Sync after 5 minutes
+    syncDataWithApi();
   }
 }
 
@@ -857,17 +845,19 @@ async function updateBlockedSites() {
   const result = await browserApiService.getStorage([
     "blockingEnabled",
     "blockedSites",
+    "settings",
     "freeMode",
   ]);
-  const blockingEnabled = result.blockingEnabled || false;
+  // Check both blockingEnabled and settings.enableBlocking for compatibility
+  const blockingEnabled =
+    result.blockingEnabled || result.settings?.enableBlocking || false;
   let blockedSites = result.blockedSites || [];
   const isFreeMode = result.freeMode === true;
 
-  // In free mode, limit the number of blocked sites
+  // In free mode only the first few sites are enforced. The stored list is
+  // left intact so nothing is lost if the account is premium again later.
   if (isFreeMode && blockedSites.length > FREE_MODE_MAX_BLOCKED_SITES) {
-    // Keep only the first few sites
     blockedSites = blockedSites.slice(0, FREE_MODE_MAX_BLOCKED_SITES);
-    await browserApiService.setStorage({ blockedSites });
   }
 
   // Filter out temporarily unblocked sites for the network rules
@@ -1011,10 +1001,6 @@ function startRealTimeTracking() {
       const idleState = await browserApiService.getIdleState();
       if (idleState === "active") {
         await updateTimeForCurrentTab();
-        // Reset the current tab's start time to continue tracking from now
-        if (currentTab) {
-          currentTab.startTime = Date.now();
-        }
       } else {
         // If user becomes idle during real-time tracking, handle it
         console.log("User became idle during real-time tracking, pausing");
@@ -1046,6 +1032,8 @@ async function handleWindowFocus(focused) {
       isTracking = true;
       lastActiveTime = Date.now();
     }
+    // Credit the tab of the window we are leaving before switching
+    await updateTimeForCurrentTab();
     await getCurrentActiveTab();
     
     // Ensure real-time tracking is active
@@ -1053,11 +1041,12 @@ async function handleWindowFocus(focused) {
       startRealTimeTracking();
     }
   } else {
-    console.log("Browser window lost focus, reducing tracking frequency");
-    // Don't stop tracking completely, just reduce frequency
-    // The real-time updates will be paused but basic tracking continues
-    await updateTimeForCurrentTab();
+    // Credit the time up to now, then stop attributing time to any tab until
+    // the browser is focused again
+    const flushed = updateTimeForCurrentTab();
+    currentTab = null;
     stopRealTimeTracking();
+    await flushed;
   }
 }
 
@@ -1158,7 +1147,6 @@ async function isUrlBlocked(url) {
     ]);
 
     console.log('Checking if URL is blocked:', url);
-    console.log('Storage result for blocking:', result);
     
     const blockingEnabled = result.blockingEnabled || false;
     const blockedSites = result.blockedSites || [];
@@ -1462,10 +1450,6 @@ async function getStoredAuthToken() {
     browserAPI.storage.local.get(['authToken'], (result) => {
       const token = result.authToken || null;
       console.log('Auth token found:', !!token);
-      if (token) {
-        console.log('Token length:', token.length);
-        console.log('Token preview:', token.substring(0, 20) + '...');
-      }
       resolve(token);
     });
   });
@@ -1504,46 +1488,76 @@ async function updateLocalUserState(subscriptionData) {
   });
 }
 
+// Actions handled by handleCoreMessage
+const CORE_ACTIONS = new Set([
+  'updateBlockedSites',
+  'updateTemporaryUnblocks',
+  'openBlocklistSettings',
+  'syncWithApi',
+  'checkAuthentication',
+  'checkFreeMode',
+  'trackKeyAction',
+  'getTrackingStatus',
+  'checkUrlBlocked',
+  'getBlockedAttempts',
+  'signin',
+  'signup',
+  'signout',
+  'socialAuth',
+]);
+
+// Startup. Every listener below is registered synchronously, in the same turn
+// the service worker starts: the browser only delivers the event that woke
+// the worker to listeners that exist by then. Handlers wait for `ready` so
+// they never run against state that has not been loaded yet.
+const ready = initializeExtension().catch((error) => {
+  console.error('Error initializing Argus:', error);
+});
+
+const whenReady = (handler) => async (...args) => {
+  await ready;
+  return handler(...args);
+};
+
+browserApiService.addIdleStateListener(whenReady(checkIdleState), IDLE_THRESHOLD);
+browserApiService.addAlarmListener(whenReady(handleAlarm));
+browserApiService.addTabActivatedListener(whenReady(handleTabActivated));
+browserApiService.addTabUpdatedListener(whenReady(handleTabUpdated));
+
+// Add window focus listeners to handle browser window switching
+browserApiService.addWindowFocusListener(whenReady(handleWindowFocus));
+
+// Add web navigation listeners for blocking checks
+browserApiService.addWebNavigationListener(whenReady(handleBeforeNavigate));
+
 // Message handler
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('=== Background Script Received Message ===');
-  console.log('Request:', request);
-  console.log('Sender:', sender);
-  console.log('Sender tab:', sender.tab);
-  console.log('Message action:', request.action);
+  if (CORE_ACTIONS.has(request.action)) {
+    ready.then(() => handleCoreMessage(request, sender, sendResponse));
+    return true; // Indicates we will send a response asynchronously
+  }
 
   switch (request.action) {
     case 'createCheckoutSession':
       handleCreateCheckoutSession(request, sendResponse);
-      return true; // Indicates we will send a response asynchronously
-    
+      return true;
+
     case 'verifyPayment':
       handleVerifyPayment(request, sendResponse);
       return true;
-    
+
     case 'logPaymentCancellation':
       handleLogPaymentCancellation(request, sendResponse);
       return true;
-    
+
     case 'initiatePayment':
       handleInitiatePayment(sendResponse);
       return true;
-    
+
     case 'setFreeMode':
       handleSetFreeMode(request, sendResponse);
       return true;
-    
-    case 'syncWithApi':
-      // Existing sync functionality
-      handleApiSync(request.manual || false)
-        .then(result => sendResponse({ success: true, result }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
-      return true;
 
-    case 'socialAuth':
-      return false;
-
-    
     default:
       console.log('Unknown action:', request.action);
       sendResponse({ success: false, error: 'Unknown action' });
