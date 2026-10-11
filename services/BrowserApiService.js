@@ -253,18 +253,27 @@ const BrowserApiService = {
   },
 
   /**
+   * Changes how long without input before the idle listener fires
+   * @param {number} detectionIntervalInSeconds Idle threshold in seconds (minimum 15)
+   */
+  setIdleDetectionInterval(detectionIntervalInSeconds) {
+    api.idle.setDetectionInterval(detectionIntervalInSeconds);
+  },
+
+  /**
    * Gets the current idle state
+   * @param {number} detectionIntervalInSeconds Idle threshold in seconds (minimum 15)
    * @returns {Promise<string>} The idle state ('active', 'idle', or 'locked')
    */
-  async getIdleState() {
+  async getIdleState(detectionIntervalInSeconds = 60) {
     try {
       if (typeof browser !== 'undefined') {
         // Firefox
-        return await browser.idle.queryState(30);
+        return await browser.idle.queryState(detectionIntervalInSeconds);
       } else {
         // Chrome
         return new Promise((resolve) => {
-          chrome.idle.queryState(30, (state) => {
+          chrome.idle.queryState(detectionIntervalInSeconds, (state) => {
             resolve(state);
           });
         });

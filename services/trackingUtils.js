@@ -44,3 +44,21 @@ export function pruneHistory(history, maxDays) {
 
   return history;
 }
+
+const DEFAULT_IDLE_MINUTES = 5;
+const MIN_IDLE_SECONDS = 15; // the smallest interval the browser idle API accepts
+
+/**
+ * How long without input before the user counts as idle, in seconds, from the
+ * "Consider idle after (minutes)" setting. Falls back to the default when the
+ * setting is missing or not a positive number.
+ *
+ * @param {{idleTime?: number}} [settings] The stored settings object
+ * @returns {number} Idle threshold in whole seconds
+ */
+export function getIdleThresholdSeconds(settings) {
+  const minutes = Number(settings && settings.idleTime);
+  const validMinutes = Number.isFinite(minutes) && minutes > 0 ? minutes : DEFAULT_IDLE_MINUTES;
+
+  return Math.max(MIN_IDLE_SECONDS, Math.round(validMinutes * 60));
+}

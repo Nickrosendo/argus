@@ -1,6 +1,10 @@
 // Time tracking: which tab is being looked at and how long for
 import browserApiService from "../services/BrowserApiService";
-import { claimElapsedTime, pruneHistory } from '../services/trackingUtils.js';
+import {
+  claimElapsedTime,
+  getIdleThresholdSeconds,
+  pruneHistory,
+} from '../services/trackingUtils.js';
 import {
   MAX_INACTIVE_TIME,
   REAL_TIME_UPDATE_INTERVAL,
@@ -270,6 +274,15 @@ export async function recordTime(tab, timeSpent, isNewVisit, now) {
   }
 }
 
+// Apply the user's "consider idle after" setting to idle detection
+export function applyIdleSetting(settings) {
+  const idleThreshold = getIdleThresholdSeconds(settings);
+  if (idleThreshold === state.idleThreshold) return;
+
+  state.idleThreshold = idleThreshold;
+  browserApiService.setIdleDetectionInterval(idleThreshold);
+}
+
 // Check if the user is idle and pause tracking if needed
 export async function checkIdleState(idleState) {
   if (idleState === "active") {
@@ -309,7 +322,7 @@ export async function updateTracker() {
   // If we're tracking and the user has been active recently, update the time
   if (state.isTracking) {
     // Check if browser is in idle state
-    const idleState = await browserApiService.getIdleState();
+    const idleState = await browserApiService.getIdleState(state.idleThreshold);
 
     if (idleState === "active") {
       // If we're active, update the time for the current tab
@@ -335,7 +348,7 @@ export function startRealTimeTracking() {
   state.realTimeUpdateTimer = setInterval(async () => {
     if (state.isTracking && state.currentTab) {
       // Only update if we have a current tab and we're actively tracking
-      const idleState = await browserApiService.getIdleState();
+      const idleState = await browserApiService.getIdleState(state.idleThreshold);
       if (idleState === "active") {
         await updateTimeForCurrentTab();
       } else {

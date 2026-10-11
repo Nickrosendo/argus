@@ -1,3 +1,5 @@
+import { getIdleThresholdSeconds } from '../services/trackingUtils.js';
+
 // Browser API compatibility
 export const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
@@ -11,6 +13,7 @@ export const state = {
   isFreeMode: false,
   lastSyncTime: 0,
   realTimeUpdateTimer: null,
+  idleThreshold: getIdleThresholdSeconds(), // seconds, from the user's idle setting
 };
 
 // The tracked tab and the tracking flag are mirrored to session storage so a

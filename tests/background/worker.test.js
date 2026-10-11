@@ -8,7 +8,7 @@
 const { setImmediate } = require('timers');
 
 const START = new Date('2025-07-21T10:00:00').getTime();
-const EVENTS = ['alarm', 'tabActivated', 'tabUpdated', 'focus', 'idle', 'message', 'beforeNavigate'];
+const EVENTS = ['alarm', 'tabActivated', 'tabUpdated', 'focus', 'idle', 'message', 'beforeNavigate', 'storageChanged'];
 
 // Let pending promise chains and storage callbacks run
 const flush = async () => {
@@ -25,6 +25,8 @@ function createFakeBrowser() {
     alarmCreates: 0,
     listeners: {},
     idleState: 'active',
+    idleDetectionInterval: null,
+    idleQueryIntervals: [],
     focusedWindow: { id: 1, focused: true },
     tabs: {
       10: { id: 10, windowId: 1, active: true, url: 'https://example.com/a', title: 'Example' },
@@ -59,6 +61,7 @@ function createFakeBrowser() {
         remove: (keys, callback) => later(callback),
         clear: (callback) => later(callback),
       },
+      onChanged: event('storageChanged'),
       session: {
         get: async (keys) => pick(fake.session, keys),
         set: async (data) => {
@@ -89,8 +92,13 @@ function createFakeBrowser() {
       onFocusChanged: event('focus'),
     },
     idle: {
-      setDetectionInterval: () => {},
-      queryState: (seconds, callback) => later(callback, fake.idleState),
+      setDetectionInterval: (seconds) => {
+        fake.idleDetectionInterval = seconds;
+      },
+      queryState: (seconds, callback) => {
+        fake.idleQueryIntervals.push(seconds);
+        return later(callback, fake.idleState);
+      },
       onStateChanged: event('idle'),
     },
     runtime: {
@@ -295,6 +303,57 @@ describe('background service worker', () => {
       expect(fake.local.history[yesterday].totalTime).toBe(5000);
       expect(fake.local.lastDate).toBe(new Date('2025-07-22T00:00:06').toDateString());
       expect(totalTime()).toBe(5000);
+    });
+  });
+
+  describe('idle threshold setting', () => {
+    const lastQueryInterval = () => fake.idleQueryIntervals[fake.idleQueryIntervals.length - 1];
+
+    it('uses five minutes when nothing is stored', async () => {
+      await startWorker();
+      await advance(5000);
+
+      expect(fake.idleDetectionInterval).toBe(300);
+      expect(lastQueryInterval()).toBe(300);
+    });
+
+    it('uses the stored "consider idle after" setting, in minutes', async () => {
+      fake.local.settings = { idleTime: 2 };
+
+      await startWorker();
+      await advance(5000);
+
+      expect(fake.idleDetectionInterval).toBe(120);
+      expect(lastQueryInterval()).toBe(120);
+    });
+
+    it('applies a changed setting without a restart', async () => {
+      fake.local.settings = { idleTime: 2 };
+      await startWorker();
+
+      await emit('storageChanged', { settings: { newValue: { idleTime: 10 } } }, 'local');
+      await advance(5000);
+
+      expect(fake.idleDetectionInterval).toBe(600);
+      expect(lastQueryInterval()).toBe(600);
+    });
+
+    it('ignores changes to other storage areas and keys', async () => {
+      fake.local.settings = { idleTime: 2 };
+      await startWorker();
+
+      await emit('storageChanged', { settings: { newValue: { idleTime: 10 } } }, 'session');
+      await emit('storageChanged', { sites: { newValue: {} } }, 'local');
+
+      expect(fake.idleDetectionInterval).toBe(120);
+    });
+
+    it('falls back to five minutes for an unusable stored value', async () => {
+      fake.local.settings = { idleTime: null };
+
+      await startWorker();
+
+      expect(fake.idleDetectionInterval).toBe(300);
     });
   });
 

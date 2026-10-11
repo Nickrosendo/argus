@@ -1,7 +1,6 @@
 // Constants shared by the background modules
 export const ALARM_NAME = "update-tracker";
 export const UPDATE_INTERVAL = 0.25; // minutes; browsers clamp alarm periods to 30 seconds
-export const IDLE_THRESHOLD = 30; // seconds
 export const MAX_INACTIVE_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
 export const TEMP_UNBLOCK_CHECK_ALARM = "check-temp-unblocks";
 export const API_SYNC_ALARM = "api-sync";

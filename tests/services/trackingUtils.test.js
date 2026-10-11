@@ -1,4 +1,4 @@
-import { claimElapsedTime, pruneHistory } from '../../services/trackingUtils';
+import { claimElapsedTime, getIdleThresholdSeconds, pruneHistory } from '../../services/trackingUtils';
 
 const MAX_INACTIVE = 5 * 60 * 1000;
 
@@ -81,6 +81,27 @@ describe('trackingUtils', () => {
       pruneHistory(history, 7);
 
       expect(Object.keys(history)).toHaveLength(2);
+    });
+  });
+
+  describe('getIdleThresholdSeconds', () => {
+    it('should convert the setting from minutes to seconds', () => {
+      expect(getIdleThresholdSeconds({ idleTime: 5 })).toBe(300);
+      expect(getIdleThresholdSeconds({ idleTime: 1 })).toBe(60);
+      expect(getIdleThresholdSeconds({ idleTime: 60 })).toBe(3600);
+    });
+
+    it('should default to five minutes when the setting is missing or unusable', () => {
+      expect(getIdleThresholdSeconds()).toBe(300);
+      expect(getIdleThresholdSeconds({})).toBe(300);
+      expect(getIdleThresholdSeconds({ idleTime: NaN })).toBe(300);
+      expect(getIdleThresholdSeconds({ idleTime: 0 })).toBe(300);
+      expect(getIdleThresholdSeconds({ idleTime: -3 })).toBe(300);
+      expect(getIdleThresholdSeconds({ idleTime: null })).toBe(300);
+    });
+
+    it('should never go below the 15 seconds the browser accepts', () => {
+      expect(getIdleThresholdSeconds({ idleTime: 0.1 })).toBe(15);
     });
   });
 });

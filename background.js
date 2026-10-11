@@ -4,7 +4,6 @@ import authService from "./services/AuthService";
 import {
   ALARM_NAME,
   UPDATE_INTERVAL,
-  IDLE_THRESHOLD,
   TEMP_UNBLOCK_CHECK_ALARM,
   API_SYNC_ALARM,
   API_SYNC_INTERVAL,
@@ -16,6 +15,7 @@ import {
   setTracking,
 } from './background/state.js';
 import {
+  applyIdleSetting,
   reconcileActiveTab,
   checkAndResetForNewDay,
   handleTabActivated,
@@ -76,6 +76,7 @@ async function initializeExtension() {
     "lastSyncTime",
     "freeMode",
     "authToken",
+    "settings",
   ]);
 
   // Initialize storage values if not set
@@ -104,6 +105,9 @@ async function initializeExtension() {
     state.temporaryUnblocks = result.unblockData.temporaryUnblocks;
   }
 
+  // Use the idle threshold the user chose in Settings
+  applyIdleSetting(result.settings);
+
   // Check free mode status
   state.isFreeMode = result.freeMode === true;
 
@@ -130,7 +134,7 @@ async function initializeExtension() {
   await restoreTrackingState();
   const wasTracking = state.isTracking;
 
-  const idleState = await browserApiService.getIdleState();
+  const idleState = await browserApiService.getIdleState(state.idleThreshold);
   setTracking(idleState === "active");
 
   // The user came back while the worker was suspended: do not count the
@@ -185,7 +189,18 @@ const whenReady = (handler) => async (...args) => {
   return handler(...args);
 };
 
-browserApiService.addIdleStateListener(whenReady(checkIdleState), IDLE_THRESHOLD);
+// Registered with the default threshold; initialization and the settings
+// listener below switch it to the user's value
+browserApiService.addIdleStateListener(whenReady(checkIdleState), state.idleThreshold);
+
+// Pick up a changed idle setting without waiting for a restart
+browserAPI.storage.onChanged.addListener(
+  whenReady((changes, areaName) => {
+    if (areaName === 'local' && changes.settings) {
+      applyIdleSetting(changes.settings.newValue);
+    }
+  })
+);
 browserApiService.addAlarmListener(whenReady(handleAlarm));
 browserApiService.addTabActivatedListener(whenReady(handleTabActivated));
 browserApiService.addTabUpdatedListener(whenReady(handleTabUpdated));
