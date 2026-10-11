@@ -7,6 +7,8 @@ module.exports = {
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
     'background.js',
+    'background/**/*.js',
+    'services/**/*.js',
     'js/blocked.js',
     '!js/auth.js',
     '!js/error-handler.js',

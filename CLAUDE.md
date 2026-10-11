@@ -42,7 +42,13 @@ npm run sync-version   # Sync version across manifest files
 This is a cross-browser extension (Chrome/Firefox) built with **React 18** and **TypeScript**, following **Manifest V3** specifications. The architecture is service-worker based with React components for the UI.
 
 ### Core Components Structure
-- **Background Service Worker**: `background.js` - handles time tracking, alarms, and browser API interactions
+- **Background Service Worker**: `background.js` is the entry point (startup, alarms, listener registration); the logic lives in `background/`:
+  - `tracking.js` - which tab is being looked at and time accounting
+  - `blocking.js` - blocking rules, temporary unblocks, navigation checks
+  - `messages.js` - messages from the popup, blocked page and content scripts
+  - `payments.js`, `sync.js` - checkout messages and API upload
+  - `state.js` - shared in-memory state, mirrored to `chrome.storage.session` so a worker restart resumes tracking
+  - Register every listener synchronously at the top level of `background.js`; handlers wait on the `ready` promise
 - **React Popup UI**: `src/components/App.tsx` - main application with tab-based navigation
 - **Browser API Abstraction**: `services/BrowserApiService.js` - unified API for Chrome/Firefox differences
 - **Custom Hooks**: `src/hooks/` - `useBrowserStorage` and `useBrowserMessaging` for React-browser integration
@@ -83,7 +89,8 @@ This is a cross-browser extension (Chrome/Firefox) built with **React 18** and *
 ## Testing
 - **Jest** with jsdom environment
 - **React Testing Library** for component testing
-- **Coverage collection** from src/, background.js, and specific JS files
+- **Coverage collection** from src/, background.js, background/, services/, and specific JS files
+- `tests/background/worker.test.js` runs the real background worker against an in-memory fake browser API with a fake clock; extend it when changing tracking or blocking behaviour
 - **Setup file**: `tests/setup.js` for test configuration
 
 ## Environment Configuration

@@ -70,6 +70,12 @@ class AuthService {
       // Need to verify token with server
       console.log('AuthService: Verifying token with server...');
       const verified = await this.verifyToken(token);
+
+      if (verified === null) {
+        // Could not reach the server: keep the token and the previous answer,
+        // and check again next time instead of signing the user out
+        return this.authCache.isAuthenticated !== false;
+      }
       
       // Update cache
       this.authCache.isAuthenticated = verified;
@@ -226,10 +232,14 @@ class AuthService {
         },
       });
       
-      return response.ok;
+      if (response.ok) return true;
+      // Only an explicit rejection means the token is bad. A server error or
+      // rate limit says nothing about the token.
+      return response.status === 401 || response.status === 403 ? false : null;
     } catch (error) {
+      // Offline or the server is unreachable: unknown
       console.error('Token verification error:', error);
-      return false;
+      return null;
     }
   }
 
