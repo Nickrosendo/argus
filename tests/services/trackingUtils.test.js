@@ -1,4 +1,11 @@
-import { claimElapsedTime, getIdleThresholdSeconds, pruneHistory } from '../../services/trackingUtils';
+import {
+  addHourlyTime,
+  claimElapsedTime,
+  getIdleThresholdSeconds,
+  getTrackableDomain,
+  normalizeSites,
+  pruneHistory,
+} from '../../services/trackingUtils';
 
 const MAX_INACTIVE = 5 * 60 * 1000;
 
@@ -102,6 +109,64 @@ describe('trackingUtils', () => {
 
     it('should never go below the 15 seconds the browser accepts', () => {
       expect(getIdleThresholdSeconds({ idleTime: 0.1 })).toBe(15);
+    });
+  });
+
+  describe('getTrackableDomain', () => {
+    it('should return the hostname without a leading www', () => {
+      expect(getTrackableDomain('https://www.Example.com/page?x=1')).toBe('example.com');
+      expect(getTrackableDomain('http://m.youtube.com/watch')).toBe('m.youtube.com');
+      expect(getTrackableDomain('http://localhost:3000/')).toBe('localhost');
+    });
+
+    it('should return null for anything that is not a website', () => {
+      expect(getTrackableDomain('chrome://newtab/')).toBeNull();
+      expect(getTrackableDomain('chrome-extension://abc/popup.html')).toBeNull();
+      expect(getTrackableDomain('file:///tmp/a.html')).toBeNull();
+      expect(getTrackableDomain('about:blank')).toBeNull();
+      expect(getTrackableDomain('not a url')).toBeNull();
+      expect(getTrackableDomain('http://__proto__/')).toBeNull();
+    });
+  });
+
+  describe('normalizeSites', () => {
+    it('should add together entries that normalize to the same site', () => {
+      const result = normalizeSites({
+        'www.a.com': { totalTime: 100, visits: 1, lastVisit: 5 },
+        'a.com': { totalTime: 50, visits: 2, lastVisit: 9, favicon: 'f.ico' },
+      });
+
+      expect(result).toEqual({ 'a.com': { totalTime: 150, visits: 3, lastVisit: 9, favicon: 'f.ico' } });
+    });
+
+    it('should not modify its input and should cope with nothing', () => {
+      const sites = { 'www.a.com': { totalTime: 100 } };
+
+      normalizeSites(sites);
+
+      expect(sites).toEqual({ 'www.a.com': { totalTime: 100 } });
+      expect(normalizeSites(undefined)).toEqual({});
+    });
+  });
+
+  describe('addHourlyTime', () => {
+    it('should add to the bucket of the local hour and keep 24 buckets', () => {
+      const at = new Date(2025, 6, 21, 14, 30).getTime();
+
+      const hourly = addHourlyTime(undefined, at, 5000);
+      const again = addHourlyTime(hourly, at, 2000);
+
+      expect(hourly).toHaveLength(24);
+      expect(hourly[14]).toBe(5000);
+      expect(again[14]).toBe(7000);
+      expect(hourly[14]).toBe(5000);
+    });
+
+    it('should repair a missing or partial array', () => {
+      const at = new Date(2025, 6, 21, 3, 0).getTime();
+
+      expect(addHourlyTime([], at, 1000)[3]).toBe(1000);
+      expect(addHourlyTime([10, null, 'x'], at, 1000).slice(0, 4)).toEqual([10, 0, 0, 1000]);
     });
   });
 });

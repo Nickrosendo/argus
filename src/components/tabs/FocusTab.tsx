@@ -1,215 +1,175 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StorageData } from '../../types/storage';
-import { Shield, Clock, Play, Pause, RotateCcw } from 'lucide-react';
+import { formatTime } from '../../utils/timeUtils';
+import { Shield, Play, Square, Clock } from 'lucide-react';
 
 interface FocusTabProps {
   data: StorageData;
+  onOpenSettings?: () => void;
 }
 
-interface TimerState {
-  minutes: number;
-  seconds: number;
-  isRunning: boolean;
-  isComplete: boolean;
-}
+// Browser API compatibility
+const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
-const FocusTab: React.FC<FocusTabProps> = ({ data }) => {
-  console.log('Focus tab data: ', data);
-  
-  // Timer state
-  const [timer, setTimer] = useState<TimerState>({
-    minutes: 30,
-    seconds: 0,
-    isRunning: false,
-    isComplete: false
-  });
-  
-  const [timerDuration, setTimerDuration] = useState(25); // in minutes
+const pad = (value: number): string => (value < 10 ? `0${value}` : `${value}`);
 
-  // Focus session statistics (simplified for demo)
-  const focusStats = useMemo(() => {
-    // In a real implementation, these would come from stored session data
-    return {
-      sessionsToday: 0,
-      focusTime: '',
-      sitesBlocked: 0,
-      successRate: 0
-    };
-  }, []);
+/**
+ * Focus sessions run in the background worker: for the chosen time every site
+ * on the block list is blocked, whether or not the popup is open. This screen
+ * only starts and stops a session and shows the one stored by the worker.
+ */
+const FocusTab: React.FC<FocusTabProps> = ({ data, onOpenSettings }) => {
+  const { focusSession, focusStats, blockedSites = [] } = data;
+  const [duration, setDuration] = useState(25); // minutes
+  const [now, setNow] = useState(Date.now());
+  const [error, setError] = useState('');
+  const [isBusy, setIsBusy] = useState(false);
 
-  // Timer effect
+  const isActive = !!focusSession && focusSession.endsAt > now;
+
+  // Tick once a second while a session is running
   useEffect(() => {
-    let interval: number | null = null;
-    
-    if (timer.isRunning && !timer.isComplete) {
-      interval = setInterval(() => {
-        setTimer(prev => {
-          if (prev.seconds > 0) {
-            return { ...prev, seconds: prev.seconds - 1 };
-          } else if (prev.minutes > 0) {
-            return { ...prev, minutes: prev.minutes - 1, seconds: 59 };
-          } else {
-            
-            return { ...prev, isRunning: false, isComplete: true };
-          }
-        });
-      }, 1000);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [timer.isRunning, timer.isComplete]);
+    if (!focusSession) return;
+    setNow(Date.now());
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [focusSession]);
 
-  const startTimer = () => {
-    setTimer(prev => ({ ...prev, isRunning: true, isComplete: false }));
-  };
-
-  const pauseTimer = () => {
-    setTimer(prev => ({ ...prev, isRunning: false }));
-  };
-
-  const resetTimer = () => {
-    setTimer({
-      minutes: timerDuration,
-      seconds: 0,
-      isRunning: false,
-      isComplete: false
-    });
-  };
-
-  const setDuration = (minutes: number) => {
-    setTimerDuration(minutes);
-    if (!timer.isRunning) {
-      setTimer({
-        minutes,
-        seconds: 0,
-        isRunning: false,
-        isComplete: false
-      });
+  const send = async (message: { action: string; minutes?: number }): Promise<void> => {
+    setIsBusy(true);
+    setError('');
+    try {
+      const response = await browserAPI.runtime.sendMessage(message);
+      if (!response || !response.success) {
+        setError((response && response.error) || 'Something went wrong. Please try again.');
+      }
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setIsBusy(false);
     }
   };
 
-  const formatTime = (minutes: number, seconds: number): string => {
-    const padZero = (num: number): string => num < 10 ? '0' + num : num.toString();
-    return `${padZero(minutes)}:${padZero(seconds)}`;
-  };
+  const remainingSeconds = isActive ? Math.ceil((focusSession!.endsAt - now) / 1000) : duration * 60;
+  const totalSeconds = isActive ? focusSession!.minutes * 60 : duration * 60;
+  const progress = isActive ? ((totalSeconds - remainingSeconds) / totalSeconds) * 100 : 0;
 
-  const getTimerStatus = (): string => {
-    if (timer.isComplete) return 'Session complete!';
-    if (timer.isRunning) return 'Focus session active';
-    return 'Ready to start';
-  };
+  const today = new Date().toDateString();
+  const stats = focusStats && focusStats.date === today
+    ? focusStats
+    : { started: 0, completed: 0, focusTime: 0, blocked: 0 };
+  // Time in the running session counts as it happens
+  const focusTime = stats.focusTime + (isActive ? now - focusSession!.startedAt : 0);
+  const finished = stats.started - (isActive ? 1 : 0);
 
   return (
     <section className="tab-content">
       <div className="focus-container">
-        {/* Zen Mode Section */}
         <div className="zen-mode-section">
           <div className="zen-mode-header">
             <Shield className="zen-mode-icon" />
-            <h2 className="zen-mode-title">Zen Mode</h2>
+            <h2 className="zen-mode-title">Focus</h2>
           </div>
           <p className="zen-mode-description">
-            Block distracting websites and focus with the Pomodoro technique
+            {blockedSites.length > 0
+              ? `During a session Argus blocks the ${blockedSites.length} site${blockedSites.length === 1 ? '' : 's'} on your block list, and temporary unblocks are switched off.`
+              : 'During a session Argus blocks every site on your block list. Your block list is empty, so nothing would be blocked.'}
           </p>
+          {blockedSites.length === 0 && onOpenSettings && (
+            <button className="link-btn" onClick={onOpenSettings}>
+              Add sites to block in Settings
+            </button>
+          )}
         </div>
 
-        {/* Focus Timer Section */}
         <div className="focus-timer-section">
           <div className="timer-header">
             <Clock className="timer-icon" />
-            <h3 className="timer-title">Focus Timer</h3>
+            <h3 className="timer-title">{isActive ? 'Session in progress' : 'Start a session'}</h3>
           </div>
-          <p className="timer-subtitle">Pomodoro technique timer</p>
-          
+
           <div className="timer-display">
-            <div className="timer-time">{formatTime(timer.minutes, timer.seconds)}</div>
-            <div className="timer-progress">
-              <div 
-                className="timer-progress-bar"
-                style={{ 
-                  width: `${((timerDuration * 60 - (timer.minutes * 60 + timer.seconds)) / (timerDuration * 60)) * 100}%` 
-                }}
-              />
+            <div className="timer-time">
+              {pad(Math.floor(remainingSeconds / 60))}:{pad(remainingSeconds % 60)}
             </div>
-            <div className="timer-status">{getTimerStatus()}</div>
+            <div className="timer-progress">
+              <div className="timer-progress-bar" style={{ width: `${progress}%` }} />
+            </div>
+            <div className="timer-status">
+              {isActive
+                ? `Blocking until ${new Date(focusSession!.endsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. You can close this popup.`
+                : 'Ready to start'}
+            </div>
           </div>
 
           <div className="timer-controls">
-            <button 
-              className={`timer-btn primary ${timer.isRunning ? 'hidden' : ''}`}
-              onClick={startTimer}
-              disabled={timer.isComplete}
-            >
-              <Play className="btn-icon" />
-              Start
-            </button>
-            
-            <button 
-              className={`timer-btn secondary ${!timer.isRunning ? 'hidden' : ''}`}
-              onClick={pauseTimer}
-            >
-              <Pause className="btn-icon" />
-              Pause
-            </button>
-            
-            <button 
-              className="timer-btn tertiary"
-              onClick={resetTimer}
-            >
-              <RotateCcw className="btn-icon" />
-              Reset
-            </button>
+            {isActive ? (
+              <button
+                className="timer-btn secondary"
+                onClick={() => send({ action: 'stopFocusSession' })}
+                disabled={isBusy}
+              >
+                <Square className="btn-icon" />
+                End session early
+              </button>
+            ) : (
+              <button
+                className="timer-btn primary"
+                onClick={() => send({ action: 'startFocusSession', minutes: duration })}
+                disabled={isBusy}
+              >
+                <Play className="btn-icon" />
+                Start {duration}-minute session
+              </button>
+            )}
           </div>
 
-          <div className="timer-duration">
-            <label className="duration-label">Timer Duration (minutes)</label>
-            <div className="duration-controls">
-              <input
-                type="number"
-                value={timerDuration}
-                onChange={(e) => setDuration(parseInt(e.target.value) || 25)}
-                className="duration-input"
-                min="1"
-                max="120"
-              />
-              <button 
-                className={`duration-preset ${timerDuration === 25 ? 'active' : ''}`}
-                onClick={() => setDuration(25)}
-              >
-                25m
-              </button>
-              <button 
-                className={`duration-preset ${timerDuration === 50 ? 'active' : ''}`}
-                onClick={() => setDuration(50)}
-              >
-                50m
-              </button>
+          {error && <p className="plan-error">{error}</p>}
+
+          {!isActive && (
+            <div className="timer-duration">
+              <label className="duration-label" htmlFor="focus-duration">Session length (minutes)</label>
+              <div className="duration-controls">
+                <input
+                  id="focus-duration"
+                  type="number"
+                  value={duration}
+                  onChange={(e) => setDuration(Math.min(180, Math.max(1, parseInt(e.target.value) || 25)))}
+                  className="duration-input"
+                  min="1"
+                  max="180"
+                />
+                {[25, 50].map((preset) => (
+                  <button
+                    key={preset}
+                    className={`duration-preset ${duration === preset ? 'active' : ''}`}
+                    onClick={() => setDuration(preset)}
+                  >
+                    {preset}m
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Focus Statistics */}
+        {/* Today's numbers, all recorded by the background worker */}
         <div className="focus-stats-grid">
           <div className="focus-stat-card">
-            <div className="focus-stat-value">{focusStats.sessionsToday}</div>
+            <div className="focus-stat-value">{stats.started}</div>
             <div className="focus-stat-label">Sessions today</div>
           </div>
-          
           <div className="focus-stat-card">
-            <div className="focus-stat-value">{focusStats.focusTime}</div>
+            <div className="focus-stat-value">{focusTime > 0 ? formatTime(focusTime) : '0m'}</div>
             <div className="focus-stat-label">Focus time today</div>
           </div>
-          
           <div className="focus-stat-card">
-            <div className="focus-stat-value">{focusStats.sitesBlocked}</div>
-            <div className="focus-stat-label">Sites blocked</div>
+            <div className="focus-stat-value">{stats.blocked}</div>
+            <div className="focus-stat-label">Blocked visits</div>
           </div>
-          
           <div className="focus-stat-card">
-            <div className="focus-stat-value">{focusStats.successRate}%</div>
-            <div className="focus-stat-label">Success rate</div>
+            <div className="focus-stat-value">{finished > 0 ? `${Math.round((stats.completed / finished) * 100)}%` : '—'}</div>
+            <div className="focus-stat-label">Finished without ending early</div>
           </div>
         </div>
       </div>
@@ -217,4 +177,4 @@ const FocusTab: React.FC<FocusTabProps> = ({ data }) => {
   );
 };
 
-export default FocusTab; 
+export default FocusTab;

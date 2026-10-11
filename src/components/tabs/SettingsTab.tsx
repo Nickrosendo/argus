@@ -10,9 +10,10 @@ const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 export interface SettingsTabProps {
   data: StorageData;
   updateStorage: (updates: Partial<StorageData>) => void;
+  onUpgrade?: () => void;
 }
 
-const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
+const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage, onUpgrade }) => {
   const { settings = {}, blockedSites = [] } = data;
   
   // Memoize the default settings to prevent infinite loops
@@ -30,7 +31,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
   const [newBlockedSite, setNewBlockedSite] = useState<string>('');
   const [localBlockedSites, setLocalBlockedSites] = useState<string[]>(blockedSites);
   const [isFreeMode, setIsFreeMode] = useState<boolean>(true);
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState<boolean>(false);
 
   // Use refs to track previous values
   const prevSettingsRef = useRef<Partial<Settings> | undefined>();
@@ -91,7 +91,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
     
     // Check free mode limitations
     if (isFreeMode && localBlockedSites.length >= 3) {
-      setShowUpgradePrompt(true);
+      onUpgrade && onUpgrade();
       return;
     }
     
@@ -283,45 +283,19 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
             {isFreeMode && (
               <div className="free-mode-info">
                 <p>
-                  <strong>Free Mode:</strong> Limited to 3 blocked sites ({localBlockedSites.length}/3 used)
+                  {localBlockedSites.length} of 3 free blocked sites used.
                   {localBlockedSites.length >= 3 && (
-                    <span className="upgrade-prompt">
-                      {' '}• <button onClick={() => setShowUpgradePrompt(true)} className="link-btn">
-                        Upgrade to Premium
-                      </button> for unlimited site blocking
-                    </span>
+                    <>
+                      {' '}
+                      <button onClick={onUpgrade} className="link-btn">
+                        Block unlimited sites with Premium
+                      </button>
+                    </>
                   )}
                 </p>
               </div>
             )}
             
-            {showUpgradePrompt && (
-              <div className="upgrade-modal-overlay">
-                <div className="upgrade-modal">
-                  <h3>Upgrade to Premium</h3>
-                  <p>You've reached the free tier limit of 3 blocked sites.</p>
-                  <p>Upgrade to Premium to enjoy:</p>
-                  <ul>
-                    <li>Unlimited website blocking</li>
-                    <li>Cloud sync across devices</li>
-                    <li>Advanced analytics</li>
-                    <li>No advertisements</li>
-                  </ul>
-                  <div className="modal-actions">
-                    <button onClick={() => setShowUpgradePrompt(false)} className="secondary-btn">
-                      Maybe Later
-                    </button>
-                    <button onClick={() => {
-                      setShowUpgradePrompt(false);
-                      // This would trigger the payment modal in the parent component
-                      // For now, just close the prompt
-                    }} className="primary-btn">
-                      Upgrade Now
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 

@@ -13,8 +13,14 @@ export const state = {
   isFreeMode: false,
   lastSyncTime: 0,
   realTimeUpdateTimer: null,
+  focusSession: null, // { startedAt, endsAt, minutes } while a focus session runs
+  openPopups: 0, // popups currently showing live numbers
   idleThreshold: getIdleThresholdSeconds(), // seconds, from the user's idle setting
 };
+
+export function isFocusActive() {
+  return !!state.focusSession && state.focusSession.endsAt > Date.now();
+}
 
 // The tracked tab and the tracking flag are mirrored to session storage so a
 // service worker restart continues where the previous instance stopped.

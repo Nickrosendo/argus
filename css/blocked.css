@@ -210,3 +210,32 @@ h2 {
     flex-direction: column;
   }
 } 
+
+/* Hidden means hidden, whatever display the element normally has */
+[hidden] {
+  display: none !important;
+}
+
+.attempts-today {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.focus-notice {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.focus-notice h2 {
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+}
+
+.blocked-message {
+  margin-top: 12px;
+  color: #f87171;
+  font-size: 0.9rem;
+}

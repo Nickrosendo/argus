@@ -3,6 +3,7 @@ import browserApiService from "../services/BrowserApiService";
 import authService from "../services/AuthService";
 import freeService from "../services/FreeService";
 import { SocialAuthService } from '../services/SocialAuthService.js';
+import { endFocusSession, startFocusSession } from './focus.js';
 import { state } from './state.js';
 import {
   updateBlockedSites,
@@ -31,6 +32,28 @@ export function handleCoreMessage(message, sender, sendResponse) {
         console.error("Error updating temporary unblocks:", error);
         sendResponse({ success: false, error: error.message });
       });
+  } else if (message.action === "startFocusSession") {
+    startFocusSession(message.minutes)
+      .then((result) => {
+        sendResponse(
+          result.ok
+            ? { success: true, session: result.session }
+            : { success: false, error: result.reason }
+        );
+      })
+      .catch((error) => {
+        console.error("Error starting focus session:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "stopFocusSession") {
+    endFocusSession(false)
+      .then(() => {
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("Error stopping focus session:", error);
+        sendResponse({ success: false, error: error.message });
+      });
   } else if (message.action === "openBlocklistSettings") {
     browserApiService
       .createTab(browserApiService.getExtensionUrl("popup.html"))
@@ -52,8 +75,12 @@ export function handleCoreMessage(message, sender, sendResponse) {
     const isManualSync = message.manual === true;
     
     syncDataWithApi(isManualSync)
-      .then(() => {
-        sendResponse({ success: true });
+      .then((result) => {
+        sendResponse(
+          result.ok
+            ? { success: true }
+            : { success: false, error: result.reason }
+        );
       })
       .catch((error) => {
         console.error("Error syncing with api:", error);
@@ -356,6 +383,8 @@ export function handleCoreMessage(message, sender, sendResponse) {
 export const CORE_ACTIONS = new Set([
   'updateBlockedSites',
   'updateTemporaryUnblocks',
+  'startFocusSession',
+  'stopFocusSession',
   'openBlocklistSettings',
   'syncWithApi',
   'checkAuthentication',

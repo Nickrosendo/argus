@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StorageData, UserInfo } from '../../types/storage';
 import { useBrowserMessaging } from '../../hooks/useBrowserMessaging';
-import PaymentModal from '../PaymentModal';
+import { PREMIUM_FEATURES, PRICE_SUMMARY } from '../../lib/plans';
 import FreeService from '../../../services/FreeService';
 
 interface AccountTabProps {
@@ -10,6 +10,7 @@ interface AccountTabProps {
   isFreeMode: boolean;
   onSignOut: () => void;
   onAuth: (success: boolean) => void;
+  onUpgrade?: () => void;
 }
 
 interface SubscriptionInfo {
@@ -29,12 +30,16 @@ const AccountTab: React.FC<AccountTabProps> = ({
   isAuthenticated, 
   isFreeMode, 
   onSignOut, 
-  onAuth
+  onAuth,
+  onUpgrade
 }) => {
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced');
-  const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
+  // 'idle' until a sync is attempted here; never claims "synced" on its own
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'failed'>('idle');
+  const [syncError, setSyncError] = useState<string>('');
+  const [lastSyncTime, setLastSyncTime] = useState<string>('Never');
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string>('');
   const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfo | null>(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isLoadingSubscription, setIsLoadingSubscription] = useState(false);
   const [isRefreshingSubscription, setIsRefreshingSubscription] = useState(false);
   const { userInfo } = data;
@@ -122,20 +127,17 @@ const AccountTab: React.FC<AccountTabProps> = ({
         manual: true  // Mark as manual sync (user-initiated)
       });
       
-      if (response.success) {
+      if (response && response.success) {
         setSyncStatus('synced');
+        setSyncError('');
         setLastSyncTime('Just now');
-        
-        // Store sync time
-        await browserAPI.storage.local.set({
-          lastSyncTime: Date.now()
-        });
       } else {
-        throw new Error('Sync failed');
+        throw new Error((response && response.error) || 'Sync failed');
       }
     } catch (error) {
       console.error('Sync error:', error);
-      setSyncStatus('synced'); // Reset status even on error
+      setSyncStatus('failed');
+      setSyncError(error instanceof Error ? error.message : 'Sync failed');
     }
   };
 
@@ -198,45 +200,12 @@ const AccountTab: React.FC<AccountTabProps> = ({
   };
 
   const handleUpgrade = (): void => {
-    setShowPaymentModal(true);
-  };
-
-  const handlePaymentSuccess = (): void => {
-    // Reload page or update state after successful payment
-    setShowPaymentModal(false);
-    // Reload subscription info
-    if (isAuthenticated) {
-      const loadSubscriptionInfo = async () => {
-        try {
-          const result = await browserAPI.storage.local.get(['authToken']);
-          const authToken = result.authToken;
-          
-          if (authToken) {
-            const response = await fetch(`${__API_URL__}/payments/subscription-status`, {
-              headers: {
-                'Authorization': `Bearer ${authToken}`,
-              },
-            });
-
-            if (response.ok) {
-              const subscriptionData = await response.json();
-              setSubscriptionInfo(subscriptionData);
-            } else {
-              setSubscriptionInfo({ hasSubscription: false, userType: 'free' });
-            }
-          } else {
-            setSubscriptionInfo({ hasSubscription: false, userType: 'free' });
-          }
-        } catch (error) {
-          console.error('Failed to reload subscription info:', error);
-          setSubscriptionInfo({ hasSubscription: false, userType: 'free' });
-        }
-      };
-      loadSubscriptionInfo();
-    }
+    if (onUpgrade) onUpgrade();
   };
 
   const handleCancelSubscription = async (): Promise<void> => {
+    setConfirmingCancel(false);
+    setSubscriptionError('');
     try {
       const result = await browserAPI.storage.local.get(['authToken']);
       const authToken = result.authToken;
@@ -262,9 +231,12 @@ const AccountTab: React.FC<AccountTabProps> = ({
           const subscriptionData = await updatedResponse.json();
           setSubscriptionInfo(subscriptionData);
         }
+      } else {
+        setSubscriptionError('Could not cancel the subscription. Please try again.');
       }
     } catch (error) {
       console.error('Failed to cancel subscription:', error);
+      setSubscriptionError('Could not cancel the subscription. Please try again.');
     }
   };
 
@@ -309,69 +281,53 @@ const AccountTab: React.FC<AccountTabProps> = ({
               <svg className="account-icon" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
               </svg>
-              <h2>Free Mode Account</h2>
+              <h2>No account</h2>
             </div>
             
             <div className="account-description">
               <p>
-                You're currently using Argus without an account. Your data is stored only on this device 
-                and will not be synced to the cloud.
+                You're using Argus without an account. Everything works, and your data stays on this device.
               </p>
               
               <div className="free-mode-features">
-                <h3>Sign in to unlock:</h3>
+                <h3>Premium ({PRICE_SUMMARY}) adds:</h3>
                 <ul className="features-list">
-                  <li>
-                    <svg className="feature-icon" viewBox="0 0 20 20" fill="currentColor">
+                  {PREMIUM_FEATURES.map((feature) => (
+                    <li key={feature}>
+                      <svg className="feature-icon" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
-                    Cross-device data synchronization
-                  </li>
-                  <li>
-                    <svg className="feature-icon" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    Advanced analytics & insights
-                  </li>
-                  <li>
-                    <svg className="feature-icon" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    Cloud backup & recovery
-                  </li>
-                  <li>
-                    <svg className="feature-icon" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    Enhanced productivity tracking
-                  </li>
+                      {feature}
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>
             
             <div className="account-actions">
-              <button onClick={handleSignIn} className="primary-btn">
+              <button onClick={handleUpgrade} className="primary-btn">
                 <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                Sign In to Unlock Premium Features
+                Upgrade to Premium
+              </button>
+              <button onClick={handleSignIn} className="secondary-btn">
+                I already have an account
               </button>
             </div>
           </div>
         </div>
-        
-        {showPaymentModal && (
-          <PaymentModal
-            isOpen={showPaymentModal}
-            onClose={() => setShowPaymentModal(false)}
-            onPaymentSuccess={handlePaymentSuccess}
-          />
-        )}
       </section>
     );
   }
 
   if (isAuthenticated && userInfo) {
+    const hasPremium = !!subscriptionInfo && subscriptionInfo.hasSubscription;
+    // The API reports the end of the paid period as a unix timestamp in seconds
+    const periodEndText = subscriptionInfo && subscriptionInfo.currentPeriodEnd
+      ? new Date(subscriptionInfo.currentPeriodEnd * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+      : '';
+
     const renderSubscriptionButton = () => {
       if (isLoadingSubscription) {
         return (
@@ -403,12 +359,24 @@ const AccountTab: React.FC<AccountTabProps> = ({
         );
       }
 
+      if (confirmingCancel) {
+        return (
+          <div className="confirm-row">
+            <p className="confirm-text">
+              Cancel Premium? You keep it until {periodEndText || 'the end of the period you paid for'}.
+            </p>
+            <button onClick={() => setConfirmingCancel(false)} className="secondary-btn">
+              Keep Premium
+            </button>
+            <button onClick={handleCancelSubscription} className="danger-btn">
+              Yes, cancel
+            </button>
+          </div>
+        );
+      }
+
       return (
-        <button onClick={handleCancelSubscription} className="danger-btn">
-          <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd" />
-            <path fillRule="evenodd" d="M4 5a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 2a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-          </svg>
+        <button onClick={() => setConfirmingCancel(true)} className="danger-btn">
           Cancel Subscription
         </button>
       );
@@ -441,35 +409,48 @@ const AccountTab: React.FC<AccountTabProps> = ({
                         : 'Premium Account'
                   }
                 </span>
+                {hasPremium && periodEndText && (
+                  <p className="plan-renewal">
+                    {subscriptionInfo!.cancelAtPeriodEnd ? `Premium ends on ${periodEndText}` : `Renews on ${periodEndText}`}
+                  </p>
+                )}
+                {subscriptionError && <p className="plan-error">{subscriptionError}</p>}
               </div>
             </div>
             
             <div className="account-stats">
               <div className="stat-item">
-                <h3>Data Sync Status</h3>
-                <div className={`sync-indicator ${syncStatus}`}>
-                  <div className="sync-dot"></div>
-                  <span className="sync-text">
-                    {syncStatus === 'syncing' ? 'Syncing...' : 'Synced'}
-                  </span>
-                </div>
-                <div className="last-sync">
-                  Last sync: <span>{lastSyncTime}</span>
-                </div>
+                <h3>Sync across devices</h3>
+                {hasPremium ? (
+                  <>
+                    <div className={`sync-indicator ${syncStatus === 'failed' ? 'failed' : syncStatus === 'syncing' ? 'syncing' : 'synced'}`}>
+                      <div className="sync-dot"></div>
+                      <span className="sync-text">
+                        {syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'failed' ? `Sync failed: ${syncError}` : syncStatus === 'synced' ? 'Synced' : 'On'}
+                      </span>
+                    </div>
+                    <div className="last-sync">
+                      Last sync: <span>{lastSyncTime}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="last-sync">
+                    Not syncing. Your data stays on this device; syncing is part of Premium.
+                  </div>
+                )}
               </div>
             </div>
             
             <div className="account-actions">
-              <button 
-                onClick={handleSyncNow} 
-                className="secondary-btn"
-                disabled={syncStatus === 'syncing'}
-              >
-                <svg className="btn-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                </svg>
-                {syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}
-              </button>
+              {hasPremium && (
+                <button 
+                  onClick={handleSyncNow} 
+                  className="secondary-btn"
+                  disabled={syncStatus === 'syncing'}
+                >
+                  {syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}
+                </button>
+              )}
               
               <button 
                 onClick={handleRefreshSubscription} 
@@ -494,14 +475,6 @@ const AccountTab: React.FC<AccountTabProps> = ({
             </div>
           </div>
         </div>
-        
-        {showPaymentModal && (
-          <PaymentModal
-            isOpen={showPaymentModal}
-            onClose={() => setShowPaymentModal(false)}
-            onPaymentSuccess={handlePaymentSuccess}
-          />
-        )}
       </section>
     );
   }

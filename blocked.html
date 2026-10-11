@@ -16,9 +16,15 @@
       <div class="blocked-info">
         <p>The website <span id="blocked-domain">example.com</span> has been blocked by Argus.</p>
         <p>This site is on your block list to help you stay focused.</p>
+        <p id="attempts-today" class="attempts-today" hidden></p>
+      </div>
+
+      <div id="focus-notice" class="focus-notice" hidden>
+        <h2>Focus session in progress</h2>
+        <p>Sites on your block list stay blocked until <span id="focus-ends"></span>. You can end the session from the Argus popup.</p>
       </div>
       
-      <div class="unblock-options">
+      <div id="unblock-options" class="unblock-options">
         <h2>Unblock Options</h2>
         <p>You have <span id="unblocks-remaining">3</span> temporary unblocks remaining today.</p>
         
@@ -32,6 +38,8 @@
         
         <button id="remove-from-blocklist" class="remove-btn">Remove from block list permanently</button>
       </div>
+
+      <p id="blocked-message" class="blocked-message" role="alert" hidden></p>
       
       <div class="motivation">
         <p>"Stay focused on what matters most."</p>

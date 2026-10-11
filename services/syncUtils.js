@@ -25,6 +25,15 @@ export function fromIsoDate(isoDate) {
   return new Date(year, month - 1, day).toDateString();
 }
 
+// The fields of a day that are uploaded; time per hour only when recorded
+function toUploadDay(day) {
+  const upload = { sites: day.sites || {}, totalTime: day.totalTime || 0 };
+  if (Array.isArray(day.hourly) && day.hourly.length > 0) {
+    upload.hourly = day.hourly;
+  }
+  return upload;
+}
+
 /**
  * Choose the days to upload in one sync: always the current day, plus the most
  * recent finished days that have not been uploaded yet.
@@ -32,6 +41,7 @@ export function fromIsoDate(isoDate) {
  * @param {Object} input
  * @param {Object} input.sites Today's sites
  * @param {number} input.totalTime Today's total time
+ * @param {number[]} [input.hourly] Today's time per hour of day
  * @param {string} input.currentDate Date#toDateString() of the day `sites` belongs to
  * @param {Object} input.history Finished days keyed by Date#toDateString()
  * @param {string[]} input.syncedDays ISO dates of finished days already uploaded
@@ -42,6 +52,7 @@ export function fromIsoDate(isoDate) {
 export function buildUploadDays({
   sites,
   totalTime,
+  hourly,
   currentDate,
   history,
   syncedDays,
@@ -50,7 +61,7 @@ export function buildUploadDays({
   const alreadySynced = new Set(syncedDays || []);
   const today = toIsoDate(currentDate);
   const days = {
-    [today]: { sites: sites || {}, totalTime: totalTime || 0 },
+    [today]: toUploadDay({ sites, totalTime, hourly }),
   };
 
   const historyDates = Object.keys(history || {})
@@ -60,8 +71,7 @@ export function buildUploadDays({
     .slice(0, maxHistoryDays);
 
   historyDates.forEach(({ dateString, iso }) => {
-    const day = history[dateString] || {};
-    days[iso] = { sites: day.sites || {}, totalTime: day.totalTime || 0 };
+    days[iso] = toUploadDay(history[dateString] || {});
   });
 
   return { days, historyDates: historyDates.map(({ iso }) => iso) };

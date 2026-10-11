@@ -1,14 +1,18 @@
 // Time tracking: which tab is being looked at and how long for
 import browserApiService from "../services/BrowserApiService";
 import {
+  addHourlyTime,
   claimElapsedTime,
   getIdleThresholdSeconds,
-  isSafeSiteKey,
+  getTrackableDomain,
+  normalizeSites,
   pruneHistory,
 } from '../services/trackingUtils.js';
 import {
   MAX_INACTIVE_TIME,
   REAL_TIME_UPDATE_INTERVAL,
+  BACKGROUND_WRITE_INTERVAL,
+  DATA_VERSION,
 } from './constants.js';
 import {
   state,
@@ -74,6 +78,31 @@ export async function reconcileActiveTab() {
   handleTabChange(tab);
 }
 
+// One-time conversions of data stored by earlier versions
+export async function migrateStoredData() {
+  const result = await browserApiService.getStorage([
+    "dataVersion",
+    "sites",
+    "history",
+  ]);
+
+  if (result.dataVersion >= DATA_VERSION) return;
+
+  // Version 2: sites are keyed without the leading "www."
+  const history = result.history || {};
+  Object.keys(history).forEach((date) => {
+    if (history[date] && history[date].sites) {
+      history[date] = { ...history[date], sites: normalizeSites(history[date].sites) };
+    }
+  });
+
+  await browserApiService.setStorage({
+    dataVersion: DATA_VERSION,
+    sites: normalizeSites(result.sites),
+    history,
+  });
+}
+
 // Check for new day and reset stats if needed
 export async function checkAndResetForNewDay(lastDate) {
   const today = new Date().toDateString();
@@ -84,6 +113,7 @@ export async function checkAndResetForNewDay(lastDate) {
       "sites",
       "history",
       "totalTime",
+      "hourly",
       "freeMode",
     ]);
 
@@ -94,6 +124,7 @@ export async function checkAndResetForNewDay(lastDate) {
     historicalData[lastDate] = {
       sites: result.sites,
       totalTime: result.totalTime,
+      hourly: result.hourly,
       date: lastDate,
     };
 
@@ -108,6 +139,7 @@ export async function checkAndResetForNewDay(lastDate) {
     await browserApiService.setStorage({
       sites: {},
       totalTime: 0,
+      hourly: [],
       lastDate: today,
       history: historicalData,
     });
@@ -173,43 +205,28 @@ export async function handleTabUpdated(tabId, changeInfo, tab) {
 
 // Handle when a tab becomes the active tab
 export function handleTabChange(tab) {
-  if (
-    !tab ||
-    !tab.url ||
-    tab.url.startsWith("chrome://") ||
-    tab.url.startsWith("about:")
-  ) {
+  // Only websites are tracked: not browser pages, extension pages or files
+  const domain = tab && tab.url ? getTrackableDomain(tab.url) : null;
+
+  if (!domain) {
     setCurrentTab(null);
     return;
   }
 
-  try {
-    const url = new URL(tab.url);
-    // Hostnames are used as object keys in storage; never track one that
-    // would resolve to the object prototype
-    if (!isSafeSiteKey(url.hostname)) {
-      setCurrentTab(null);
-      return;
-    }
-
-    // Navigating within the same site is still the same visit
-    const sameVisit =
-      state.currentTab !== null &&
-      state.currentTab.domain === url.hostname &&
-      state.currentTab.visitCounted === true;
-    setCurrentTab({
-      id: tab.id,
-      domain: url.hostname,
-      url: tab.url,
-      title: tab.title,
-      favIconUrl: tab.favIconUrl,
-      startTime: Date.now(),
-      visitCounted: sameVisit,
-    });
-  } catch (error) {
-    console.error("Error processing URL:", error);
-    setCurrentTab(null);
-  }
+  // Navigating within the same site is still the same visit
+  const sameVisit =
+    state.currentTab !== null &&
+    state.currentTab.domain === domain &&
+    state.currentTab.visitCounted === true;
+  setCurrentTab({
+    id: tab.id,
+    domain,
+    url: tab.url,
+    title: tab.title,
+    favIconUrl: tab.favIconUrl,
+    startTime: Date.now(),
+    visitCounted: sameVisit,
+  });
 }
 
 // Credit the time spent on the current tab since the last update.
@@ -241,6 +258,7 @@ export async function recordTime(tab, timeSpent, isNewVisit, now) {
   let result = await browserApiService.getStorage([
     "sites",
     "totalTime",
+    "hourly",
     "lastDate",
   ]);
 
@@ -248,7 +266,7 @@ export async function recordTime(tab, timeSpent, isNewVisit, now) {
   if (result.lastDate && result.lastDate !== new Date(now).toDateString()) {
     await checkAndResetForNewDay(result.lastDate);
     await checkAndResetUnblockData();
-    result = await browserApiService.getStorage(["sites", "totalTime"]);
+    result = await browserApiService.getStorage(["sites", "totalTime", "hourly"]);
   }
 
   const sites = result.sites || {};
@@ -273,6 +291,7 @@ export async function recordTime(tab, timeSpent, isNewVisit, now) {
   await browserApiService.setStorage({
     sites: sites,
     totalTime: (result.totalTime || 0) + timeSpent,
+    hourly: addHourlyTime(result.hourly, now, timeSpent),
   });
 
   // If we're authenticated and it's been a while since our last sync,
@@ -358,7 +377,12 @@ export function startRealTimeTracking() {
       // Only update if we have a current tab and we're actively tracking
       const idleState = await browserApiService.getIdleState(state.idleThreshold);
       if (idleState === "active") {
-        await updateTimeForCurrentTab();
+        // Save every tick only while a popup is showing the numbers;
+        // otherwise a write every 30 seconds is enough
+        const unsaved = Date.now() - state.currentTab.startTime;
+        if (state.openPopups > 0 || unsaved >= BACKGROUND_WRITE_INTERVAL) {
+          await updateTimeForCurrentTab();
+        }
       } else {
         // If user becomes idle during real-time tracking, handle it
         console.log("User became idle during real-time tracking, pausing");

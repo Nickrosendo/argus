@@ -342,7 +342,9 @@ const FreeService = {
       return false; // Premium users have access to all tabs
     }
     
-    const restrictedTabs = ['focus', 'sites', 'history'];
+    // Free accounts see every screen of today's data; Premium adds depth
+    // (longer history, unlimited blocking, sync) and focus sessions
+    const restrictedTabs = ['focus'];
     return restrictedTabs.includes(tabId);
   },
 

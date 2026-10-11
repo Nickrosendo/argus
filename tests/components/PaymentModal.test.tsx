@@ -44,7 +44,7 @@ describe('PaymentModal', () => {
       // Yearly plan
       expect(screen.getByText('$49.99')).toBeInTheDocument();
       expect(screen.getByText('/year')).toBeInTheDocument();
-      expect(screen.getByText('Save 17% vs monthly')).toBeInTheDocument();
+      expect(screen.getByText('2 months free compared with paying monthly')).toBeInTheDocument();
     });
 
     it('should render all premium features', () => {
@@ -52,13 +52,13 @@ describe('PaymentModal', () => {
 
       // Features that appear in both plans
       expect(screen.getAllByText('Unlimited website blocking').length).toBeGreaterThanOrEqual(2);
-      expect(screen.getAllByText('Cloud sync across devices').length).toBeGreaterThanOrEqual(2);
-      expect(screen.getAllByText('Advanced analytics & insights').length).toBeGreaterThanOrEqual(2);
-      expect(screen.getAllByText('Export data functionality').length).toBeGreaterThanOrEqual(2);
-      expect(screen.getAllByText('Priority support').length).toBeGreaterThanOrEqual(2);
-      expect(screen.getAllByText('No advertisements').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText('Sync and a combined view across your devices').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText('30 days of history instead of 7').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText('Focus sessions that block your distracting sites').length).toBeGreaterThanOrEqual(2);
+      // Nothing that does not exist is promised
+      expect(screen.queryByText(/priority support|advertisement|export data/i)).not.toBeInTheDocument();
       // Feature only in yearly plan
-      expect(screen.getByText('Save 17% vs monthly')).toBeInTheDocument();
+      expect(screen.getByText('2 months free compared with paying monthly')).toBeInTheDocument();
     });
 
     it('should have yearly plan selected by default', () => {

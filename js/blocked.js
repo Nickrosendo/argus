@@ -3,6 +3,8 @@
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
+const DAILY_UNBLOCKS = 3;
+
 // Get URL parameters
 const urlParams = new URLSearchParams(window.location.search);
 const blockedDomain = urlParams.get('domain');
@@ -11,173 +13,181 @@ const originalUrl = urlParams.get('url');
 // DOM elements
 const blockedDomainEl = document.getElementById('blocked-domain');
 const unblockCountEl = document.getElementById('unblocks-remaining');
+const unblockOptionsEl = document.getElementById('unblock-options');
+const focusNoticeEl = document.getElementById('focus-notice');
+const focusEndsEl = document.getElementById('focus-ends');
+const attemptsEl = document.getElementById('attempts-today');
+const messageEl = document.getElementById('blocked-message');
 const goBackBtn = document.getElementById('go-back');
 const openSettingsBtn = document.getElementById('open-settings');
 const removeFromBlocklistBtn = document.getElementById('remove-from-blocklist');
+const unblockButtons = [
+  { el: document.getElementById('unblock-5min'), minutes: 5 },
+  { el: document.getElementById('unblock-15min'), minutes: 15 },
+  { el: document.getElementById('unblock-30min'), minutes: 30 },
+];
 
-// Unblock duration buttons
-const unblock5minBtn = document.getElementById('unblock-5min');
-const unblock15minBtn = document.getElementById('unblock-15min');
-const unblock30minBtn = document.getElementById('unblock-30min');
+const stripWww = (domain) => String(domain || '').toLowerCase().replace(/^www\./, '');
+
+// Where to send the user once the site is allowed again. Only an http(s)
+// address on the blocked site itself is accepted; anything else in the "url"
+// parameter is ignored.
+function getReturnUrl() {
+  const fallback = blockedDomain ? `https://${blockedDomain}/` : null;
+  if (!originalUrl) return fallback;
+
+  try {
+    const parsed = new URL(originalUrl);
+    const host = stripWww(parsed.hostname);
+    const blocked = stripWww(blockedDomain);
+    const sameSite = host === blocked || host.endsWith(`.${blocked}`);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && sameSite ? parsed.href : fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function showMessage(text) {
+  messageEl.textContent = text;
+  messageEl.hidden = false;
+}
+
+function getStorageData() {
+  return new Promise((resolve) => {
+    browserAPI.storage.local.get(['blockedSites', 'unblockData', 'focusSession', 'blockedAttempts'], resolve);
+  });
+}
+
+function setStorageData(data) {
+  return new Promise((resolve) => {
+    browserAPI.storage.local.set(data, resolve);
+  });
+}
+
+function sendMessage(message) {
+  return new Promise((resolve) => {
+    browserAPI.runtime.sendMessage(message, (response) => {
+      // Reading lastError marks a failed delivery as handled
+      resolve(browserAPI.runtime.lastError ? null : response);
+    });
+  });
+}
+
+function getTodayDateString() {
+  return new Date().toDateString();
+}
+
+// Today's unblock allowance, started fresh each day
+function getUnblockData(data) {
+  return data.unblockData && data.unblockData.date === getTodayDateString()
+    ? data.unblockData
+    : { date: getTodayDateString(), remaining: DAILY_UNBLOCKS, temporaryUnblocks: {} };
+}
 
 // Initialize the page
 document.addEventListener('DOMContentLoaded', async () => {
-  // Display the blocked domain
   if (blockedDomain) {
     blockedDomainEl.textContent = blockedDomain;
   }
 
-  // Get the remaining unblock count for today
   const data = await getStorageData();
-  
-  // Initialize unblock counter for today if not set
-  if (!data.unblockData || data.unblockData.date !== getTodayDateString()) {
-    await resetDailyUnblocks();
-    unblockCountEl.textContent = '3';
-  } else {
-    unblockCountEl.textContent = data.unblockData.remaining;
+
+  // How often this site was stopped today
+  const attempts = ((data.blockedAttempts || {})[getTodayDateString()] || {})[stripWww(blockedDomain)] || 0;
+  if (attempts > 0) {
+    attemptsEl.textContent = `Argus has stopped you here ${attempts} time${attempts === 1 ? '' : 's'} today.`;
+    attemptsEl.hidden = false;
   }
 
-  // Set up event listeners
+  // During a focus session the site stays blocked until the session ends
+  const focusSession = data.focusSession;
+  if (focusSession && focusSession.endsAt > Date.now()) {
+    focusEndsEl.textContent = new Date(focusSession.endsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    focusNoticeEl.hidden = false;
+    unblockOptionsEl.hidden = true;
+  } else {
+    unblockCountEl.textContent = getUnblockData(data).remaining;
+  }
+
   setupEventListeners();
 });
 
-// Setup event listeners for all buttons
 function setupEventListeners() {
-  // Go back button
   goBackBtn.addEventListener('click', () => {
     window.history.back();
   });
 
-  // Open settings button
   openSettingsBtn.addEventListener('click', () => {
-    browserAPI.runtime.sendMessage({ 
-      action: 'openBlocklistSettings' 
-    });
+    sendMessage({ action: 'openBlocklistSettings' });
   });
 
-  // Remove from blocklist permanently
+  // Removing a site for good takes a second, deliberate click
+  let removeArmed = false;
   removeFromBlocklistBtn.addEventListener('click', async () => {
-    if (blockedDomain) {
-      await removeFromBlocklist(blockedDomain);
-      if (originalUrl) {
-        window.location.href = originalUrl;
-      }
+    if (!blockedDomain) return;
+
+    if (!removeArmed) {
+      removeArmed = true;
+      removeFromBlocklistBtn.textContent = `Click again to stop blocking ${blockedDomain}`;
+      setTimeout(() => {
+        removeArmed = false;
+        removeFromBlocklistBtn.textContent = 'Remove from block list permanently';
+      }, 5000);
+      return;
     }
+
+    await removeFromBlocklist(blockedDomain);
+    const returnUrl = getReturnUrl();
+    if (returnUrl) window.location.href = returnUrl;
   });
 
-  // Temporary unblock buttons
-  unblock5minBtn.addEventListener('click', () => {
-    temporaryUnblock(5);
-  });
-
-  unblock15minBtn.addEventListener('click', () => {
-    temporaryUnblock(15);
-  });
-
-  unblock30minBtn.addEventListener('click', () => {
-    temporaryUnblock(30);
-  });
-}
-
-// Get storage data
-async function getStorageData() {
-  return new Promise((resolve) => {
-    browserAPI.storage.local.get(['blockedSites', 'unblockData'], (result) => {
-      resolve(result);
-    });
-  });
-}
-
-// Set storage data
-async function setStorageData(data) {
-  return new Promise((resolve) => {
-    browserAPI.storage.local.set(data, () => {
-      resolve();
-    });
+  unblockButtons.forEach(({ el, minutes }) => {
+    el.addEventListener('click', () => temporaryUnblock(minutes));
   });
 }
 
 // Remove a domain from the blocklist
 async function removeFromBlocklist(domain) {
   const data = await getStorageData();
-  const blockedSites = data.blockedSites || [];
-  
-  // Remove the domain from the blocklist
-  const updatedBlocklist = blockedSites.filter(site => site !== domain);
-  
-  // Update storage
-  await setStorageData({ blockedSites: updatedBlocklist });
-  
-  // Notify background script to update blocking rules
-  browserAPI.runtime.sendMessage({ 
-    action: 'updateBlockedSites' 
+  const target = stripWww(domain);
+
+  await setStorageData({
+    blockedSites: (data.blockedSites || []).filter((site) => stripWww(site) !== target),
   });
+
+  // Wait for the background to rewrite the blocking rules
+  await sendMessage({ action: 'updateBlockedSites' });
 }
 
 // Temporarily unblock a site for the specified number of minutes
 async function temporaryUnblock(minutes) {
-  // Check if unblocks are available
   const data = await getStorageData();
-  
-  // Initialize if not set
-  if (!data.unblockData || data.unblockData.date !== getTodayDateString()) {
-    await resetDailyUnblocks();
-    data.unblockData = {
-      date: getTodayDateString(),
-      remaining: 3,
-      temporaryUnblocks: {}
-    };
-  }
-  
-  // Check if any unblocks left
-  if (data.unblockData.remaining <= 0) {
-    alert('You have no unblocks remaining today. Try again tomorrow.');
+  const unblockData = getUnblockData(data);
+
+  if (unblockData.remaining <= 0) {
+    showMessage('You have no unblocks left today. They reset tomorrow.');
     return;
   }
-  
-  // Decrement unblock count
-  data.unblockData.remaining--;
-  unblockCountEl.textContent = data.unblockData.remaining;
-  
-  // Add temporary exception for this domain
-  if (!data.unblockData.temporaryUnblocks) {
-    data.unblockData.temporaryUnblocks = {};
-  }
-  
-  // Set expiration time
-  const expirationTime = Date.now() + (minutes * 60 * 1000);
-  data.unblockData.temporaryUnblocks[blockedDomain] = expirationTime;
-  
-  // Update storage
-  await setStorageData({ unblockData: data.unblockData });
-  
-  // Notify background script to update temporary unblocks
-  browserAPI.runtime.sendMessage({ 
+
+  // Ask the background first: it refuses during a focus session, and an
+  // unblock is only used up once the site is really unblocked
+  const expirationTime = Date.now() + minutes * 60 * 1000;
+  const response = await sendMessage({
     action: 'updateTemporaryUnblocks',
     domain: blockedDomain,
-    expirationTime: expirationTime
+    expirationTime: expirationTime,
   });
-  
-  // Redirect to the original URL
-  if (originalUrl) {
-    window.location.href = originalUrl;
+
+  if (!response || !response.success) {
+    showMessage((response && response.error) || 'Could not unblock the site. Please try again.');
+    return;
   }
-}
 
-// Reset daily unblock count
-async function resetDailyUnblocks() {
-  const unblockData = {
-    date: getTodayDateString(),
-    remaining: 3,
-    temporaryUnblocks: {}
-  };
-  
-  await setStorageData({ unblockData: unblockData });
-  return unblockData;
-}
+  unblockData.remaining -= 1;
+  unblockData.temporaryUnblocks = { ...(unblockData.temporaryUnblocks || {}), [blockedDomain]: expirationTime };
+  await setStorageData({ unblockData });
+  unblockCountEl.textContent = unblockData.remaining;
 
-// Get today's date as a string
-function getTodayDateString() {
-  return new Date().toDateString();
-} 
+  const returnUrl = getReturnUrl();
+  if (returnUrl) window.location.href = returnUrl;
+}

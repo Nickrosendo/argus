@@ -1,58 +1,11 @@
 import React, { useState } from 'react';
+import { Plan, PLANS } from '../lib/plans';
 
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onPaymentSuccess: () => void;
 }
-
-interface Plan {
-  id: string;
-  name: string;
-  price: string;
-  priceId: string;
-  amount: number;
-  period: string;
-  features: string[];
-  popular?: boolean;
-}
-
-const PLANS: Plan[] = [
-  {
-    id: 'monthly',
-    name: 'Premium Monthly',
-    price: '$4.99',
-    priceId: 'price_1RfMmNPMjvPC6HTplgXmmNtV', // Replace with actual Stripe price ID
-    amount: 4.99,
-    period: 'month',
-    features: [
-      'Unlimited website blocking',
-      'Cloud sync across devices',
-      'Advanced analytics & insights',
-      'Export data functionality',
-      'Priority support',
-      'No advertisements'
-    ],
-  },
-  {
-    id: 'yearly',
-    name: 'Premium Yearly',
-    price: '$49.99',
-    priceId: 'price_1RfMt2PMjvPC6HTpjiB5cbMi', // Replace with actual Stripe price ID
-    amount: 49.99,
-    period: 'year',
-    popular: true,
-    features: [
-      'Unlimited website blocking',
-      'Cloud sync across devices', 
-      'Advanced analytics & insights',
-      'Export data functionality',
-      'Priority support',
-      'No advertisements',
-      'Save 17% vs monthly'
-    ],
-  },
-];
 
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;

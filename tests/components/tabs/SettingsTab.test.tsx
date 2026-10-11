@@ -342,7 +342,7 @@ describe('SettingsTab Component', () => {
     });
 
     describe('Free Mode Limitations', () => {
-      it('should show free mode limitations', async () => {
+      it('should show how many of the free blocked sites are used', async () => {
         mockFreeService.isFreeMode.mockResolvedValue(true);
         
         const dataWithSites = {
@@ -353,10 +353,10 @@ describe('SettingsTab Component', () => {
         render(<SettingsTab data={dataWithSites} updateStorage={mockUpdateStorage} />);
 
         await waitFor(() => {
-          expect(screen.getByText(/Free Mode:/)).toBeInTheDocument();
-          expect(screen.getByText(/Limited to 3 blocked sites/)).toBeInTheDocument();
-          expect(screen.getByText(/(2\/3 used)/)).toBeInTheDocument();
+          expect(screen.getByText(/2 of 3 free blocked sites used/)).toBeInTheDocument();
         });
+        // The upgrade prompt only appears at the limit
+        expect(screen.queryByRole('button', { name: /Premium/ })).not.toBeInTheDocument();
       });
 
       it('should disable add site input when at limit', async () => {
@@ -379,7 +379,7 @@ describe('SettingsTab Component', () => {
         });
       });
 
-      it('should show upgrade prompt when at limit', async () => {
+      it('should offer Premium when the limit is reached', async () => {
         const dataAtLimit = {
           ...defaultData,
           blockedSites: ['site1.com', 'site2.com', 'site3.com'],
@@ -388,33 +388,24 @@ describe('SettingsTab Component', () => {
         render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
 
         await waitFor(() => {
-          expect(screen.getByText(/Upgrade to Premium/)).toBeInTheDocument();
-          expect(screen.getByText(/for unlimited site blocking/)).toBeInTheDocument();
+          expect(screen.getByText(/3 of 3 free blocked sites used/)).toBeInTheDocument();
+          expect(screen.getByRole('button', { name: 'Block unlimited sites with Premium' })).toBeInTheDocument();
         });
       });
 
-      it('should open upgrade modal when upgrade link is clicked', async () => {
+      it('should start the real upgrade flow from the limit prompt', async () => {
         const user = userEvent.setup();
+        const onUpgrade = jest.fn();
         const dataAtLimit = {
           ...defaultData,
           blockedSites: ['site1.com', 'site2.com', 'site3.com'],
         };
 
-        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
+        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} onUpgrade={onUpgrade} />);
 
-        await waitFor(() => {
-          const upgradeLink = screen.getByRole('button', { name: /Upgrade to Premium/ });
-          expect(upgradeLink).toBeInTheDocument();
-        });
+        await user.click(await screen.findByRole('button', { name: 'Block unlimited sites with Premium' }));
 
-        const upgradeLink = screen.getByRole('button', { name: /Upgrade to Premium/ });
-        await user.click(upgradeLink);
-
-        // Check for modal content instead of duplicate text
-        expect(screen.getByText("You've reached the free tier limit of 3 blocked sites.")).toBeInTheDocument();
-        expect(screen.getByText('Unlimited website blocking')).toBeInTheDocument();
-        expect(screen.getByText('Maybe Later')).toBeInTheDocument();
-        expect(screen.getByText('Upgrade Now')).toBeInTheDocument();
+        expect(onUpgrade).toHaveBeenCalledTimes(1);
       });
 
       it('should prevent adding sites when at free limit', async () => {
@@ -436,32 +427,11 @@ describe('SettingsTab Component', () => {
         expect(addButton).toBeDisabled();
 
         // Since the button is disabled, we can't click it, so just verify the UI state
-        expect(screen.getByText(/Limited to 3 blocked sites/)).toBeInTheDocument();
-        expect(screen.getByText(/(3\/3 used)/)).toBeInTheDocument();
+        expect(screen.getByText(/3 of 3 free blocked sites used/)).toBeInTheDocument();
       });
 
-      it('should close upgrade modal', async () => {
-        const user = userEvent.setup();
-        const dataAtLimit = {
-          ...defaultData,
-          blockedSites: ['site1.com', 'site2.com', 'site3.com'],
-        };
 
-        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
 
-        await waitFor(() => {
-          const upgradeLink = screen.getByRole('button', { name: /Upgrade to Premium/ });
-          expect(upgradeLink).toBeInTheDocument();
-        });
-
-        const upgradeLink = screen.getByRole('button', { name: /Upgrade to Premium/ });
-        await user.click(upgradeLink);
-
-        const maybeLaterButton = screen.getByText('Maybe Later');
-        await user.click(maybeLaterButton);
-
-        expect(screen.queryByText("You've reached the free tier limit")).not.toBeInTheDocument();
-      });
     });
 
     describe('Premium Mode Behavior', () => {

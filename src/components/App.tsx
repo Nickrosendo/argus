@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import AuthPage from "./AuthPage";
 import Header from "./Header";
 import Footer from "./Footer";
@@ -9,6 +9,8 @@ import FocusTab from "./tabs/FocusTab";
 import SettingsTab from "./tabs/SettingsTab";
 import AccountTab from "./tabs/AccountTab";
 import UpgradePrompt from "./ui/UpgradePrompt";
+import WelcomeCard from "./ui/WelcomeCard";
+import PaymentModal from "./PaymentModal";
 import { mergeRemoteUsage } from "../utils/mergeUsage";
 import { StorageData, UserInfo } from "../types/storage";
 import { useBrowserStorage } from "../hooks/useBrowserStorage";
@@ -17,15 +19,38 @@ import FreeService from "../../services/FreeService";
 
 type TabId = "stats" | "history" | "sites" | "focus" | "settings" | "account" | "auth";
 
+// Browser API compatibility
+const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
+
+// Used for any key that is not in storage yet
+const DEFAULT_STORAGE_DATA: StorageData = {
+  sites: {},
+  totalTime: 0,
+  history: {},
+  settings: {
+    idleTime: 5,
+    dailyLimit: 8,
+    showNotifications: true,
+    enableBlocking: false,
+  },
+  blockedSites: [],
+  authToken: null,
+  userInfo: null,
+  freeMode: true,
+};
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>("stats");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isFreeMode, setIsFreeMode] = useState(true);
   const [restrictedTabs, setRestrictedTabs] = useState<Set<string>>(new Set());
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
+  const [showPayment, setShowPayment] = useState(false);
+  // The user chose to upgrade while signed out: continue to payment after sign-in
+  const [pendingUpgrade, setPendingUpgrade] = useState(false);
 
   const { data: storageData, loading, updateStorage } = useBrowserStorage(
-    ["sites", "totalTime", "history", "settings", "blockedSites", "blockingEnabled", "remoteDays", "userInfo", "authToken", "freeMode"],
+    ["sites", "totalTime", "hourly", "history", "settings", "blockedSites", "blockingEnabled", "remoteDays", "userInfo", "authToken", "freeMode", "onboardingDone", "focusSession", "focusStats"],
     {
       sites: {},
       totalTime: 0,
@@ -94,6 +119,12 @@ const App: React.FC = () => {
       // Switch to stats tab after successful authentication
       setActiveTab("stats");
 
+      // Second step of an upgrade that started while signed out
+      if (pendingUpgrade && !isPremium) {
+        setShowPayment(true);
+      }
+      setPendingUpgrade(false);
+
       console.log("Authentication successful:", { 
         user: updatedUserInfo, 
         isPremium, 
@@ -127,15 +158,27 @@ const App: React.FC = () => {
     setIsAuthenticated(false);
     updateStorage({ freeMode: true });
     
+    setPendingUpgrade(false);
+
     // Switch to stats tab after choosing free mode
     setActiveTab("stats");
     
     console.log("Entering free mode");
   };
 
+  // The one upgrade path, used by every upgrade button: signed-in users go
+  // straight to the plan picker, signed-out users sign in first and continue
   const handleUpgradeClick = (): void => {
-    // Show auth tab to encourage signup/login
-    setActiveTab("auth");
+    if (isAuthenticated) {
+      setShowPayment(true);
+    } else {
+      setPendingUpgrade(true);
+      setActiveTab("auth");
+    }
+  };
+
+  const dismissWelcome = (): void => {
+    updateStorage({ onboardingDone: true });
   };
 
   // Check authentication status on app load
@@ -254,6 +297,38 @@ const App: React.FC = () => {
   // Handle browser messaging for sync updates
   const { } = useBrowserMessaging();
 
+  // The data every tab renders. Recomputed only when storage or the plan
+  // changes, so the tabs' own memoised calculations are not redone on every render.
+  const currentStorageData = useMemo(() => {
+    const localStorageData = { ...DEFAULT_STORAGE_DATA, ...storageData } as StorageData;
+    // Premium accounts see their other devices' usage combined with this one's
+    return isFreeMode
+      ? localStorageData
+      : mergeRemoteUsage(localStorageData, localStorageData.remoteDays);
+  }, [storageData, isFreeMode]);
+
+  // Tell the background a popup is open so it saves totals every few seconds
+  // while the numbers are on screen (it saves every 30 seconds otherwise)
+  useEffect(() => {
+    const runtime = browserAPI.runtime as any;
+    if (!runtime || !runtime.connect) return;
+
+    let port: any = null;
+    let closed = false;
+    const connect = () => {
+      if (closed) return;
+      port = runtime.connect({ name: "popup" });
+      // The background worker can be restarted while the popup stays open
+      port.onDisconnect.addListener(() => setTimeout(connect, 1000));
+    };
+    connect();
+
+    return () => {
+      closed = true;
+      if (port) port.disconnect();
+    };
+  }, []);
+
   // Show loading state
   if (loading) {
     return (
@@ -263,30 +338,12 @@ const App: React.FC = () => {
     );
   }
 
-  // Default to empty storage data if not available
-  const defaultStorageData: StorageData = {
-    sites: {},
-    totalTime: 0,
-    history: {},
-    settings: {
-      idleTime: 5,
-      dailyLimit: 8,
-      showNotifications: true,
-      enableBlocking: false,
-    },
-    blockedSites: [],
-    authToken: null,
-    userInfo: null,
-    freeMode: true,
-    lastUpdated: new Date().toISOString(),
-  };
 
-  const localStorageData = { ...defaultStorageData, ...storageData } as StorageData;
-  // Premium accounts see their other devices' usage combined with this one's
-  const currentStorageData = isFreeMode
-    ? localStorageData
-    : mergeRemoteUsage(localStorageData, localStorageData.remoteDays);
 
+  // A new user (nothing recorded on earlier days) sees the welcome once
+  const showWelcome =
+    !currentStorageData.onboardingDone &&
+    Object.keys(currentStorageData.history || {}).length === 0;
 
   // Render current tab content
   let currentTab: React.ReactNode;
@@ -297,59 +354,55 @@ const App: React.FC = () => {
         <AuthPage
           onAuth={handleAuth}
           onFreeMode={handleFreeMode}
+          upgradeIntent={pendingUpgrade}
         />
       );
       break;
     }
     case "stats": {
-      currentTab = <StatsTab data={currentStorageData} />;
+      currentTab = (
+        <>
+          {showWelcome && (
+            <WelcomeCard
+              onDismiss={dismissWelcome}
+              onOpenSettings={() => {
+                dismissWelcome();
+                setActiveTab("settings");
+              }}
+            />
+          )}
+          <StatsTab data={currentStorageData} />
+        </>
+      );
       break;
     }
     case "history": {
-      if (restrictedTabs.has('history')) {
-        currentTab = (
-          <UpgradePrompt
-            featureName="Browsing History"
-            description="Detailed view of your browsing history and time spent on different websites."
-            onUpgrade={handleUpgradeClick}
-          />
-        );
-      } else {
-        currentTab = <HistoryTab data={currentStorageData} />;
-      }
+      currentTab = (
+        <HistoryTab data={currentStorageData} isFreeMode={isFreeMode} onUpgrade={handleUpgradeClick} />
+      );
       break;
     }
     case "sites": {
-      if (restrictedTabs.has('sites')) {
-        currentTab = (
-          <UpgradePrompt
-            featureName="Top Visited Sites"
-            description="Detailed analytics of your most visited websites and browsing patterns."
-            onUpgrade={handleUpgradeClick}
-          />
-        );
-      } else {
-        currentTab = <SitesTab data={currentStorageData} />;
-      }
+      currentTab = <SitesTab data={currentStorageData} />;
       break;
     }
     case "focus": {
       if (restrictedTabs.has('focus')) {
         currentTab = (
           <UpgradePrompt
-            featureName="Zen Mode"
-            description="Focus timer with website blocking to boost your productivity."
+            featureName="Focus"
+            description="Start a timed session and Argus blocks every site on your block list until it ends."
             onUpgrade={handleUpgradeClick}
           />
         );
       } else {
-        currentTab = <FocusTab data={currentStorageData} />;
+        currentTab = <FocusTab data={currentStorageData} onOpenSettings={() => setActiveTab("settings")} />;
       }
       break;
     }
     case "settings": {
       currentTab = (
-        <SettingsTab data={currentStorageData} updateStorage={updateStorage} />
+        <SettingsTab data={currentStorageData} updateStorage={updateStorage} onUpgrade={handleUpgradeClick} />
       );
       break;
     }
@@ -361,6 +414,7 @@ const App: React.FC = () => {
           isFreeMode={isFreeMode}
           onSignOut={handleSignOut}
           onAuth={handleAuth}
+          onUpgrade={handleUpgradeClick}
         />
       );
       break;
@@ -375,12 +429,6 @@ const App: React.FC = () => {
   
   return (
     <div className="app">
-      {isFreeMode && !shouldShowAuthTab && !isCheckingSubscription && (
-        <div id="free-mode-info" className="free-mode-info">
-          You're using Argus in free mode. Some features may be limited.
-        </div>
-      )}
-
       {/* Only show header if not showing auth tab */}
       {activeTab !== "auth" && (
         <Header 
@@ -397,6 +445,12 @@ const App: React.FC = () => {
 
       {/* Only show footer if not showing auth tab */}
       {activeTab !== "auth" && <Footer />}
+
+      <PaymentModal
+        isOpen={showPayment}
+        onClose={() => setShowPayment(false)}
+        onPaymentSuccess={() => setShowPayment(false)}
+      />
     </div>
   );
 };

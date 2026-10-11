@@ -57,19 +57,9 @@ const Header: React.FC<HeaderProps> = ({
     checkRestrictions();
   }, [isFreeMode]);
 
+  // A locked tab still opens: the app shows what the feature does and how
+  // to get it, instead of bouncing the user to the sign-in screen
   const handleTabClick = (tabId: TabId) => {
-    if (restrictedTabs.has(tabId)) {
-      // Redirect to upgrade page for restricted tabs
-      if (onUpgradeClick) {
-        onUpgradeClick();
-      } else {
-        // Fallback to opening upgrade URL
-        const upgradeUrl = FreeService.getUpgradeUrl();
-        window.open(upgradeUrl, '_blank');
-      }
-      return;
-    }
-    
     onTabChange(tabId);
   };
 
@@ -88,12 +78,13 @@ const Header: React.FC<HeaderProps> = ({
           return (
             <button
               key={tab.id}
-              className={`nav-icon-btn ${isActive ? 'active' : ''} ${isRestricted ? 'disabled' : ''}`}
+              className={`nav-icon-btn nav-tab-btn ${isActive ? 'active' : ''} ${isRestricted ? 'locked' : ''}`}
               onClick={() => handleTabClick(tab.id)}
-              aria-label={isRestricted ? `${tab.label} (Premium Feature)` : tab.label}
-              title={isRestricted ? `${tab.label} - Premium Feature. Click to upgrade.` : tab.label}
+              aria-label={isRestricted ? `${tab.label} (Premium)` : tab.label}
+              title={isRestricted ? `${tab.label} is part of Premium` : tab.label}
             >
               <IconComponent className="nav-icon-svg" />
+              <span className="nav-tab-label">{tab.label}</span>
               {isRestricted && <LockIcon className="tab-lock" size={12} />}
             </button>
           );

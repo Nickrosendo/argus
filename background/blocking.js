@@ -3,7 +3,7 @@ import browserApiService from "../services/BrowserApiService";
 import {
   FREE_MODE_MAX_BLOCKED_SITES,
 } from './constants.js';
-import { state } from './state.js';
+import { state, isFocusActive } from './state.js';
 
 // Update the blocked sites configuration
 export async function updateBlockedSites() {
@@ -14,8 +14,10 @@ export async function updateBlockedSites() {
     "freeMode",
   ]);
   // Check both blockingEnabled and settings.enableBlocking for compatibility
+  // A focus session blocks the list even when blocking is switched off
+  const focusActive = isFocusActive();
   const blockingEnabled =
-    result.blockingEnabled || result.settings?.enableBlocking || false;
+    focusActive || result.blockingEnabled || result.settings?.enableBlocking || false;
   let blockedSites = result.blockedSites || [];
   const isFreeMode = result.freeMode === true;
 
@@ -26,7 +28,10 @@ export async function updateBlockedSites() {
   }
 
   // Filter out temporarily unblocked sites for the network rules
-  const currentlyBlockedSites = blockedSites.filter(site => !isTemporarilyUnblocked(site));
+  // ...and ignores temporary unblocks until it ends
+  const currentlyBlockedSites = focusActive
+    ? blockedSites
+    : blockedSites.filter(site => !isTemporarilyUnblocked(site));
 
   // Update the actual network blocking rules
   console.log(`Updating network blocking rules: ${blockingEnabled ? 'enabled' : 'disabled'}, blocking ${currentlyBlockedSites.length} sites`);
@@ -116,6 +121,10 @@ export function isTemporarilyUnblocked(domain) {
 
 // Handle temporary unblock
 export async function handleTemporaryUnblock(domain, expirationTime) {
+  if (isFocusActive()) {
+    throw new Error("A focus session is running. Sites stay blocked until it ends.");
+  }
+
   // Update local state
   state.temporaryUnblocks[domain] = expirationTime;
 
@@ -164,12 +173,15 @@ export async function isUrlBlocked(url) {
     const result = await browserApiService.getStorage([
       'blockingEnabled',
       'blockedSites',
+      'settings',
       'freeMode'
     ]);
 
     console.log('Checking if URL is blocked:', url);
     
-    const blockingEnabled = result.blockingEnabled || false;
+    const focusActive = isFocusActive();
+    const blockingEnabled =
+      focusActive || result.blockingEnabled || result.settings?.enableBlocking || false;
     const blockedSites = result.blockedSites || [];
     const isFreeMode = result.freeMode === true;
 
@@ -200,7 +212,7 @@ export async function isUrlBlocked(url) {
           cleanDomain.endsWith(`.${cleanBlockedSite}`)) {
         
         // Check if it's temporarily unblocked
-        if (isTemporarilyUnblocked(cleanBlockedSite)) {
+        if (!focusActive && isTemporarilyUnblocked(cleanBlockedSite)) {
           console.log(`Site ${cleanBlockedSite} is temporarily unblocked`);
           return false;
         }
@@ -248,6 +260,15 @@ export async function trackBlockedAttempt(url) {
     });
     
     await browserApiService.setStorage({ blockedAttempts });
+
+    // Also counted for the running focus session, if any
+    if (isFocusActive()) {
+      const { focusStats } = await browserApiService.getStorage(['focusStats']);
+      if (focusStats && focusStats.date === today) {
+        focusStats.blocked = (focusStats.blocked || 0) + 1;
+        await browserApiService.setStorage({ focusStats });
+      }
+    }
     
     console.log(`Blocked attempt recorded for ${domain}`);
   } catch (error) {

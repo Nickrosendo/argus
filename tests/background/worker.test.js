@@ -8,7 +8,7 @@
 const { setImmediate } = require('timers');
 
 const START = new Date('2025-07-21T10:00:00').getTime();
-const EVENTS = ['alarm', 'tabActivated', 'tabUpdated', 'focus', 'idle', 'message', 'beforeNavigate', 'storageChanged'];
+const EVENTS = ['alarm', 'tabActivated', 'tabUpdated', 'focus', 'idle', 'message', 'beforeNavigate', 'storageChanged', 'connect'];
 
 // Let pending promise chains and storage callbacks run
 const flush = async () => {
@@ -103,6 +103,7 @@ function createFakeBrowser() {
     },
     runtime: {
       onMessage: event('message'),
+      onConnect: event('connect'),
       onInstalled: event('installed'),
       getURL: (path) => `chrome-extension://test/${path}`,
       sendMessage: () => {},
@@ -128,13 +129,23 @@ describe('background service worker', () => {
 
   // Load a fresh worker instance; listeners from a previous instance are gone,
   // exactly as when the browser restarts a suspended service worker
-  const startWorker = async ({ waitForInit = true } = {}) => {
+  // By default a popup is open, so totals are saved on every 5-second tick
+  const startWorker = async ({ waitForInit = true, popupOpen = true } = {}) => {
     fake.listeners = {};
     jest.resetModules();
     require('../../background.js');
     const registeredSynchronously = EVENTS.filter((name) => (fake.listeners[name] || []).length === 1);
+    if (popupOpen) openPopup();
     if (waitForInit) await flush();
     return registeredSynchronously;
+  };
+
+  // Connect a popup the way the real one does; returns a function that closes it
+  const openPopup = () => {
+    const disconnectListeners = [];
+    const port = { name: 'popup', onDisconnect: { addListener: (listener) => disconnectListeners.push(listener) } };
+    (fake.listeners.connect || []).forEach((listener) => listener(port));
+    return () => disconnectListeners.forEach((listener) => listener(port));
   };
 
   const emit = async (name, ...args) => {
@@ -278,6 +289,47 @@ describe('background service worker', () => {
       expect(fake.local.sites['other.org'].totalTime).toBe(5000);
     });
 
+    it('counts www and non-www addresses of a site as one site', async () => {
+      fake.tabs[10].url = 'https://www.example.com/other';
+      await emit('tabUpdated', 10, { url: fake.tabs[10].url }, fake.tabs[10]);
+      await advance(5000);
+
+      expect(Object.keys(fake.local.sites)).toEqual(['example.com']);
+      expect(fake.local.sites['example.com'].visits).toBe(1);
+    });
+
+    it('does not track browser pages, extension pages or local files', async () => {
+      for (const url of ['chrome://extensions/', 'chrome-extension://abcdefgh/blocked.html', 'file:///home/me/notes.txt', 'about:blank']) {
+        fake.tabs[10].url = url;
+        await emit('tabUpdated', 10, { url }, fake.tabs[10]);
+        await advance(10000);
+      }
+
+      expect(Object.keys(fake.local.sites || {})).toEqual([]);
+      expect(totalTime()).toBe(0);
+    });
+
+    it('records the time under the hour of day it was spent in', async () => {
+      await advance(10000); // 10:00 local time
+
+      expect(fake.local.hourly).toHaveLength(24);
+      expect(fake.local.hourly[10]).toBe(10000);
+      expect(fake.local.hourly.reduce((sum, ms) => sum + ms, 0)).toBe(totalTime());
+    });
+
+    it('keeps the hourly breakdown with the day when it is archived', async () => {
+      await advance(5000);
+      const yesterday = new Date(START).toDateString();
+
+      jest.setSystemTime(new Date('2025-07-22T00:00:01').getTime());
+      await focusBrowser();
+      await advance(5000);
+
+      expect(fake.local.history[yesterday].hourly[10]).toBe(5000);
+      expect(fake.local.hourly[0]).toBe(5000);
+      expect(fake.local.hourly[10]).toBe(0);
+    });
+
     it('does not track a page whose hostname would resolve to the object prototype', async () => {
       fake.tabs[10].url = 'http://__proto__/';
       await emit('tabUpdated', 10, { url: fake.tabs[10].url }, fake.tabs[10]);
@@ -313,6 +365,66 @@ describe('background service worker', () => {
       expect(fake.local.history[yesterday].totalTime).toBe(5000);
       expect(fake.local.lastDate).toBe(new Date('2025-07-22T00:00:06').toDateString());
       expect(totalTime()).toBe(5000);
+    });
+  });
+
+  describe('write frequency', () => {
+    it('saves about every 30 seconds while no popup is open, without losing time', async () => {
+      await startWorker({ popupOpen: false });
+
+      await advance(25000);
+      expect(totalTime()).toBe(0);
+
+      await advance(5000);
+      expect(totalTime()).toBe(30000);
+    });
+
+    it('saves immediately when a popup opens and every tick while it stays open', async () => {
+      await startWorker({ popupOpen: false });
+      await advance(12000);
+
+      const closePopup = openPopup();
+      await flush();
+      expect(totalTime()).toBe(12000);
+
+      await advance(5000);
+      expect(totalTime()).toBe(17000);
+
+      closePopup();
+      await advance(10000);
+      expect(totalTime()).toBe(17000);
+    });
+
+    it('still saves on a tab switch while no popup is open', async () => {
+      await startWorker({ popupOpen: false });
+      jest.advanceTimersByTime(7000);
+
+      fake.tabs[10].url = 'https://other.org/';
+      await emit('tabUpdated', 10, { url: fake.tabs[10].url }, fake.tabs[10]);
+
+      expect(fake.local.sites['example.com'].totalTime).toBe(7000);
+    });
+  });
+
+  describe('stored data from earlier versions', () => {
+    it('merges www entries into their site once, in today and in history', async () => {
+      const day = new Date(START - 86400000).toDateString();
+      fake.local.lastDate = new Date(START).toDateString();
+      fake.local.sites = {
+        'www.example.com': { totalTime: 1000, visits: 1 },
+        'example.com': { totalTime: 500, visits: 2 },
+        'news.site.org': { totalTime: 200, visits: 1 },
+      };
+      fake.local.totalTime = 1700;
+      fake.local.history = { [day]: { sites: { 'www.a.com': { totalTime: 300, visits: 1 } }, totalTime: 300, date: day } };
+
+      await startWorker();
+
+      expect(fake.local.sites['example.com']).toMatchObject({ totalTime: 1500, visits: 3 });
+      expect(fake.local.sites['www.example.com']).toBeUndefined();
+      expect(fake.local.sites['news.site.org'].totalTime).toBe(200);
+      expect(Object.keys(fake.local.history[day].sites)).toEqual(['a.com']);
+      expect(fake.local.dataVersion).toBe(2);
     });
   });
 
@@ -438,10 +550,10 @@ describe('background service worker', () => {
       expect(responses).toEqual([{ success: false, error: 'Unknown action' }]);
     });
 
-    it('answers a manual sync request without throwing', async () => {
+    it('answers a manual sync request honestly when it cannot sync', async () => {
       const responses = await send({ action: 'syncWithApi', manual: true });
 
-      expect(responses).toEqual([{ success: true }]);
+      expect(responses).toEqual([{ success: false, error: 'Not signed in' }]);
     });
   });
 
@@ -557,6 +669,116 @@ describe('background service worker', () => {
 
       expect(fake.local.remoteDays).toEqual({});
       expect(fake.local.syncedDays).toEqual([]);
+    });
+  });
+
+  describe('focus sessions', () => {
+    const fireAlarm = (name) => emit('alarm', { name });
+
+    beforeEach(() => {
+      fake.local.freeMode = false;
+      fake.local.blockedSites = ['a.com', 'b.com'];
+      fake.local.blockingEnabled = false; // blocking switched off outside sessions
+    });
+
+    it('blocks the block list for the length of the session, even with blocking switched off', async () => {
+      await startWorker();
+      expect(fake.rules).toEqual([]);
+
+      const [response] = await send({ action: 'startFocusSession', minutes: 25 });
+
+      expect(response.success).toBe(true);
+      expect(blockedDomainsInRules()).toEqual(['a.com', 'b.com']);
+      expect(fake.local.focusSession.endsAt).toBe(Date.now() + 25 * 60000);
+      expect(fake.alarms['focus-end']).toEqual({ when: fake.local.focusSession.endsAt });
+    });
+
+    it('stops blocking and records a completed session when the time is up', async () => {
+      await startWorker();
+      await send({ action: 'startFocusSession', minutes: 25 });
+
+      jest.advanceTimersByTime(25 * 60000);
+      await fireAlarm('focus-end');
+
+      expect(fake.rules).toEqual([]);
+      expect(fake.local.focusSession).toBeNull();
+      expect(fake.local.focusStats).toMatchObject({ started: 1, completed: 1, focusTime: 25 * 60000 });
+    });
+
+    it('records a session ended early as started but not completed', async () => {
+      await startWorker();
+      await send({ action: 'startFocusSession', minutes: 25 });
+
+      jest.advanceTimersByTime(10 * 60000);
+      await send({ action: 'stopFocusSession' });
+
+      expect(fake.rules).toEqual([]);
+      expect(fake.local.focusStats).toMatchObject({ started: 1, completed: 0, focusTime: 10 * 60000 });
+    });
+
+    it('refuses temporary unblocks while a session is running', async () => {
+      await startWorker();
+      await send({ action: 'startFocusSession', minutes: 25 });
+
+      const [response] = await send({ action: 'updateTemporaryUnblocks', domain: 'a.com', expirationTime: Date.now() + 300000 });
+
+      expect(response.success).toBe(false);
+      expect(response.error).toMatch(/focus session/i);
+      expect(blockedDomainsInRules()).toEqual(['a.com', 'b.com']);
+    });
+
+    it('ignores an unblock granted before the session started', async () => {
+      fake.local.blockingEnabled = true;
+      await startWorker();
+      await send({ action: 'updateTemporaryUnblocks', domain: 'a.com', expirationTime: Date.now() + 30 * 60000 });
+      expect(blockedDomainsInRules()).toEqual(['b.com']);
+
+      await send({ action: 'startFocusSession', minutes: 25 });
+
+      expect(blockedDomainsInRules()).toEqual(['a.com', 'b.com']);
+    });
+
+    it('keeps blocking after a service worker restart', async () => {
+      await startWorker();
+      await send({ action: 'startFocusSession', minutes: 25 });
+
+      jest.advanceTimersByTime(5 * 60000);
+      fake.rules = [];
+      await startWorker();
+
+      expect(blockedDomainsInRules()).toEqual(['a.com', 'b.com']);
+    });
+
+    it('closes a session that ended while the worker was not running', async () => {
+      await startWorker();
+      await send({ action: 'startFocusSession', minutes: 25 });
+
+      jest.advanceTimersByTime(40 * 60000);
+      await startWorker();
+
+      expect(fake.rules).toEqual([]);
+      expect(fake.local.focusSession).toBeNull();
+      expect(fake.local.focusStats).toMatchObject({ completed: 1, focusTime: 25 * 60000 });
+    });
+
+    it('does not start a session for a free account', async () => {
+      fake.local.freeMode = true;
+      await startWorker();
+
+      const [response] = await send({ action: 'startFocusSession', minutes: 25 });
+
+      expect(response).toEqual({ success: false, error: 'Focus sessions are part of Premium' });
+      expect(fake.rules).toEqual([]);
+    });
+
+    it('does not start a second session on top of a running one', async () => {
+      await startWorker();
+      await send({ action: 'startFocusSession', minutes: 25 });
+
+      const [response] = await send({ action: 'startFocusSession', minutes: 50 });
+
+      expect(response.success).toBe(false);
+      expect(fake.local.focusStats.started).toBe(1);
     });
   });
 

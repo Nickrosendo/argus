@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { formatTime } from '../../utils/timeUtils';
 import { StorageData, SiteInfo } from '../../types/storage';
 import { ExternalLink } from 'lucide-react';
+import { categorize } from '../../utils/categories';
 
 interface SitesTabProps {
   data: StorageData;
@@ -32,98 +33,26 @@ const SitesTab: React.FC<SitesTabProps> = ({ data }) => {
     return history[yesterdayString] || { sites: {}, totalTime: 0 };
   }, [history]);
 
-  // Site categorization function
-  const categorizeWebsite = (domain: string): { category: string; color: string } => {
-    const lowerDomain = domain.toLowerCase();
-    
-    // Work/Development sites
-    if (lowerDomain.includes('github') || lowerDomain.includes('stackoverflow') || 
-        lowerDomain.includes('gitlab') || lowerDomain.includes('notion') ||
-        lowerDomain.includes('slack') || lowerDomain.includes('discord') ||
-        lowerDomain.includes('zoom') || lowerDomain.includes('teams') ||
-        lowerDomain.includes('atlassian') || lowerDomain.includes('jira') ||
-        lowerDomain.includes('trello') || lowerDomain.includes('figma') ||
-        lowerDomain.includes('docs.google') || lowerDomain.includes('drive.google')) {
-      return { category: 'Work', color: 'bg-purple-500' };
-    }
-    
-    // Social Media
-    if (lowerDomain.includes('twitter') || lowerDomain.includes('facebook') ||
-        lowerDomain.includes('instagram') || lowerDomain.includes('linkedin') ||
-        lowerDomain.includes('reddit') || lowerDomain.includes('tiktok') ||
-        lowerDomain.includes('snapchat') || lowerDomain.includes('whatsapp')) {
-      return { category: 'Social', color: 'bg-pink-500' };
-    }
-    
-    // Entertainment
-    if (lowerDomain.includes('youtube') || lowerDomain.includes('netflix') ||
-        lowerDomain.includes('twitch') || lowerDomain.includes('spotify') ||
-        lowerDomain.includes('amazon') || lowerDomain.includes('hulu') ||
-        lowerDomain.includes('disney') || lowerDomain.includes('prime')) {
-      return { category: 'Entertainment', color: 'bg-orange-500' };
-    }
-    
-    // News/Information
-    if (lowerDomain.includes('news') || lowerDomain.includes('cnn') ||
-        lowerDomain.includes('bbc') || lowerDomain.includes('wikipedia') ||
-        lowerDomain.includes('medium') || lowerDomain.includes('blog')) {
-      return { category: 'News', color: 'bg-blue-500' };
-    }
-    
-    // Shopping
-    if (lowerDomain.includes('shop') || lowerDomain.includes('store') ||
-        lowerDomain.includes('buy') || lowerDomain.includes('ebay') ||
-        lowerDomain.includes('etsy') || lowerDomain.includes('cart')) {
-      return { category: 'Shopping', color: 'bg-green-500' };
-    }
-    
-    // Default to productivity
-    return { category: 'Productivity', color: 'bg-indigo-500' };
-  };
-
-  // Calculate visit count estimation (simplified)
-  const estimateVisits = (timeSpent: number): number => {
-    // Rough estimation: average 2-5 minutes per visit
-    const avgVisitTime = 3 * 60 * 1000; // 3 minutes in ms
-    return Math.max(1, Math.round(timeSpent / avgVisitTime));
-  };
-
-  // Calculate percentage change from yesterday
-  const calculateChange = (todayTime: number, domain: string): { percent: string; color: string } => {
-    const yesterdaySites = yesterdayData.sites || {};
-    const yesterdayTime = (yesterdaySites as { [key: string]: SiteInfo })[domain]?.totalTime || 0;
-    
-    if (yesterdayTime === 0) {
-      return { percent: 'New', color: 'text-blue-400' };
-    }
-    
-    const change = ((todayTime - yesterdayTime) / yesterdayTime) * 100;
-    const isPositive = change > 0;
-    
-    return {
-      percent: `${isPositive ? '+' : ''}${change.toFixed(0)}%`,
-      color: isPositive ? 'text-red-400' : 'text-green-400'
-    };
-  };
-
   // Process and sort sites data
   const enhancedSites: EnhancedSiteData[] = useMemo(() => {
-    const siteKeys = Object.keys(sites);
-    
-    const processed = siteKeys.map(domain => {
+    const yesterdaySites = (yesterdayData.sites || {}) as { [key: string]: SiteInfo };
+
+    const processed = Object.keys(sites).map(domain => {
       const siteData = sites[domain];
-      const { category, color } = categorizeWebsite(domain);
-      const visits = estimateVisits(siteData.totalTime);
-      const change = calculateChange(siteData.totalTime, domain);
-      
+      const category = categorize(domain);
+      const yesterdayTime = yesterdaySites[domain]?.totalTime || 0;
+
       return {
         ...siteData,
         domain,
-        visits,
-        category,
-        categoryColor: color,
-        changePercent: change.percent,
-        changeColor: change.color
+        // Recorded by the tracker: one visit per continuous stay on the site
+        visits: siteData.visits || 1,
+        category: category.name,
+        categoryColor: category.badgeClass,
+        // Yesterday's full-day time, stated plainly: a percentage against a
+        // finished day would be misleading while today is still in progress
+        changePercent: yesterdayTime > 0 ? `yest. ${formatTime(yesterdayTime)}` : 'New today',
+        changeColor: yesterdayTime > 0 ? 'text-gray-400' : 'text-blue-400'
       };
     });
     
@@ -160,7 +89,7 @@ const SitesTab: React.FC<SitesTabProps> = ({ data }) => {
       <div className="sites-table-container">
         <div className="sites-table-header">
           <h2 className="sites-table-title">Top Visited Sites</h2>
-          <p className="sites-table-subtitle">Your most visited websites today</p>
+          <p className="sites-table-subtitle">Where your time went today</p>
         </div>
         
         {enhancedSites.length === 0 ? (
@@ -192,7 +121,7 @@ const SitesTab: React.FC<SitesTabProps> = ({ data }) => {
                       <span className={`category-badge ${site.categoryColor}`}>
                         {site.category}
                       </span>
-                      <span className="visit-count">{site.visits} visits</span>
+                      <span className="visit-count">{site.visits} visit{site.visits === 1 ? '' : 's'}</span>
                     </div>
                   </div>
                 </div>
@@ -201,7 +130,10 @@ const SitesTab: React.FC<SitesTabProps> = ({ data }) => {
                   <div className="time-spent">
                     {formatTime(site.totalTime)}
                   </div>
-                  <div className={`change-percent ${site.changeColor}`}>
+                  <div
+                    className={`change-percent ${site.changeColor}`}
+                    title={site.changePercent === 'New today' ? 'Not visited yesterday' : 'Time on this site during all of yesterday'}
+                  >
                     {site.changePercent}
                   </div>
                 </div>

@@ -28,9 +28,9 @@ describe('AuthPage Component', () => {
     it('should render social authentication buttons', () => {
       render(<AuthPage {...defaultProps} />);
       
-      expect(screen.getByText('Welcome to Argus')).toBeInTheDocument();
-      expect(screen.getByText('Monitor your browsing habits and boost productivity')).toBeInTheDocument();
-      expect(screen.getByText('Sign in to get started')).toBeInTheDocument();
+      expect(screen.getByText('Sign in to Argus')).toBeInTheDocument();
+      expect(screen.getByText(/An account is only needed for Premium/)).toBeInTheDocument();
+      expect(screen.getByText('Sign in')).toBeInTheDocument();
       expect(screen.getByText('Continue with Google')).toBeInTheDocument();
       
       // Microsoft auth button should only appear when enabled
@@ -41,16 +41,16 @@ describe('AuthPage Component', () => {
         expect(screen.queryByText('Continue with Microsoft')).not.toBeInTheDocument();
       }
       
-      expect(screen.getByText('Continue in Free Mode')).toBeInTheDocument();
+      expect(screen.getByText('Continue without an account')).toBeInTheDocument();
     });
 
     it('should render benefits section', () => {
       render(<AuthPage {...defaultProps} />);
       
-      expect(screen.getByText('Why sign in?')).toBeInTheDocument();
-      expect(screen.getByText('Sync data across devices')).toBeInTheDocument();
-      expect(screen.getByText('Advanced analytics & insights')).toBeInTheDocument();
-      expect(screen.getByText('Cloud backup & recovery')).toBeInTheDocument();
+      expect(screen.getByText('Premium includes')).toBeInTheDocument();
+      expect(screen.getByText('Unlimited website blocking')).toBeInTheDocument();
+      expect(screen.getByText('Sync and a combined view across your devices')).toBeInTheDocument();
+      expect(screen.queryByText(/advertisement|priority support/i)).not.toBeInTheDocument();
     });
 
     it('should render within tab-content section', () => {
@@ -155,7 +155,7 @@ describe('AuthPage Component', () => {
 
       render(<AuthPage {...defaultProps} />);
       
-      const freeModeButton = screen.getByText('Continue in Free Mode').closest('button');
+      const freeModeButton = screen.getByText('Continue without an account').closest('button');
       await user.click(freeModeButton!);
 
       expect(mockOnFreeMode).toHaveBeenCalled();
@@ -238,7 +238,7 @@ describe('AuthPage Component', () => {
         expect(screen.queryByRole('button', { name: /continue with microsoft/i })).not.toBeInTheDocument();
       }
       
-      expect(screen.getByRole('button', { name: /continue in free mode/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /continue without an account/i })).toBeInTheDocument();
     });
   });
 }); 

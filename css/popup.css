@@ -1773,6 +1773,7 @@ footer {
   align-items: center;
   gap: 12px;
   flex: 1;
+  min-width: 0; /* lets the name and badges shrink instead of pushing the time out of the row */
 }
 
 .site-icon-wrapper {
@@ -1823,7 +1824,9 @@ footer {
 .site-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .category-badge {
@@ -2879,3 +2882,148 @@ footer {
   }
 }
 
+/* Labelled navigation tabs */
+.nav-icon-btn.nav-tab-btn {
+  flex-direction: column;
+  gap: 3px;
+  width: 64px;
+  height: 52px;
+  position: relative;
+}
+
+.nav-tab-label {
+  font-size: 0.65rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* A premium tab is clearly marked but still opens */
+.nav-icon-btn.locked {
+  position: relative;
+}
+
+.nav-icon-btn.locked .lock-icon-wrapper {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--lock-color);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* First-run welcome */
+.welcome-card {
+  padding: 16px;
+  margin: 0 15px 12px;
+  border-radius: 12px;
+}
+
+.welcome-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.welcome-list {
+  text-align: left;
+  margin: 0 0 12px 18px;
+  padding: 0;
+  list-style: disc;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: rgba(229, 231, 235, 0.85);
+}
+
+.welcome-list li + li {
+  margin-top: 4px;
+}
+
+.welcome-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Inline text button used for contextual upgrade prompts */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #fbbf24;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.free-mode-info {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: rgba(229, 231, 235, 0.7);
+}
+
+.upgrade-price {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: rgba(229, 231, 235, 0.7);
+}
+
+/* The edge of the free history */
+.history-edge {
+  width: 100%;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px dashed rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.08);
+  color: #fbbf24;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.history-edge:hover {
+  background: rgba(251, 191, 36, 0.15);
+}
+
+/* Account: plan details and confirmation */
+.plan-renewal {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: rgba(229, 231, 235, 0.75);
+}
+
+.plan-error {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #f87171;
+}
+
+.confirm-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.08);
+}
+
+.confirm-text {
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.sync-indicator.failed .sync-dot {
+  background: #f87171;
+}
+
+.sync-indicator.failed .sync-text {
+  color: #f87171;
+}
+
+.nav-icon-btn.locked .lock-icon {
+  color: #1f2937;
+}

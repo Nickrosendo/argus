@@ -7,6 +7,7 @@ import {
   TEMP_UNBLOCK_CHECK_ALARM,
   API_SYNC_ALARM,
   API_SYNC_INTERVAL,
+  FOCUS_END_ALARM,
 } from './background/constants.js';
 import {
   state,
@@ -16,6 +17,8 @@ import {
 } from './background/state.js';
 import {
   applyIdleSetting,
+  migrateStoredData,
+  updateTimeForCurrentTab,
   reconcileActiveTab,
   checkAndResetForNewDay,
   handleTabActivated,
@@ -32,6 +35,7 @@ import {
   handleBeforeNavigate,
 } from './background/blocking.js';
 import { syncDataWithApi } from './background/sync.js';
+import { endFocusSession, loadFocusSession } from './background/focus.js';
 import {
   handleCreateCheckoutSession,
   handleVerifyPayment,
@@ -111,6 +115,9 @@ async function initializeExtension() {
   // Check free mode status
   state.isFreeMode = result.freeMode === true;
 
+  // Convert data stored by earlier versions before anything reads it
+  await migrateStoredData();
+
   // Check and reset unblock count for new day
   await checkAndResetUnblockData();
 
@@ -145,6 +152,9 @@ async function initializeExtension() {
 
   await reconcileActiveTab();
 
+  // Restore a focus session that was running before the worker stopped
+  await loadFocusSession();
+
   // Initialize network blocking rules
   console.log("Initializing network blocking rules...");
   await updateBlockedSites();
@@ -169,6 +179,8 @@ function handleAlarm(alarm) {
     updateTracker();
   } else if (alarm.name === TEMP_UNBLOCK_CHECK_ALARM) {
     checkTemporaryUnblocks();
+  } else if (alarm.name === FOCUS_END_ALARM) {
+    endFocusSession(true);
   } else if (alarm.name === API_SYNC_ALARM) {
     // Only sync if authenticated (not in free mode)
     if (state.isAuthenticated && !state.isFreeMode) {
@@ -210,6 +222,22 @@ browserApiService.addWindowFocusListener(whenReady(handleWindowFocus));
 
 // Add web navigation listeners for blocking checks
 browserApiService.addWebNavigationListener(whenReady(handleBeforeNavigate));
+
+// An open popup connects so its numbers stay live: totals are then saved
+// every few seconds instead of every 30
+browserAPI.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'popup') return;
+
+  state.openPopups += 1;
+  // Show fresh numbers straight away, unless tracking is paused (idle)
+  ready.then(() => {
+    if (state.isTracking) updateTimeForCurrentTab();
+  });
+
+  port.onDisconnect.addListener(() => {
+    state.openPopups = Math.max(0, state.openPopups - 1);
+  });
+});
 
 // Message handler
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {

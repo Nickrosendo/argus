@@ -17,26 +17,14 @@ jest.mock('../../../src/components/PaymentModal', () => {
   };
 });
 
-// Mock browser API
-const mockBrowserAPI = {
-  storage: {
-    local: {
-      get: jest.fn(),
-      set: jest.fn(),
-    },
-  },
-  runtime: {
-    sendMessage: jest.fn(),
-  },
-};
+// The component captures the browser API when it is imported, which happens
+// before any statement in this file runs. So the tests configure the fakes
+// that tests/setup.js already installed instead of replacing them.
+const mockBrowserAPI = (global as any).browser;
 
 // Mock fetch for API calls
 global.fetch = jest.fn();
 process.env.API_URL = 'http://localhost:3000';
-
-// Mock the browser API globally
-(global as any).chrome = mockBrowserAPI;
-(global as any).browser = mockBrowserAPI;
 
 // Mock useBrowserMessaging hook
 jest.mock('../../../src/hooks/useBrowserMessaging', () => ({
@@ -71,6 +59,7 @@ describe('AccountTab', () => {
     isFreeMode: true,
     onSignOut: jest.fn(),
     onAuth: jest.fn(),
+    onUpgrade: jest.fn(),
   };
 
   beforeEach(() => {
@@ -83,32 +72,36 @@ describe('AccountTab', () => {
   });
 
   describe('Free Mode Display', () => {
-    it('should render free mode interface correctly', () => {
+    it('should say what works without an account and what Premium adds', () => {
       render(<AccountTab {...defaultProps} />);
 
-      expect(screen.getByText('Free Mode Account')).toBeInTheDocument();
-      expect(screen.getByText('Cross-device data synchronization')).toBeInTheDocument();
-      expect(screen.getByText('Advanced analytics & insights')).toBeInTheDocument();
-      expect(screen.getByText('Cloud backup & recovery')).toBeInTheDocument();
-      expect(screen.getByText('Enhanced productivity tracking')).toBeInTheDocument();
-      expect(screen.getByText('Sign In to Unlock Premium Features')).toBeInTheDocument();
+      expect(screen.getByText('No account')).toBeInTheDocument();
+      expect(screen.getByText(/your data stays on this device/i)).toBeInTheDocument();
+      expect(screen.getByText('Unlimited website blocking')).toBeInTheDocument();
+      expect(screen.getByText(/\$4\.99\/month or \$49\.99\/year/)).toBeInTheDocument();
+      // Nothing that does not exist is promised
+      expect(screen.queryByText(/advertisement/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/priority support/i)).not.toBeInTheDocument();
     });
 
-    it('should handle sign in button click', () => {
+    it('should start the upgrade flow from the upgrade button', () => {
       render(<AccountTab {...defaultProps} />);
 
-      const signInButton = screen.getByText('Sign In to Unlock Premium Features');
-      fireEvent.click(signInButton);
+      fireEvent.click(screen.getByText('Upgrade to Premium'));
+
+      expect(defaultProps.onUpgrade).toHaveBeenCalled();
+    });
+
+    it('should open the sign-in screen for someone who already has an account', () => {
+      render(<AccountTab {...defaultProps} />);
+
+      fireEvent.click(screen.getByText('I already have an account'));
 
       expect(defaultProps.onAuth).toHaveBeenCalledWith(true);
     });
 
-    it('should show payment modal in free mode', () => {
-      render(<AccountTab {...defaultProps} />);
 
-      // PaymentModal should not be visible initially
-      expect(screen.queryByTestId('payment-modal')).not.toBeInTheDocument();
-    });
+
   });
 
   describe('Authenticated User Display', () => {
@@ -143,8 +136,59 @@ describe('AccountTab', () => {
 
       expect(screen.getByText('Test User')).toBeInTheDocument();
       expect(screen.getByText('test@example.com')).toBeInTheDocument();
-      expect(screen.getByText('Sync Now')).toBeInTheDocument();
       expect(screen.getByText('Sign Out')).toBeInTheDocument();
+      // Sync controls appear once the plan is known to be Premium
+      expect(await screen.findByText('Sync Now')).toBeInTheDocument();
+    });
+
+    it('should show when the plan renews', async () => {
+      render(<AccountTab {...authenticatedProps} />);
+
+      expect(await screen.findByText(/Renews on .*2022|Renews on .*2021/)).toBeInTheDocument();
+    });
+
+    it('should not claim to be synced before any sync has happened', async () => {
+      mockBrowserAPI.storage.local.get.mockResolvedValue({ authToken: 'valid_token_123' });
+
+      render(<AccountTab {...authenticatedProps} />);
+
+      await screen.findByText('Sync Now');
+      expect(screen.getByText('Never')).toBeInTheDocument();
+      expect(screen.queryByText('Synced')).not.toBeInTheDocument();
+    });
+
+    it('should ask for confirmation before cancelling the subscription', async () => {
+      render(<AccountTab {...authenticatedProps} />);
+
+      fireEvent.click(await screen.findByText('Cancel Subscription'));
+
+      expect(screen.getByText(/Cancel Premium\?/)).toBeInTheDocument();
+      expect(global.fetch).not.toHaveBeenCalledWith(
+        expect.stringContaining('cancel-subscription'),
+        expect.anything()
+      );
+
+      fireEvent.click(screen.getByText('Yes, cancel'));
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          expect.stringContaining('cancel-subscription'),
+          expect.objectContaining({ method: 'POST' })
+        );
+      });
+    });
+
+    it('should keep the subscription when the confirmation is declined', async () => {
+      render(<AccountTab {...authenticatedProps} />);
+
+      fireEvent.click(await screen.findByText('Cancel Subscription'));
+      fireEvent.click(screen.getByText('Keep Premium'));
+
+      expect(screen.getByText('Cancel Subscription')).toBeInTheDocument();
+      expect(global.fetch).not.toHaveBeenCalledWith(
+        expect.stringContaining('cancel-subscription'),
+        expect.anything()
+      );
     });
 
     it('should display user avatar when available', () => {
@@ -171,7 +215,7 @@ describe('AccountTab', () => {
     });
 
 
-    it('should handle sync failure gracefully', async () => {
+    it('should say that a sync failed and why', async () => {
       mockBrowserAPI.runtime.sendMessage.mockResolvedValue({
         success: false,
         error: 'Network error',
@@ -179,16 +223,20 @@ describe('AccountTab', () => {
 
       render(<AccountTab {...authenticatedProps} />);
 
-      const syncButton = screen.getByText('Sync Now');
-      fireEvent.click(syncButton);
+      fireEvent.click(await screen.findByText('Sync Now'));
 
-      // Use getAllByText to handle multiple "Syncing..." texts
-      const syncingElements = screen.getAllByText('Syncing...');
-      expect(syncingElements.length).toBeGreaterThan(0);
+      expect(await screen.findByText('Sync failed: Network error')).toBeInTheDocument();
+      expect(screen.queryByText('Synced')).not.toBeInTheDocument();
+    });
 
-      await waitFor(() => {
-        expect(screen.getByText('Sync Now')).toBeInTheDocument();
-      });
+    it('should show synced only after a sync succeeded', async () => {
+      mockBrowserAPI.runtime.sendMessage.mockResolvedValue({ success: true });
+
+      render(<AccountTab {...authenticatedProps} />);
+
+      fireEvent.click(await screen.findByText('Sync Now'));
+
+      expect(await screen.findByText('Synced')).toBeInTheDocument();
     });
 
     it('should handle sign out', async () => {
@@ -228,90 +276,21 @@ describe('AccountTab', () => {
     });
   });
 
-  describe('Payment Integration', () => {
-    const authenticatedProps = {
-      ...defaultProps,
-      isAuthenticated: true,
-      isFreeMode: false,
-    };
-
-    beforeEach(() => {
-      mockBrowserAPI.storage.local.get.mockResolvedValue({
-        lastSyncTime: Date.now() - 60000,
-        authToken: 'valid_token_123',
-      });
-    });
-
-    it('should open payment modal when upgrade button is clicked', async () => {
-      // Mock free user
+  describe('Upgrade', () => {
+    it('should start the upgrade flow for a signed-in free user and not offer sync', async () => {
       global.fetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({
-          hasSubscription: false,
-          userType: 'free',
-        }),
+        json: () => Promise.resolve({ hasSubscription: false, userType: 'free' }),
       });
+      mockBrowserAPI.storage.local.get.mockResolvedValue({ authToken: 'valid_token_123' });
 
-      render(<AccountTab {...authenticatedProps} />);
+      render(<AccountTab {...defaultProps} isAuthenticated={true} isFreeMode={true} />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Upgrade to Premium')).toBeInTheDocument();
-      });
+      fireEvent.click(await screen.findByText('Upgrade to Premium'));
 
-      const upgradeButton = screen.getByText('Upgrade to Premium');
-      fireEvent.click(upgradeButton);
-
-      expect(screen.getByTestId('payment-modal')).toBeInTheDocument();
-    });
-
-    it('should close payment modal', async () => {
-      global.fetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          hasSubscription: false,
-          userType: 'free',
-        }),
-      });
-
-      render(<AccountTab {...authenticatedProps} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Upgrade to Premium')).toBeInTheDocument();
-      });
-
-      const upgradeButton = screen.getByText('Upgrade to Premium');
-      fireEvent.click(upgradeButton);
-
-      expect(screen.getByTestId('payment-modal')).toBeInTheDocument();
-
-      const closeButton = screen.getByText('Close Modal');
-      fireEvent.click(closeButton);
-
-      expect(screen.queryByTestId('payment-modal')).not.toBeInTheDocument();
-    });
-
-    it('should handle payment success', async () => {
-      global.fetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({
-          hasSubscription: false,
-          userType: 'free',
-        }),
-      });
-
-      render(<AccountTab {...authenticatedProps} />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Upgrade to Premium')).toBeInTheDocument();
-      });
-
-      const upgradeButton = screen.getByText('Upgrade to Premium');
-      fireEvent.click(upgradeButton);
-
-      const paymentSuccessButton = screen.getByText('Mock Payment Success');
-      fireEvent.click(paymentSuccessButton);
-
-      expect(screen.queryByTestId('payment-modal')).not.toBeInTheDocument();
+      expect(defaultProps.onUpgrade).toHaveBeenCalled();
+      expect(screen.getByText(/syncing is part of Premium/i)).toBeInTheDocument();
+      expect(screen.queryByText('Sync Now')).not.toBeInTheDocument();
     });
   });
 
@@ -385,6 +364,10 @@ describe('AccountTab', () => {
     });
 
     it('should display "Just now" for recent sync', async () => {
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ hasSubscription: true, userType: 'premium', status: 'active' }),
+      });
       mockBrowserAPI.storage.local.get.mockResolvedValue({
         lastSyncTime: Date.now() - 30000, // 30 seconds ago
         authToken: 'valid_token_123',
@@ -397,7 +380,6 @@ describe('AccountTab', () => {
         expect(screen.getByText('Just now')).toBeInTheDocument();
       });
     });
-
 
   });
 

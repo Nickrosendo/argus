@@ -1,5 +1,6 @@
 import React from 'react';
 import { Lock, Crown } from 'lucide-react';
+import { PREMIUM_FEATURES, PRICE_SUMMARY } from '../../lib/plans';
 
 interface UpgradePromptProps {
   featureName: string;
@@ -22,16 +23,15 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({
           <Crown className="crown-icon" size={20} />
         </div>
         
-        <h3 className="upgrade-title">{featureName} - Premium Feature</h3>
+        <h3 className="upgrade-title">{featureName} is part of Premium</h3>
         <p className="upgrade-description">{description}</p>
         
         <div className="upgrade-benefits">
-          <h4>Upgrade to Premium for:</h4>
+          <h4>Premium includes:</h4>
           <ul>
-            <li>Access to all advanced features</li>
-            <li>Cloud sync across devices</li>
-            <li>No advertisements</li>
-            <li>Priority support</li>
+            {PREMIUM_FEATURES.map((feature) => (
+              <li key={feature}>{feature}</li>
+            ))}
           </ul>
         </div>
         
@@ -42,6 +42,7 @@ const UpgradePrompt: React.FC<UpgradePromptProps> = ({
           <Crown size={16} />
           Upgrade to Premium
         </button>
+        <p className="upgrade-price">{PRICE_SUMMARY}. Cancel any time.</p>
       </div>
     </div>
   );

@@ -18,18 +18,14 @@ export function useBrowserStorage<T extends Partial<StorageData>>(
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    console.log('useBrowserStorage: Loading data for keys:', keys);
-    
     // Load initial data
     browserAPI.storage.local.get(keys, (result: Partial<StorageData>) => {
-      console.log('useBrowserStorage: Loaded data:', result);
       setData(prevData => ({ ...prevData, ...result } as T));
       setLoading(false);
     });
 
     // Listen for storage changes
     const handleStorageChange = (changes: { [key: string]: any }, areaName: string): void => {
-      console.log('useBrowserStorage: Storage changed:', changes, areaName);
       if (areaName === 'local') {
         const updatedData: Partial<StorageData> = {};
         for (const key in changes) {
@@ -38,7 +34,6 @@ export function useBrowserStorage<T extends Partial<StorageData>>(
           }
         }
         if (Object.keys(updatedData).length > 0) {
-          console.log('useBrowserStorage: Updating data:', updatedData);
           setData(prevData => ({ ...prevData, ...updatedData }));
         }
       }
@@ -52,12 +47,10 @@ export function useBrowserStorage<T extends Partial<StorageData>>(
   }, [keys.join(',')]); // Convert keys array to string for dependency
 
   const updateStorage = (updates: Partial<StorageData>): void => {
-    console.log('useBrowserStorage: Updating storage:', updates);
     browserAPI.storage.local.set(updates as any, () => {
       if (browserAPI.runtime.lastError) {
         console.error('useBrowserStorage: Error updating storage:', browserAPI.runtime.lastError);
       } else {
-        console.log('useBrowserStorage: Storage updated successfully');
         setData(prevData => ({ ...prevData, ...updates }));
       }
     });

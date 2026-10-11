@@ -76,3 +76,80 @@ const UNSAFE_KEYS = ['__proto__', 'constructor', 'prototype'];
 export function isSafeSiteKey(key) {
   return typeof key === 'string' && key !== '' && !UNSAFE_KEYS.includes(key);
 }
+
+/**
+ * The site a URL should be tracked under, or null when the page is not a
+ * website (browser pages, extension pages, local files).
+ * "https://www.Example.com/page" -> "example.com": the leading "www." is
+ * dropped so one site is not counted as two.
+ *
+ * @param {string} url The tab's URL
+ * @returns {string|null}
+ */
+export function getTrackableDomain(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (error) {
+    return null;
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return null;
+  }
+
+  const domain = normalizeSiteKey(parsed.hostname);
+  return isSafeSiteKey(domain) ? domain : null;
+}
+
+/**
+ * @param {string} hostname
+ * @returns {string} The hostname as used for storage keys
+ */
+export function normalizeSiteKey(hostname) {
+  return String(hostname || '').toLowerCase().replace(/^www\./, '');
+}
+
+/**
+ * Re-key a sites map with normalizeSiteKey, adding together entries that end
+ * up under the same key (for example "www.example.com" and "example.com").
+ *
+ * @param {Object} sites Map of hostname -> site entry
+ * @returns {Object} A new map; the input is not modified
+ */
+export function normalizeSites(sites) {
+  const normalized = {};
+
+  Object.keys(sites || {}).forEach((hostname) => {
+    const key = normalizeSiteKey(hostname);
+    const site = sites[hostname];
+    if (!isSafeSiteKey(key) || !site || typeof site !== 'object') return;
+
+    const existing = Object.prototype.hasOwnProperty.call(normalized, key) ? normalized[key] : null;
+    normalized[key] = existing
+      ? {
+          ...site,
+          ...existing,
+          totalTime: (existing.totalTime || 0) + (site.totalTime || 0),
+          visits: (existing.visits || 0) + (site.visits || 0),
+          lastVisit: Math.max(existing.lastVisit || 0, site.lastVisit || 0) || undefined,
+        }
+      : { ...site };
+  });
+
+  return normalized;
+}
+
+/**
+ * Add time to the hour-of-day bucket for the given moment.
+ *
+ * @param {number[]} [hourly] 24 buckets of milliseconds, index = hour of day
+ * @param {number} now Timestamp in ms
+ * @param {number} timeSpent Milliseconds to add
+ * @returns {number[]} A new 24-item array
+ */
+export function addHourlyTime(hourly, now, timeSpent) {
+  const buckets = Array.from({ length: 24 }, (_, hour) => Number(hourly && hourly[hour]) || 0);
+  buckets[new Date(now).getHours()] += timeSpent;
+  return buckets;
+}

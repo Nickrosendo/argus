@@ -47,10 +47,14 @@ This is a cross-browser extension (Chrome/Firefox) built with **React 18** and *
   - `blocking.js` - blocking rules, temporary unblocks, navigation checks
   - `messages.js` - messages from the popup, blocked page and content scripts
   - `payments.js`, `sync.js` - checkout messages and API upload
+  - `focus.js` - focus sessions: block the whole block list until a stored end time, ended by an alarm
   - `state.js` - shared in-memory state, mirrored to `chrome.storage.session` so a worker restart resumes tracking
   - Register every listener synchronously at the top level of `background.js`; handlers wait on the `ready` promise
 - **React Popup UI**: `src/components/App.tsx` - main application with tab-based navigation
 - **Browser API Abstraction**: `services/BrowserApiService.js` - unified API for Chrome/Firefox differences
+- **Plans and pricing copy**: `src/lib/plans.ts` is the only place that states the price and what Premium includes; every upgrade surface reads it. Only list features that exist
+- **Upgrade flow**: every upgrade button calls `handleUpgradeClick` in `App.tsx` (plan picker when signed in, sign-in then plan picker otherwise)
+- **Metrics**: `src/utils/metrics.ts` and `src/utils/categories.ts` compute everything the screens show from recorded data; do not add estimated figures
 - **Custom Hooks**: `src/hooks/` - `useBrowserStorage` and `useBrowserMessaging` for React-browser integration
 
 ### Key Services

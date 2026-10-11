@@ -11,12 +11,13 @@ import {
 import { REMOTE_HISTORY_DAYS } from './constants.js';
 import { state } from './state.js';
 
-// Sync data with the API
+// Sync data with the API. Resolves to { ok, reason } so callers can tell the
+// user what actually happened.
 export async function syncDataWithApi(isManualSync = false) {
   // Cloud sync is a premium feature (the API enforces this too)
   if (state.isFreeMode) {
     console.log("Free mode, skipping API sync");
-    return;
+    return { ok: false, reason: "Sync is part of Premium" };
   }
 
   // Only sync if authenticated
@@ -31,7 +32,7 @@ export async function syncDataWithApi(isManualSync = false) {
     
     if (!state.isAuthenticated) {
       console.log("Not authenticated, skipping API sync");
-      return;
+      return { ok: false, reason: "Not signed in" };
     }
   }
 
@@ -41,6 +42,7 @@ export async function syncDataWithApi(isManualSync = false) {
     const result = await browserApiService.getStorage([
       "sites",
       "totalTime",
+      "hourly",
       "lastDate",
       "history",
       "syncedDays",
@@ -59,6 +61,7 @@ export async function syncDataWithApi(isManualSync = false) {
     const { days, historyDates } = buildUploadDays({
       sites: result.sites,
       totalTime: result.totalTime,
+      hourly: result.hourly,
       currentDate: result.lastDate || new Date().toDateString(),
       history: result.history,
       syncedDays: result.syncedDays,
@@ -82,6 +85,7 @@ export async function syncDataWithApi(isManualSync = false) {
     });
 
     console.log(`Data sync completed successfully (${isManualSync ? 'manual' : 'automatic'})`);
+    return { ok: true };
   } catch (error) {
     console.error("API sync error:", error);
 
@@ -91,5 +95,7 @@ export async function syncDataWithApi(isManualSync = false) {
       // Clear auth cache when we get authentication errors
       authService.clearAuthCache();
     }
+
+    return { ok: false, reason: error.message || "Sync failed" };
   }
 }

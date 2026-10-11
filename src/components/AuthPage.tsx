@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserInfo } from '../types/storage';
 import { useBrowserMessaging } from '../hooks/useBrowserMessaging';
+import { PREMIUM_FEATURES, PRICE_SUMMARY } from '../lib/plans';
 
 interface UserData {
   token: string;
@@ -14,9 +15,11 @@ interface UserData {
 interface AuthPageProps {
   onAuth: (isAuthenticated: boolean, userData?: UserData) => void;
   onFreeMode: () => void;
+  // True when the user got here by choosing to upgrade
+  upgradeIntent?: boolean;
 }
 
-const AuthPage: React.FC<AuthPageProps> = ({ onAuth, onFreeMode }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ onAuth, onFreeMode, upgradeIntent = false }) => {
   const [socialLoading, setSocialLoading] = useState<{ google: boolean; microsoft: boolean }>({
     google: false,
     microsoft: false
@@ -63,15 +66,17 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuth, onFreeMode }) => {
         <div className="auth-card">
           <div className="auth-header">
             <img src="icons/icon128.png" alt="Argus Logo" className="auth-logo" />
-            <h2 className="auth-title">Welcome to Argus</h2>
+            <h2 className="auth-title">{upgradeIntent ? 'Upgrade to Premium' : 'Sign in to Argus'}</h2>
             <p className="auth-subtitle">
-              Monitor your browsing habits and boost productivity
+              {upgradeIntent
+                ? `Step 1 of 2: sign in so your subscription is tied to you. Premium is ${PRICE_SUMMARY}.`
+                : 'An account is only needed for Premium. Argus works without one.'}
             </p>
           </div>
 
           {/* Social Authentication Section */}
           <div className="social-auth-section">
-            <h3 className="social-auth-title">Sign in to get started</h3>
+            <h3 className="social-auth-title">{upgradeIntent ? 'Sign in, then choose a plan' : 'Sign in'}</h3>
             
             <button 
               className="social-auth-btn google-btn"
@@ -127,33 +132,23 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuth, onFreeMode }) => {
               <svg className="free-mode-icon" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.293l-3-3a1 1 0 00-1.414-1.414L9 5.586 7.707 4.293a1 1 0 00-1.414 1.414L8.586 8l-2.293 2.293a1 1 0 101.414 1.414L9 10.414l2.293 2.293a1 1 0 001.414-1.414L10.414 9l2.293-2.293a1 1 0 000-1.414z" clipRule="evenodd" />
               </svg>
-              <span>Continue in Free Mode</span>
+              <span>{upgradeIntent ? 'Not now' : 'Continue without an account'}</span>
             </div>
-            <small>Limited features, no data sync</small>
+            <small>Free: today's stats, 7 days of history, 3 blocked sites</small>
           </button>
 
           {/* Benefits Section */}
           <div className="auth-benefits">
-            <h4>Why sign in?</h4>
+            <h4>Premium includes</h4>
             <ul className="benefits-list">
-              <li>
-                <svg className="benefit-icon" viewBox="0 0 20 20" fill="currentColor">
+              {PREMIUM_FEATURES.map((feature) => (
+                <li key={feature}>
+                  <svg className="benefit-icon" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
-                Sync data across devices
-              </li>
-              <li>
-                <svg className="benefit-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                Advanced analytics & insights
-              </li>
-              <li>
-                <svg className="benefit-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                Cloud backup & recovery
-              </li>
+                  {feature}
+                </li>
+              ))}
             </ul>
           </div>
         </div>
