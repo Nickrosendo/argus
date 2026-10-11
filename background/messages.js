@@ -230,6 +230,10 @@ export function handleCoreMessage(message, sender, sendResponse) {
             authToken: null,
             userInfo: null,
             freeMode: true,
+            // Usage fetched from the account's other devices, and the record
+            // of what was uploaded to that account
+            remoteDays: {},
+            syncedDays: [],
           });
 
           sendResponse({ success: true });

@@ -9,6 +9,7 @@ import FocusTab from "./tabs/FocusTab";
 import SettingsTab from "./tabs/SettingsTab";
 import AccountTab from "./tabs/AccountTab";
 import UpgradePrompt from "./ui/UpgradePrompt";
+import { mergeRemoteUsage } from "../utils/mergeUsage";
 import { StorageData, UserInfo } from "../types/storage";
 import { useBrowserStorage } from "../hooks/useBrowserStorage";
 import { useBrowserMessaging } from "../hooks/useBrowserMessaging";
@@ -24,7 +25,7 @@ const App: React.FC = () => {
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
 
   const { data: storageData, loading, updateStorage } = useBrowserStorage(
-    ["sites", "totalTime", "history", "settings", "blockedSites", "blockingEnabled", "userInfo", "authToken", "freeMode"],
+    ["sites", "totalTime", "history", "settings", "blockedSites", "blockingEnabled", "remoteDays", "userInfo", "authToken", "freeMode"],
     {
       sites: {},
       totalTime: 0,
@@ -280,7 +281,11 @@ const App: React.FC = () => {
     lastUpdated: new Date().toISOString(),
   };
 
-  const currentStorageData = { ...defaultStorageData, ...storageData } as StorageData;
+  const localStorageData = { ...defaultStorageData, ...storageData } as StorageData;
+  // Premium accounts see their other devices' usage combined with this one's
+  const currentStorageData = isFreeMode
+    ? localStorageData
+    : mergeRemoteUsage(localStorageData, localStorageData.remoteDays);
 
 
   // Render current tab content

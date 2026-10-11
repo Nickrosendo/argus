@@ -70,17 +70,15 @@ class ApiService {
   }
 
   /**
-   * Sync browser usage data with the API
-   * @param {number} userId User ID
+   * Upload this device's usage. The API takes the user from the token.
    * @param {string} deviceId Device identifier
-   * @param {Object} data Browser usage data to sync
+   * @param {Object} data Browser usage data to sync, as { days: { 'YYYY-MM-DD': { sites, totalTime } } }
    * @returns {Promise<Object>} The synced data
    */
-  async syncBrowserUsage(userId, deviceId, data) {
+  async syncBrowserUsage(deviceId, data) {
     return this.request(this.config.endpoints.browserUsageSync, {
       method: 'POST',
       body: JSON.stringify({
-        userId,
         deviceId,
         data
       })
@@ -88,12 +86,19 @@ class ApiService {
   }
 
   /**
-   * Get browser usage data for a user
-   * @param {number} userId User ID
-   * @returns {Promise<Object[]>} Browser usage data
+   * Get the user's usage per day, added up across devices
+   * @param {Object} options
+   * @param {string} [options.since] Earliest date to return, as YYYY-MM-DD
+   * @param {string} [options.excludeDeviceId] Leave out this device's own data
+   * @returns {Promise<{days: Object}>} Days keyed by YYYY-MM-DD
    */
-  async getBrowserUsage(userId) {
-    return this.request(this.config.endpoints.browserUsage + `/user/${userId}`);
+  async getUsageDays({ since, excludeDeviceId } = {}) {
+    const params = new URLSearchParams();
+    if (since) params.set('since', since);
+    if (excludeDeviceId) params.set('excludeDeviceId', excludeDeviceId);
+
+    const query = params.toString();
+    return this.request(`${this.config.endpoints.browserUsage}/days${query ? `?${query}` : ''}`);
   }
 
   /**

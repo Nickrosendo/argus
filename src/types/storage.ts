@@ -42,6 +42,7 @@ export interface StorageData {
   settings: Settings;
   blockedSites: string[];
   blockingEnabled?: boolean;
+  remoteDays?: HistoryData; // usage from the user's other devices, fetched by cloud sync
   authToken?: string | boolean | null;
   userInfo?: UserInfo | null;
   freeMode: boolean;
