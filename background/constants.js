@@ -13,3 +13,6 @@ export const BACKGROUND_WRITE_INTERVAL = 30000; // how often totals are saved wh
 export const DATA_VERSION = 2; // bump when stored data needs a one-time conversion
 export const FOCUS_END_ALARM = "focus-end";
 export const FOCUS_MAX_MINUTES = 180;
+// Plan offered when a checkout is started from the website (the yearly plan).
+// Must match the yearly priceId in src/lib/plans.ts; a test checks this.
+export const DEFAULT_PRICE_ID = 'price_1RfMt2PMjvPC6HTpjiB5cbMi';

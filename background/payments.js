@@ -1,7 +1,5 @@
 // Checkout and subscription state messages
-import {
-  API_BASE_URL,
-} from './constants.js';
+import { API_BASE_URL, DEFAULT_PRICE_ID } from './constants.js';
 import { state, browserAPI } from './state.js';
 
 // Handle checkout session creation
@@ -117,35 +115,12 @@ export async function handleVerifyPayment(request, sendResponse) {
 }
 
 export async function handleLogPaymentCancellation(request, sendResponse) {
-  try {
-    const { data } = request;
-    
-    // Get auth token
-    const authToken = await getStoredAuthToken();
-    
-    if (authToken) {
-      // Make optional API call to log cancellation
-      try {
-        await fetch(`${API_BASE_URL}/payments/log-cancellation`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`,
-          },
-          body: JSON.stringify(data),
-        });
-      } catch (error) {
-        console.log('Could not log cancellation to API:', error);
-      }
-    }
-    
-    sendResponse({ success: true });
-  } catch (error) {
-    console.error('Error logging payment cancellation:', error);
-    sendResponse({ success: false, error: 'Failed to log cancellation' });
-  }
+  // Nothing changes when a checkout is cancelled; just acknowledge so the
+  // website knows the extension heard it
+  sendResponse({ success: true });
 }
 
+// Handle payment initiation
 export async function handleInitiatePayment(sendResponse) {
   try {
     // Get auth token
@@ -162,7 +137,7 @@ export async function handleInitiatePayment(sendResponse) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${authToken}`,
       },
-      body: JSON.stringify({ priceId: 'price_default' }), // Use default price
+      body: JSON.stringify({ priceId: DEFAULT_PRICE_ID }),
     });
 
     const result = await response.json();
@@ -223,7 +198,8 @@ export async function updateLocalUserState(subscriptionData) {
       
       const updatedUserInfo = {
         ...result.userInfo,
-        userType: 'premium',
+        // `type` is what the popup reads to decide the plan
+        type: 'premium',
         hasSubscription: true,
         subscriptionStatus: subscriptionData.status,
         subscriptionId: subscriptionData.subscriptionId,

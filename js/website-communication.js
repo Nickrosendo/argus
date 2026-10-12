@@ -5,7 +5,8 @@
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 
 // Configuration
-const WEBSITE_ORIGIN = 'https://argusextension.com';
+// Filled in at build time from WEBSITE_URL (see rollup.common.js)
+const WEBSITE_ORIGIN = '__WEBSITE_URL__';
 const DETECTION_TIMEOUT = 2000;
 const COMMUNICATION_TIMEOUT = 5000;
 
@@ -51,10 +52,10 @@ async function handleWebsiteMessage(event) {
   console.log('Event data:', event.data);
   console.log('Expected website origin:', WEBSITE_ORIGIN);
   
-  // Verify origin for security
-  const isValidOrigin = event.origin === WEBSITE_ORIGIN || 
-                       event.origin.includes('localhost') || 
-                       event.origin.includes('127.0.0.1');
+  // Only the page itself, on the Argus website, may talk to the extension.
+  // The origin must match exactly: a "contains localhost" style check would
+  // accept addresses such as localhost.attacker.example.
+  const isValidOrigin = event.source === window && event.origin === WEBSITE_ORIGIN;
   
   if (!isValidOrigin) {
     console.log('❌ Message rejected - invalid origin:', event.origin);
@@ -113,7 +114,7 @@ function handleDetectionRequest() {
   console.log('📤 Sending detection response:', responseMessage);
   
   // Respond to detection request
-  window.postMessage(responseMessage, '*');
+  window.postMessage(responseMessage, WEBSITE_ORIGIN);
   
   console.log('✅ Detection response sent successfully');
 }
@@ -279,5 +280,5 @@ function sendResponse(action, success, message) {
     message: message,
     source: 'argus-extension',
     timestamp: Date.now()
-  }, '*');
+  }, WEBSITE_ORIGIN);
 }

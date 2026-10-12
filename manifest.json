@@ -39,7 +39,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://argusextension.com/*", "http://localhost:3000/*"],
+      "matches": ["__WEBSITE_URL__/*"],
       "js": ["js/website-communication.js"],
       "run_at": "document_start"
     }

@@ -25,6 +25,8 @@ if (envConfig.error) {
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'your_google_client_id.apps.googleusercontent.com';
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID || 'your_microsoft_client_id_here';
 const API_URL = process.env.API_URL || 'http://localhost:3000';
+// The Argus website: the only origin the website bridge content script runs on and listens to
+const WEBSITE_URL = (process.env.WEBSITE_URL || 'https://argusextension.com').replace(/\/+$/, '');
 const ENABLE_MICROSOFT_AUTH = process.env.ENABLE_MICROSOFT_AUTH === 'true';
 
 // Validate that environment variables are provided
@@ -42,6 +44,7 @@ console.log('Environment variables loaded:');
 console.log('- GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID ? `${GOOGLE_CLIENT_ID.substring(0, 30)}...` : 'not set');
 console.log('- MICROSOFT_CLIENT_ID:', MICROSOFT_CLIENT_ID ? `${MICROSOFT_CLIENT_ID.substring(0, 30)}...` : 'not set');
 console.log('- API_URL:', API_URL);
+console.log('- WEBSITE_URL:', WEBSITE_URL);
 console.log('- ENABLE_MICROSOFT_AUTH:', ENABLE_MICROSOFT_AUTH);
 
 // Read version from package.json
@@ -129,7 +132,11 @@ export function createConfig(platform) {
           // Copy all CSS files automatically  
           { src: 'css/*.css', dest: `${outputDir}/css` },
           // Copy all standalone JS files automatically
-          { src: 'js/*.js', dest: `${outputDir}/js` },
+          {
+            src: 'js/*.js',
+            dest: `${outputDir}/js`,
+            transform: (contents) => contents.toString().replace(/__WEBSITE_URL__/g, WEBSITE_URL)
+          },
           { src: 'icons/**/*', dest: `${outputDir}/icons` },
           { 
             src: 'services/**/*',
@@ -170,6 +177,9 @@ export function createConfig(platform) {
                 );
               }
               
+              // The website bridge only runs on the configured website
+              manifest = manifest.replace('__WEBSITE_URL__', WEBSITE_URL);
+
               // Replace API_URL placeholder in CSP with actual API URL
               manifest = manifest.replace(
                 '__API_URL__',
