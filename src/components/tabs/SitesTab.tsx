@@ -3,14 +3,10 @@ import { formatTime } from '../../utils/timeUtils';
 import { StorageData, SiteInfo } from '../../types/storage';
 import { ExternalLink } from 'lucide-react';
 import { categorize } from '../../utils/categories';
+import SiteIcon from '../ui/SiteIcon';
 
 interface SitesTabProps {
   data: StorageData;
-}
-
-interface SiteIconProps {
-  domain: string;
-  favicon?: string;
 }
 
 interface EnhancedSiteData extends SiteInfo {
@@ -59,25 +55,6 @@ const SitesTab: React.FC<SitesTabProps> = ({ data }) => {
     // Sort by total time descending
     return processed.sort((a, b) => b.totalTime - a.totalTime);
   }, [sites, yesterdayData]);
-
-  const SiteIcon: React.FC<SiteIconProps> = ({ domain, favicon }) => {
-    if (favicon) {
-      return <img src={favicon} alt={`${domain} icon`} className="w-8 h-8 rounded" />;
-    }
-    
-    // Generate a color based on domain for consistency
-    const colors = [
-      'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 
-      'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
-    ];
-    const colorIndex = domain.length % colors.length;
-    
-    return (
-      <div className={`w-8 h-8 rounded ${colors[colorIndex]} flex items-center justify-center text-white text-sm font-bold`}>
-        {domain.charAt(0).toUpperCase()}
-      </div>
-    );
-  };
 
   const openSite = (domain: string) => {
     const url = domain.startsWith('http') ? domain : `https://${domain}`;

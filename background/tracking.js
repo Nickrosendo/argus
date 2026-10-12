@@ -172,6 +172,12 @@ export async function handleTabActivated(activeInfo) {
 
 // Handle tab updated event
 export async function handleTabUpdated(tabId, changeInfo, tab) {
+  // A page's icon usually arrives after navigation; keep it for the tracked tab
+  if (changeInfo.favIconUrl && state.currentTab && state.currentTab.id === tabId) {
+    state.currentTab.favIconUrl = changeInfo.favIconUrl;
+    persistTrackingState();
+  }
+
   if (!state.isTracking || !tab.active) return;
 
   // Check for URL changes and potential blocking
@@ -282,6 +288,11 @@ export async function recordTime(tab, timeSpent, isNewVisit, now) {
       favicon: tab.favIconUrl,
       title: tab.title,
     };
+  }
+
+  // The icon may not have been known when the site was first recorded
+  if (!sites[domain].favicon && tab.favIconUrl) {
+    sites[domain].favicon = tab.favIconUrl;
   }
 
   sites[domain].totalTime += timeSpent;

@@ -11,7 +11,8 @@
     "idle",
     "webNavigation",
     "declarativeNetRequest",
-    "identity"
+    "identity",
+    "favicon"
   ],
   "host_permissions": [
     "<all_urls>"

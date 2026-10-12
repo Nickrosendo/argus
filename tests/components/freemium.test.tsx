@@ -59,7 +59,7 @@ describe('plans', () => {
 
 describe('checkout started from the website', () => {
   it('should use the yearly plan price the popup also sells', () => {
-    const { DEFAULT_PRICE_ID } = require('../../background/constants.js');
+    const { DEFAULT_PRICE_ID } = jest.requireActual('../../background/constants.js');
 
     expect(DEFAULT_PRICE_ID).toBe(PLANS.find((plan) => plan.id === 'yearly')!.priceId);
   });

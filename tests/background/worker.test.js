@@ -289,6 +289,26 @@ describe('background service worker', () => {
       expect(fake.local.sites['other.org'].totalTime).toBe(5000);
     });
 
+    it('records the site icon even when it only arrives after the page started loading', async () => {
+      await advance(5000);
+      expect(fake.local.sites['example.com'].favicon).toBeUndefined();
+
+      await emit('tabUpdated', 10, { favIconUrl: 'https://example.com/favicon.ico' }, fake.tabs[10]);
+      await advance(5000);
+
+      expect(fake.local.sites['example.com'].favicon).toBe('https://example.com/favicon.ico');
+      expect(fake.local.sites['example.com'].totalTime).toBe(10000);
+    });
+
+    it('ignores an icon that belongs to a different tab', async () => {
+      await advance(5000);
+
+      await emit('tabUpdated', 20, { favIconUrl: 'https://background-window.com/favicon.ico' }, fake.tabs[20]);
+      await advance(5000);
+
+      expect(fake.local.sites['example.com'].favicon).toBeUndefined();
+    });
+
     it('counts www and non-www addresses of a site as one site', async () => {
       fake.tabs[10].url = 'https://www.example.com/other';
       await emit('tabUpdated', 10, { url: fake.tabs[10].url }, fake.tabs[10]);

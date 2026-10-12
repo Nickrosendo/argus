@@ -3042,3 +3042,10 @@ footer {
   text-align: center;
   cursor: pointer;
 }
+
+/* Site icons come in many sizes; show them whole on a neutral tile */
+.site-icon-img {
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px;
+}
