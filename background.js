@@ -16,7 +16,7 @@ import {
   setTracking,
 } from './background/state.js';
 import {
-  applyIdleSetting,
+  applySettings,
   migrateStoredData,
   updateTimeForCurrentTab,
   reconcileActiveTab,
@@ -109,8 +109,8 @@ async function initializeExtension() {
     state.temporaryUnblocks = result.unblockData.temporaryUnblocks;
   }
 
-  // Use the idle threshold the user chose in Settings
-  applyIdleSetting(result.settings);
+  // Use the pause and idle settings the user chose
+  applySettings(result.settings);
 
   // Check free mode status
   state.isFreeMode = result.freeMode === true;
@@ -205,11 +205,11 @@ const whenReady = (handler) => async (...args) => {
 // listener below switch it to the user's value
 browserApiService.addIdleStateListener(whenReady(checkIdleState), state.idleThreshold);
 
-// Pick up a changed idle setting without waiting for a restart
+// Pick up changed pause and idle settings without waiting for a restart
 browserAPI.storage.onChanged.addListener(
   whenReady((changes, areaName) => {
     if (areaName === 'local' && changes.settings) {
-      applyIdleSetting(changes.settings.newValue);
+      applySettings(changes.settings.newValue);
     }
   })
 );

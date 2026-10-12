@@ -35,6 +35,7 @@ jest.mock('../../../src/hooks/useBrowserMessaging', () => ({
 
 describe('AccountTab', () => {
   const mockData: StorageData = {
+    syncEnabled: true, // most tests are about an account that turned sync on
     sites: {},
     totalTime: 0,
     history: {},
@@ -273,6 +274,91 @@ describe('AccountTab', () => {
       await waitFor(() => {
         expect(screen.getByText('Upgrade to Premium')).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('Sync is a choice', () => {
+    const premiumProps = (syncEnabled?: boolean) => ({
+      ...defaultProps,
+      isAuthenticated: true,
+      isFreeMode: false,
+      data: { ...mockData, syncEnabled } as StorageData,
+    });
+
+    beforeEach(() => {
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ hasSubscription: true, userType: 'premium', status: 'active' }),
+      });
+      mockBrowserAPI.storage.local.get.mockResolvedValue({ authToken: 'valid_token_123' });
+      mockBrowserAPI.storage.local.set.mockImplementation((data: any, callback?: () => void) => callback && callback());
+      mockBrowserAPI.runtime.sendMessage.mockResolvedValue({ success: true });
+    });
+
+    it('should be off for a premium account until turned on, and say what turning it on uploads', async () => {
+      render(<AccountTab {...premiumProps(undefined)} />);
+
+      expect(await screen.findByText('Turn on sync')).toBeInTheDocument();
+      expect(screen.getByText(/uploads your time per site for each\s+day to Argus servers/)).toBeInTheDocument();
+      expect(screen.queryByText('Sync Now')).not.toBeInTheDocument();
+    });
+
+    it('should store the choice and sync straight away when turned on', async () => {
+      render(<AccountTab {...premiumProps(false)} />);
+
+      fireEvent.click(await screen.findByText('Turn on sync'));
+
+      expect(mockBrowserAPI.storage.local.set).toHaveBeenCalledWith({ syncEnabled: true }, expect.any(Function));
+      await waitFor(() => {
+        expect(mockBrowserAPI.runtime.sendMessage).toHaveBeenCalledWith({ action: 'syncWithApi', manual: true });
+      });
+    });
+
+    it('should let the user turn sync off again', async () => {
+      render(<AccountTab {...premiumProps(true)} />);
+
+      fireEvent.click(await screen.findByText('Turn off sync'));
+
+      expect(mockBrowserAPI.storage.local.set).toHaveBeenCalledWith({ syncEnabled: false }, expect.any(Function));
+      expect(mockBrowserAPI.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('should delete the synced data only after confirmation', async () => {
+      mockBrowserAPI.runtime.sendMessage.mockResolvedValue({ success: true, deleted: 2 });
+      render(<AccountTab {...premiumProps(true)} />);
+
+      fireEvent.click(await screen.findByText('Delete synced data'));
+      expect(mockBrowserAPI.runtime.sendMessage).not.toHaveBeenCalled();
+      expect(screen.getByText(/from all devices\?/)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Yes, delete it'));
+
+      await waitFor(() => {
+        expect(mockBrowserAPI.runtime.sendMessage).toHaveBeenCalledWith({ action: 'deleteSyncedData' });
+      });
+      expect(await screen.findByText(/was deleted from Argus servers/)).toBeInTheDocument();
+    });
+
+    it('should say so when deleting fails', async () => {
+      mockBrowserAPI.runtime.sendMessage.mockResolvedValue({ success: false, error: 'Network error' });
+      render(<AccountTab {...premiumProps(true)} />);
+
+      fireEvent.click(await screen.findByText('Delete synced data'));
+      fireEvent.click(screen.getByText('Yes, delete it'));
+
+      expect(await screen.findByText('Could not delete the synced data: Network error')).toBeInTheDocument();
+    });
+
+    it('should let a signed-in free account delete data synced earlier', async () => {
+      global.fetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ hasSubscription: false, userType: 'free' }),
+      });
+
+      render(<AccountTab {...premiumProps(false)} isFreeMode={true} />);
+
+      expect(await screen.findByText('Delete synced data')).toBeInTheDocument();
+      expect(screen.queryByText('Turn on sync')).not.toBeInTheDocument();
     });
   });
 

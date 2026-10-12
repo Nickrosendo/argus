@@ -205,8 +205,10 @@ export async function handleTabUpdated(tabId, changeInfo, tab) {
 
 // Handle when a tab becomes the active tab
 export function handleTabChange(tab) {
-  // Only websites are tracked: not browser pages, extension pages or files
-  const domain = tab && tab.url ? getTrackableDomain(tab.url) : null;
+  // Only websites are tracked: not browser pages, extension pages or files.
+  // Nothing is tracked while the user has paused tracking.
+  const domain =
+    !state.trackingPaused && tab && tab.url ? getTrackableDomain(tab.url) : null;
 
   if (!domain) {
     setCurrentTab(null);
@@ -299,6 +301,24 @@ export async function recordTime(tab, timeSpent, isNewVisit, now) {
     // Sync after 5 minutes
     syncDataWithApi();
   }
+}
+
+// Apply the settings the tracker depends on: pause, and the idle threshold
+export function applySettings(settings) {
+  const paused = !!(settings && settings.trackingPaused);
+  if (paused !== state.trackingPaused) {
+    state.trackingPaused = paused;
+    if (paused) {
+      // Credit what was already spent, then stop following any tab
+      const flushed = updateTimeForCurrentTab();
+      setCurrentTab(null);
+      flushed.catch(() => {});
+    } else {
+      getCurrentActiveTab();
+    }
+  }
+
+  applyIdleSetting(settings);
 }
 
 // Apply the user's "consider idle after" setting to idle detection

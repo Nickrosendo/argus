@@ -50,7 +50,7 @@ const App: React.FC = () => {
   const [pendingUpgrade, setPendingUpgrade] = useState(false);
 
   const { data: storageData, loading, updateStorage } = useBrowserStorage(
-    ["sites", "totalTime", "hourly", "history", "settings", "blockedSites", "blockingEnabled", "remoteDays", "userInfo", "authToken", "freeMode", "onboardingDone", "focusSession", "focusStats"],
+    ["sites", "totalTime", "hourly", "history", "settings", "blockedSites", "blockingEnabled", "remoteDays", "syncEnabled", "userInfo", "authToken", "freeMode", "onboardingDone", "focusSession", "focusStats"],
     {
       sites: {},
       totalTime: 0,
@@ -439,6 +439,12 @@ const App: React.FC = () => {
           isFreeMode={isFreeMode}
           onUpgradeClick={handleUpgradeClick}
         />
+      )}
+
+      {currentStorageData.settings?.trackingPaused && activeTab !== "auth" && activeTab !== "settings" && (
+        <button className="paused-notice" onClick={() => setActiveTab("settings")}>
+          Tracking is paused. Nothing is being recorded. Resume in Settings
+        </button>
       )}
 
       <main className="main-tab-content">{currentTab}</main>

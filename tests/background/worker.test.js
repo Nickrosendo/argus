@@ -368,6 +368,43 @@ describe('background service worker', () => {
     });
   });
 
+  describe('pause tracking', () => {
+    it('records nothing while paused and resumes without counting the pause', async () => {
+      await startWorker();
+      await advance(5000);
+
+      await emit('storageChanged', { settings: { newValue: { trackingPaused: true } } }, 'local');
+      await advance(60000);
+      await fireTrackerAlarm();
+      expect(totalTime()).toBe(5000);
+
+      await emit('storageChanged', { settings: { newValue: { trackingPaused: false } } }, 'local');
+      await advance(5000);
+      expect(totalTime()).toBe(10000);
+    });
+
+    it('credits the time spent up to the moment tracking is paused', async () => {
+      await startWorker();
+      jest.advanceTimersByTime(3000);
+
+      await emit('storageChanged', { settings: { newValue: { trackingPaused: true } } }, 'local');
+
+      expect(totalTime()).toBe(3000);
+    });
+
+    it('stays paused across a restart and a tab switch', async () => {
+      fake.local.settings = { trackingPaused: true };
+      await startWorker();
+
+      fake.tabs[10].url = 'https://other.org/';
+      await emit('tabUpdated', 10, { url: fake.tabs[10].url }, fake.tabs[10]);
+      await advance(30000);
+
+      expect(totalTime()).toBe(0);
+      expect(fake.local.sites || {}).toEqual({});
+    });
+  });
+
   describe('write frequency', () => {
     it('saves about every 30 seconds while no popup is open, without losing time', async () => {
       await startWorker({ popupOpen: false });
@@ -553,7 +590,7 @@ describe('background service worker', () => {
     it('answers a manual sync request honestly when it cannot sync', async () => {
       const responses = await send({ action: 'syncWithApi', manual: true });
 
-      expect(responses).toEqual([{ success: false, error: 'Not signed in' }]);
+      expect(responses).toEqual([{ success: false, error: 'Sync is turned off' }]);
     });
   });
 
@@ -589,6 +626,7 @@ describe('background service worker', () => {
       global.fetch = fakeApi;
       fake.local.authToken = 'stored-token';
       fake.local.freeMode = false;
+      fake.local.syncEnabled = true; // the user turned sync on
       fake.local.deviceId = 'device-1';
       fake.local.lastDate = today;
       fake.local.sites = { 'example.com': { totalTime: 60000, visits: 2 } };
@@ -650,6 +688,74 @@ describe('background service worker', () => {
       expect(fake.local.syncedDays).toBeUndefined();
     });
 
+    it('uploads nothing until the user turns sync on', async () => {
+      delete fake.local.syncEnabled;
+
+      await startWorker();
+      const [response] = await send({ action: 'syncWithApi', manual: true });
+      jest.advanceTimersByTime(20 * 60000);
+      await emit('alarm', { name: 'api-sync' });
+
+      expect(response).toEqual({ success: false, error: 'Sync is turned off' });
+      expect(uploads).toHaveLength(0);
+      expect(dayRequests).toHaveLength(0);
+    });
+
+    it('does not upload page titles', async () => {
+      fake.local.sites = { 'mail.example.com': { totalTime: 60000, visits: 1, title: 'Re: your test results', favicon: 'f.ico' } };
+
+      await startWorker();
+      await send({ action: 'syncWithApi', manual: true });
+
+      const uploaded = uploads[0].data.days['2025-07-21'].sites['mail.example.com'];
+      expect(uploaded).toEqual({ totalTime: 60000, visits: 1, favicon: 'f.ico' });
+      expect(JSON.stringify(uploads[0])).not.toContain('test results');
+      // The title is still available locally
+      expect(fake.local.sites['mail.example.com'].title).toBe('Re: your test results');
+    });
+
+    it('erases the synced data on request and turns sync off', async () => {
+      const deletes = [];
+      global.fetch = jest.fn(async (url, options = {}) => {
+        if (options.method === 'DELETE') {
+          deletes.push(url);
+          return { ok: true, status: 200, json: async () => ({ deleted: 2 }) };
+        }
+        return fakeApi(url, options);
+      });
+      remoteDays = { '2025-07-21': { sites: {}, totalTime: 5000 } };
+      await startWorker();
+      await send({ action: 'syncWithApi', manual: true });
+
+      const [response] = await send({ action: 'deleteSyncedData' });
+
+      expect(response).toEqual({ success: true, deleted: 2 });
+      expect(deletes).toHaveLength(1);
+      expect(deletes[0]).toMatch(/\/browser-usage$/);
+      expect(fake.local.syncEnabled).toBe(false);
+      expect(fake.local.remoteDays).toEqual({});
+      expect(fake.local.syncedDays).toEqual([]);
+
+      // Nothing is uploaded again afterwards
+      const before = uploads.length;
+      await send({ action: 'syncWithApi', manual: true });
+      expect(uploads).toHaveLength(before);
+    });
+
+    it('keeps sync on when erasing fails, and says so', async () => {
+      global.fetch = jest.fn(async (url, options = {}) =>
+        options.method === 'DELETE'
+          ? { ok: false, status: 500, json: async () => ({ message: 'boom' }) }
+          : fakeApi(url, options)
+      );
+      await startWorker();
+
+      const [response] = await send({ action: 'deleteSyncedData' });
+
+      expect(response).toEqual({ success: false, error: 'boom' });
+      expect(fake.local.syncEnabled).toBe(true);
+    });
+
     it('does not sync for a free account', async () => {
       fake.local.freeMode = true;
 
@@ -669,6 +775,8 @@ describe('background service worker', () => {
 
       expect(fake.local.remoteDays).toEqual({});
       expect(fake.local.syncedDays).toEqual([]);
+      // The next account on this browser starts with sync off
+      expect(fake.local.syncEnabled).toBe(false);
     });
   });
 

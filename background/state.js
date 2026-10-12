@@ -14,6 +14,7 @@ export const state = {
   lastSyncTime: 0,
   realTimeUpdateTimer: null,
   focusSession: null, // { startedAt, endsAt, minutes } while a focus session runs
+  trackingPaused: false, // the user's "Pause tracking" setting
   openPopups: 0, // popups currently showing live numbers
   idleThreshold: getIdleThresholdSeconds(), // seconds, from the user's idle setting
 };

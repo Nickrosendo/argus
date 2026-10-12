@@ -5,6 +5,7 @@ export interface Settings {
   dailyLimit: number;
   showNotifications: boolean;
   enableBlocking: boolean;
+  trackingPaused?: boolean;
 }
 
 export interface SiteInfo {
@@ -62,6 +63,8 @@ export interface StorageData {
   settings: Settings;
   blockedSites: string[];
   blockingEnabled?: boolean;
+  syncEnabled?: boolean; // the user turned on cloud sync (off until they do)
+  lastSyncTime?: number | null;
   remoteDays?: HistoryData; // usage from the user's other devices, fetched by cloud sync
   authToken?: string | boolean | null;
   userInfo?: UserInfo | null;

@@ -27,7 +27,15 @@ export function fromIsoDate(isoDate) {
 
 // The fields of a day that are uploaded; time per hour only when recorded
 function toUploadDay(day) {
-  const upload = { sites: day.sites || {}, totalTime: day.totalTime || 0 };
+  // Page titles can be revealing (a document name, an email subject) and no
+  // other device needs them, so they stay on this device
+  const sites = {};
+  Object.keys(day.sites || {}).forEach((domain) => {
+    const { title, ...site } = day.sites[domain] || {};
+    sites[domain] = site;
+  });
+
+  const upload = { sites, totalTime: day.totalTime || 0 };
   if (Array.isArray(day.hourly) && day.hourly.length > 0) {
     upload.hourly = day.hourly;
   }

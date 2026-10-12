@@ -49,6 +49,19 @@ describe('syncUtils', () => {
       expect(historyDates).toEqual(['2025-07-20', '2025-07-19']);
     });
 
+    it('should leave page titles out of what is uploaded', () => {
+      const { days } = buildUploadDays({
+        sites: { 'a.com': { totalTime: 5, visits: 1, title: 'Private document', favicon: 'f.ico' } },
+        totalTime: 5,
+        currentDate: dateString('2025-07-21'),
+        history: { [dateString('2025-07-20')]: { sites: { 'b.com': { totalTime: 1, title: 'Inbox (3)' } }, totalTime: 1 } },
+        syncedDays: [],
+      });
+
+      expect(days['2025-07-21'].sites['a.com']).toEqual({ totalTime: 5, visits: 1, favicon: 'f.ico' });
+      expect(JSON.stringify(days)).not.toMatch(/Private document|Inbox/);
+    });
+
     it('should cope with missing data', () => {
       const { days } = buildUploadDays({ currentDate: dateString('2025-07-21') });
 

@@ -86,6 +86,14 @@ class ApiService {
   }
 
   /**
+   * Delete everything this account has synced, from every device
+   * @returns {Promise<{deleted: number}>}
+   */
+  async deleteUsageData() {
+    return this.request(this.config.endpoints.browserUsage, { method: 'DELETE' });
+  }
+
+  /**
    * Get the user's usage per day, added up across devices
    * @param {Object} options
    * @param {string} [options.since] Earliest date to return, as YYYY-MM-DD

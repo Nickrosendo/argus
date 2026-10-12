@@ -3027,3 +3027,18 @@ footer {
 .nav-icon-btn.locked .lock-icon {
   color: #1f2937;
 }
+
+/* Shown on every screen while the user has paused tracking */
+.paused-notice {
+  display: block;
+  width: calc(100% - 30px);
+  margin: 0 15px 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  font-size: 0.8rem;
+  text-align: center;
+  cursor: pointer;
+}

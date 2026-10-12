@@ -10,7 +10,7 @@ import {
   handleTemporaryUnblock,
   isUrlBlocked,
 } from './blocking.js';
-import { syncDataWithApi } from './sync.js';
+import { deleteSyncedData, syncDataWithApi } from './sync.js';
 
 // Handle messages from the popup, blocked page and content scripts
 export function handleCoreMessage(message, sender, sendResponse) {
@@ -86,6 +86,14 @@ export function handleCoreMessage(message, sender, sendResponse) {
         console.error("Error syncing with api:", error);
         sendResponse({ success: false, error: error.message });
       });
+  } else if (message.action === "deleteSyncedData") {
+    deleteSyncedData().then((result) => {
+      sendResponse(
+        result.ok
+          ? { success: true, deleted: result.deleted }
+          : { success: false, error: result.reason }
+      );
+    });
   } else if (message.action === "checkAuthentication") {
     authService
       .isAuthenticated()
@@ -261,6 +269,7 @@ export function handleCoreMessage(message, sender, sendResponse) {
             // of what was uploaded to that account
             remoteDays: {},
             syncedDays: [],
+            syncEnabled: false,
           });
 
           sendResponse({ success: true });
@@ -387,6 +396,7 @@ export const CORE_ACTIONS = new Set([
   'stopFocusSession',
   'openBlocklistSettings',
   'syncWithApi',
+  'deleteSyncedData',
   'checkAuthentication',
   'checkFreeMode',
   'trackKeyAction',

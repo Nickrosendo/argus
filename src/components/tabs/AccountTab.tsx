@@ -38,11 +38,15 @@ const AccountTab: React.FC<AccountTabProps> = ({
   const [syncError, setSyncError] = useState<string>('');
   const [lastSyncTime, setLastSyncTime] = useState<string>('Never');
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [dataMessage, setDataMessage] = useState<string>('');
   const [subscriptionError, setSubscriptionError] = useState<string>('');
   const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfo | null>(null);
   const [isLoadingSubscription, setIsLoadingSubscription] = useState(false);
   const [isRefreshingSubscription, setIsRefreshingSubscription] = useState(false);
   const { userInfo } = data;
+  // Sync is off until the user turns it on
+  const syncEnabled = data.syncEnabled === true;
   
   const { signout } = useBrowserMessaging();
 
@@ -138,6 +142,32 @@ const AccountTab: React.FC<AccountTabProps> = ({
       console.error('Sync error:', error);
       setSyncStatus('failed');
       setSyncError(error instanceof Error ? error.message : 'Sync failed');
+    }
+  };
+
+  const setSyncEnabled = (enabled: boolean): void => {
+    setDataMessage('');
+    browserAPI.storage.local.set({ syncEnabled: enabled }, () => {
+      // Upload straight away so the choice visibly takes effect
+      if (enabled) handleSyncNow();
+    });
+  };
+
+  const handleDeleteSyncedData = async (): Promise<void> => {
+    setConfirmingDelete(false);
+    try {
+      const response = await browserAPI.runtime.sendMessage({ action: 'deleteSyncedData' });
+      setDataMessage(
+        response && response.success
+          ? 'Your synced data was deleted from Argus servers. Sync is off.'
+          : `Could not delete the synced data: ${(response && response.error) || 'please try again'}`
+      );
+      if (response && response.success) {
+        setSyncStatus('idle');
+        setLastSyncTime('Never');
+      }
+    } catch (error) {
+      setDataMessage('Could not delete the synced data. Please try again.');
     }
   };
 
@@ -421,7 +451,16 @@ const AccountTab: React.FC<AccountTabProps> = ({
             <div className="account-stats">
               <div className="stat-item">
                 <h3>Sync across devices</h3>
-                {hasPremium ? (
+                {!hasPremium ? (
+                  <div className="last-sync">
+                    Not syncing. Your data stays on this device; syncing is part of Premium.
+                  </div>
+                ) : !syncEnabled ? (
+                  <div className="last-sync">
+                    Off. Your data stays on this device. Turning sync on uploads your time per site for each
+                    day to Argus servers, so your other devices can show it.
+                  </div>
+                ) : (
                   <>
                     <div className={`sync-indicator ${syncStatus === 'failed' ? 'failed' : syncStatus === 'syncing' ? 'syncing' : 'synced'}`}>
                       <div className="sync-dot"></div>
@@ -433,22 +472,49 @@ const AccountTab: React.FC<AccountTabProps> = ({
                       Last sync: <span>{lastSyncTime}</span>
                     </div>
                   </>
-                ) : (
-                  <div className="last-sync">
-                    Not syncing. Your data stays on this device; syncing is part of Premium.
-                  </div>
                 )}
+                {dataMessage && <p className="plan-renewal">{dataMessage}</p>}
               </div>
             </div>
             
             <div className="account-actions">
-              {hasPremium && (
-                <button 
-                  onClick={handleSyncNow} 
-                  className="secondary-btn"
-                  disabled={syncStatus === 'syncing'}
-                >
-                  {syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}
+              {hasPremium && !syncEnabled && (
+                <button onClick={() => setSyncEnabled(true)} className="primary-btn">
+                  Turn on sync
+                </button>
+              )}
+
+              {hasPremium && syncEnabled && (
+                <>
+                  <button 
+                    onClick={handleSyncNow} 
+                    className="secondary-btn"
+                    disabled={syncStatus === 'syncing'}
+                  >
+                    {syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}
+                  </button>
+                  <button onClick={() => setSyncEnabled(false)} className="secondary-btn">
+                    Turn off sync
+                  </button>
+                </>
+              )}
+
+              {confirmingDelete ? (
+                <div className="confirm-row">
+                  <p className="confirm-text">
+                    Delete everything this account has synced to Argus servers, from all devices? Data on
+                    this device is kept, and sync is turned off.
+                  </p>
+                  <button onClick={() => setConfirmingDelete(false)} className="secondary-btn">
+                    Keep synced data
+                  </button>
+                  <button onClick={handleDeleteSyncedData} className="danger-btn">
+                    Yes, delete it
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmingDelete(true)} className="secondary-btn">
+                  Delete synced data
                 </button>
               )}
               

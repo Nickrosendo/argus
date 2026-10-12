@@ -20,6 +20,12 @@ export async function syncDataWithApi(isManualSync = false) {
     return { ok: false, reason: "Sync is part of Premium" };
   }
 
+  // Sync is opt-in: nothing is uploaded until the user turns it on
+  const { syncEnabled } = await browserApiService.getStorage(["syncEnabled"]);
+  if (syncEnabled !== true) {
+    return { ok: false, reason: "Sync is turned off" };
+  }
+
   // Only sync if authenticated
   if (!state.isAuthenticated) {
     // Use forceSyncCheck for manual syncs to bypass cache, regular check for automatic syncs
@@ -97,5 +103,26 @@ export async function syncDataWithApi(isManualSync = false) {
     }
 
     return { ok: false, reason: error.message || "Sync failed" };
+  }
+}
+
+// Erase everything this account has synced, from every device, and turn sync
+// off so it is not uploaded again
+export async function deleteSyncedData() {
+  try {
+    const result = await apiService.deleteUsageData();
+
+    state.lastSyncTime = 0;
+    await browserApiService.setStorage({
+      syncEnabled: false,
+      remoteDays: {},
+      syncedDays: [],
+      lastSyncTime: null,
+    });
+
+    return { ok: true, deleted: result && result.deleted };
+  } catch (error) {
+    console.error("Error deleting synced data:", error);
+    return { ok: false, reason: error.message || "Could not delete the synced data" };
   }
 }
