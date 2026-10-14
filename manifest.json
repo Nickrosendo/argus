@@ -2,11 +2,10 @@
   "manifest_version": 3,
   "name": "Argus - Screen Time Tracker",
   "version": "1.0.1",
-  "description": "Monitor and visualize the time you spend on different websites",
+  "description": "See the time you actively spend on each website, block the ones that distract you, and run focus sessions. No account.",
   "permissions": [
     "storage",
     "tabs",
-    "activeTab",
     "alarms",
     "idle",
     "webNavigation",

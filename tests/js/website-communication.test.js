@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const WEBSITE = 'https://argusextension.com';
+const WEBSITE = 'https://argustime.com';
 const source = fs
   .readFileSync(path.join(__dirname, '../../js/website-communication.js'), 'utf8')
   // The build fills this in from WEBSITE_URL

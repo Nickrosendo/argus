@@ -6,7 +6,7 @@ const Footer: React.FC = () => {
   return (
     <footer>
       <div className="version">v{packageJson.version}</div>
-      <a href="https://argus-privacy.com" target="_blank" rel="noopener noreferrer" className="privacy-link">
+      <a href="https://argustime.com/privacy" target="_blank" rel="noopener noreferrer" className="privacy-link">
         Privacy Policy
       </a>
     </footer>

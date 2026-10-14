@@ -103,7 +103,7 @@ Create `.env` file in root with:
 GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 MICROSOFT_CLIENT_ID=your_microsoft_client_id
 API_URL=your_api_url
-WEBSITE_URL=https://argusextension.com
+WEBSITE_URL=https://argustime.com
 ```
 
 `WEBSITE_URL` is the only origin the website bridge (`js/website-communication.js`) runs on and accepts messages from; the build writes it into the manifest and the script. It defaults to the production site; use `http://localhost:3001` for local testing.

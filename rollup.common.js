@@ -26,7 +26,7 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'your_google_client_id.
 const MICROSOFT_CLIENT_ID = process.env.MICROSOFT_CLIENT_ID || 'your_microsoft_client_id_here';
 const API_URL = process.env.API_URL || 'http://localhost:3000';
 // The Argus website: the only origin the website bridge content script runs on and listens to
-const WEBSITE_URL = (process.env.WEBSITE_URL || 'https://argusextension.com').replace(/\/+$/, '');
+const WEBSITE_URL = (process.env.WEBSITE_URL || 'https://argustime.com').replace(/\/+$/, '');
 const ENABLE_MICROSOFT_AUTH = process.env.ENABLE_MICROSOFT_AUTH === 'true';
 
 // Validate that environment variables are provided

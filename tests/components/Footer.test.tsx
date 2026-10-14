@@ -28,7 +28,7 @@ describe('Footer Component', () => {
       
       const privacyLink = screen.getByText('Privacy Policy');
       expect(privacyLink).toBeInTheDocument();
-      expect(privacyLink).toHaveAttribute('href', 'https://argus-privacy.com');
+      expect(privacyLink).toHaveAttribute('href', 'https://argustime.com/privacy');
       expect(privacyLink).toHaveAttribute('target', '_blank');
       expect(privacyLink).toHaveAttribute('rel', 'noopener noreferrer');
     });
