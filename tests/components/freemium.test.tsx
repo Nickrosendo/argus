@@ -22,7 +22,7 @@ const baseData = (overrides: Partial<StorageData> = {}): StorageData =>
     sites: {},
     totalTime: 0,
     history: {},
-    settings: { idleTime: 5, dailyLimit: 8, showNotifications: true, enableBlocking: false },
+    settings: { idleTime: 5, dailyLimit: 8, enableBlocking: false },
     blockedSites: [],
     freeMode: true,
     ...overrides,

@@ -76,7 +76,6 @@ describe('SettingsTab Component', () => {
     settings: {
       idleTime: 5,
       dailyLimit: 8,
-      showNotifications: true,
       enableBlocking: false,
     },
     blockedSites: [],
@@ -100,7 +99,6 @@ describe('SettingsTab Component', () => {
       // Check for main elements
       expect(screen.getByLabelText(/Consider idle after/)).toBeInTheDocument();
       expect(screen.getByLabelText(/Daily screen time goal/)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Show notifications/)).toBeInTheDocument();
       expect(screen.getByLabelText(/Enable website blocking/)).toBeInTheDocument();
       expect(screen.getByText('Website Blocking')).toBeInTheDocument();
       expect(screen.getByText('Export Data')).toBeInTheDocument();
@@ -113,7 +111,6 @@ describe('SettingsTab Component', () => {
         settings: {
           idleTime: 10,
           dailyLimit: 6,
-          showNotifications: false,
           enableBlocking: true,
         },
       };
@@ -122,7 +119,6 @@ describe('SettingsTab Component', () => {
       
       expect(screen.getByDisplayValue('10')).toBeInTheDocument();
       expect(screen.getByDisplayValue('6')).toBeInTheDocument();
-      expect(screen.getByLabelText(/Show notifications/)).not.toBeChecked();
       expect(screen.getByLabelText(/Enable website blocking/)).toBeChecked();
     });
 
@@ -159,18 +155,6 @@ describe('SettingsTab Component', () => {
       
       expect(mockUpdateStorage).toHaveBeenCalledWith({
         settings: expect.objectContaining({ dailyLimit: 4.5 })
-      });
-    });
-
-    it('toggles notifications setting', async () => {
-      const user = userEvent.setup();
-      render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
-      
-      const notificationsCheckbox = screen.getByLabelText(/Show notifications/);
-      await user.click(notificationsCheckbox);
-      
-      expect(mockUpdateStorage).toHaveBeenCalledWith({
-        settings: expect.objectContaining({ showNotifications: false })
       });
     });
 
@@ -449,7 +433,6 @@ describe('SettingsTab Component', () => {
         // Premium users should see all settings options
         expect(screen.getByLabelText('Consider idle after (minutes):')).toBeInTheDocument();
         expect(screen.getByLabelText('Daily screen time goal (hours):')).toBeInTheDocument();
-        expect(screen.getByLabelText('Show notifications')).toBeInTheDocument();
       });
     });
 

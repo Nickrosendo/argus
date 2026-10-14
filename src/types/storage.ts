@@ -3,7 +3,6 @@
 export interface Settings {
   idleTime: number;
   dailyLimit: number;
-  showNotifications: boolean;
   enableBlocking: boolean;
   trackingPaused?: boolean;
 }

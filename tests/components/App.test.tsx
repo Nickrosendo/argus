@@ -96,7 +96,6 @@ describe('App Component', () => {
         settings: {
           idleTime: 5,
           dailyLimit: 8,
-          showNotifications: true,
           enableBlocking: false,
         },
         blockedSites: [],
@@ -135,7 +134,6 @@ describe('App Component', () => {
         settings: {
           idleTime: 5,
           dailyLimit: 8,
-          showNotifications: true,
           enableBlocking: false,
         },
         blockedSites: [],

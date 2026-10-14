@@ -20,7 +20,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage, onUpgrad
   const defaultSettings = useMemo(() => ({
     idleTime: 5,
     dailyLimit: 8,
-    showNotifications: true,
     enableBlocking: false,
   }), []);
 
@@ -172,7 +171,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage, onUpgrad
               settings: {
                 idleTime: 5,
                 dailyLimit: 8,
-                showNotifications: true,
                 enableBlocking: false
               },
               blockedSites: []
@@ -230,15 +228,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage, onUpgrad
           <label htmlFor="pause-tracking">Pause tracking (nothing is recorded while this is on)</label>
         </div>
 
-        <div className="setting-item checkbox">
-          <input
-            type="checkbox"
-            id="show-notifications"
-            checked={localSettings.showNotifications}
-            onChange={(e) => handleSettingChange('showNotifications', e.target.checked)}
-          />
-          <label htmlFor="show-notifications">Show notifications</label>
-        </div>
 
         {/* Website Blocking Section */}
         <div className="setting-section">

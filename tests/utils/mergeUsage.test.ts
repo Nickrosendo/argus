@@ -11,7 +11,7 @@ const local = (): StorageData =>
     history: {
       [YESTERDAY]: { sites: { 'b.com': { totalTime: 400 } }, totalTime: 400, date: YESTERDAY },
     },
-    settings: { idleTime: 5, dailyLimit: 8, showNotifications: true, enableBlocking: false },
+    settings: { idleTime: 5, dailyLimit: 8, enableBlocking: false },
     blockedSites: [],
     freeMode: false,
   }) as unknown as StorageData;

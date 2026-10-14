@@ -42,7 +42,6 @@ describe('AccountTab', () => {
     settings: {
       idleTime: 5,
       dailyLimit: 480,
-      showNotifications: true,
       enableBlocking: true,
     },
     blockedSites: [],

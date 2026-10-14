@@ -30,7 +30,6 @@ const DEFAULT_STORAGE_DATA: StorageData = {
   settings: {
     idleTime: 5,
     dailyLimit: 8,
-    showNotifications: true,
     enableBlocking: false,
   },
   blockedSites: [],
@@ -58,7 +57,6 @@ const App: React.FC = () => {
       settings: {
         idleTime: 5,
         dailyLimit: 8,
-        showNotifications: true,
         enableBlocking: true,
       },
       userInfo: null,
