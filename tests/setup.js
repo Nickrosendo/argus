@@ -1,3 +1,7 @@
+// Stripe price IDs normally come from the build settings
+process.env.STRIPE_PRICE_MONTHLY = 'price_test_monthly';
+process.env.STRIPE_PRICE_YEARLY = 'price_test_yearly';
+
 // Setup DOM environment for React Testing Library
 import { TextEncoder, TextDecoder } from 'util';
 import '@testing-library/jest-dom';

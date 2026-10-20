@@ -131,7 +131,7 @@ describe('PaymentModal', () => {
         expect((global as any).chrome.storage.local.get).toHaveBeenCalledWith(['authToken']);
         expect((global as any).chrome.runtime.sendMessage).toHaveBeenCalledWith({
           action: 'createCheckoutSession',
-          priceId: 'price_1RfMt2PMjvPC6HTpjiB5cbMi',
+          priceId: process.env.STRIPE_PRICE_YEARLY,
           authToken: 'valid_token_123',
         });
         expect((global as any).chrome.tabs.create).toHaveBeenCalledWith({
@@ -255,7 +255,7 @@ describe('PaymentModal', () => {
       await waitFor(() => {
         expect((global as any).chrome.runtime.sendMessage).toHaveBeenCalledWith({
           action: 'createCheckoutSession',
-          priceId: 'price_1RfMmNPMjvPC6HTplgXmmNtV',
+          priceId: process.env.STRIPE_PRICE_MONTHLY,
           authToken: 'valid_token_123',
         });
       });

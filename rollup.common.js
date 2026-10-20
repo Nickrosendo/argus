@@ -28,6 +28,13 @@ const API_URL = process.env.API_URL || 'http://localhost:3000';
 // The Argus website: the only origin the website bridge content script runs on and listens to
 const WEBSITE_URL = (process.env.WEBSITE_URL || 'https://argustime.com').replace(/\/+$/, '');
 const ENABLE_MICROSOFT_AUTH = process.env.ENABLE_MICROSOFT_AUTH === 'true';
+// Stripe price IDs sold in the popup: test-mode prices locally, live prices for the store
+const STRIPE_PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY;
+const STRIPE_PRICE_YEARLY = process.env.STRIPE_PRICE_YEARLY;
+
+if (!STRIPE_PRICE_MONTHLY || !STRIPE_PRICE_YEARLY) {
+  throw new Error('Set STRIPE_PRICE_MONTHLY and STRIPE_PRICE_YEARLY in the extension .env file: without them checkout cannot work.');
+}
 
 // Validate that environment variables are provided
 if (GOOGLE_CLIENT_ID === 'your_google_client_id.apps.googleusercontent.com') {
@@ -45,11 +52,33 @@ console.log('- GOOGLE_CLIENT_ID:', GOOGLE_CLIENT_ID ? `${GOOGLE_CLIENT_ID.substr
 console.log('- MICROSOFT_CLIENT_ID:', MICROSOFT_CLIENT_ID ? `${MICROSOFT_CLIENT_ID.substring(0, 30)}...` : 'not set');
 console.log('- API_URL:', API_URL);
 console.log('- WEBSITE_URL:', WEBSITE_URL);
+console.log('- STRIPE_PRICE_MONTHLY:', STRIPE_PRICE_MONTHLY);
+console.log('- STRIPE_PRICE_YEARLY:', STRIPE_PRICE_YEARLY);
 console.log('- ENABLE_MICROSOFT_AUTH:', ENABLE_MICROSOFT_AUTH);
 
 // Read version from package.json
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf8'));
 const version = packageJson.version;
+
+// Values written into the code at build time. Development and production
+// builds share them; only NODE_ENV differs.
+export function buildReplacements(nodeEnv) {
+  return {
+    'process.env.NODE_ENV': JSON.stringify(nodeEnv),
+    'process.env.GOOGLE_CLIENT_ID': JSON.stringify(GOOGLE_CLIENT_ID),
+    'process.env.MICROSOFT_CLIENT_ID': JSON.stringify(MICROSOFT_CLIENT_ID),
+    'process.env.API_URL': JSON.stringify(API_URL),
+    'process.env.STRIPE_PRICE_MONTHLY': JSON.stringify(STRIPE_PRICE_MONTHLY),
+    'process.env.STRIPE_PRICE_YEARLY': JSON.stringify(STRIPE_PRICE_YEARLY),
+    'process.env.ENABLE_MICROSOFT_AUTH': JSON.stringify(ENABLE_MICROSOFT_AUTH.toString()),
+    '__VERSION__': JSON.stringify(version),
+    '__GOOGLE_CLIENT_ID__': JSON.stringify(GOOGLE_CLIENT_ID),
+    '__MICROSOFT_CLIENT_ID__': JSON.stringify(MICROSOFT_CLIENT_ID),
+    '__API_URL__': JSON.stringify(API_URL),
+    '__ENABLE_MICROSOFT_AUTH__': JSON.stringify(ENABLE_MICROSOFT_AUTH.toString()),
+    preventAssignment: true,
+  };
+}
 
 export function createConfig(platform) {
   const isFirefox = platform === 'firefox';
@@ -71,19 +100,7 @@ export function createConfig(platform) {
       json(),
       
       // Replace environment variables and version
-      replace({
-        'process.env.NODE_ENV': JSON.stringify('development'),
-        'process.env.GOOGLE_CLIENT_ID': JSON.stringify(GOOGLE_CLIENT_ID),
-        'process.env.MICROSOFT_CLIENT_ID': JSON.stringify(MICROSOFT_CLIENT_ID),
-        'process.env.API_URL': JSON.stringify(API_URL),
-        'process.env.ENABLE_MICROSOFT_AUTH': JSON.stringify(ENABLE_MICROSOFT_AUTH.toString()),
-        '__VERSION__': JSON.stringify(version),
-        '__GOOGLE_CLIENT_ID__': JSON.stringify(GOOGLE_CLIENT_ID),
-        '__MICROSOFT_CLIENT_ID__': JSON.stringify(MICROSOFT_CLIENT_ID),
-        '__API_URL__': JSON.stringify(API_URL),
-        'process.env.ENABLE_MICROSOFT_AUTH': JSON.stringify(ENABLE_MICROSOFT_AUTH.toString()),
-        preventAssignment: true
-      }),
+      replace(buildReplacements('development')),
       
       // PostCSS plugin for processing CSS including Tailwind
       postcss({

@@ -23,12 +23,15 @@ export const PREMIUM_FEATURES: string[] = [
   'Sync and a combined view across your devices',
 ];
 
+// Stripe price IDs come from the build settings (STRIPE_PRICE_MONTHLY and
+// STRIPE_PRICE_YEARLY in .env): test-mode prices for local builds, live prices
+// for the store build.
 export const PLANS: Plan[] = [
   {
     id: 'monthly',
     name: 'Premium Monthly',
     price: '$4.99',
-    priceId: 'price_1RfMmNPMjvPC6HTplgXmmNtV',
+    priceId: process.env.STRIPE_PRICE_MONTHLY as string,
     period: 'month',
     features: PREMIUM_FEATURES,
   },
@@ -36,7 +39,7 @@ export const PLANS: Plan[] = [
     id: 'yearly',
     name: 'Premium Yearly',
     price: '$49.99',
-    priceId: 'price_1RfMt2PMjvPC6HTpjiB5cbMi',
+    priceId: process.env.STRIPE_PRICE_YEARLY as string,
     period: 'year',
     popular: true,
     // 12 x $4.99 = $59.88, so the yearly price is about ten months' worth
