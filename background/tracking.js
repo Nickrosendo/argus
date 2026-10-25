@@ -13,6 +13,7 @@ import {
   REAL_TIME_UPDATE_INTERVAL,
   BACKGROUND_WRITE_INTERVAL,
   DATA_VERSION,
+  OBSOLETE_KEYS,
   HISTORY_DAYS,
 } from './constants.js';
 import {
@@ -103,6 +104,10 @@ export async function migrateStoredData() {
       history[date] = { ...history[date], sites: normalizeSites(history[date].sites) };
     }
   });
+
+  // Version 3: Argus no longer has accounts, plans or sync
+  await browserApiService.removeStorage(OBSOLETE_KEYS);
+  await browserApiService.clearAlarm("api-sync");
 
   await browserApiService.setStorage({
     dataVersion: DATA_VERSION,

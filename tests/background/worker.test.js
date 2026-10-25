@@ -6,6 +6,7 @@
 
 // Real macrotask scheduler: unaffected by jest's fake timers and absent from jsdom
 const { setImmediate } = require('timers');
+const { OBSOLETE_KEYS } = require('../../background/constants.js');
 
 const START = new Date('2025-07-21T10:00:00').getTime();
 const EVENTS = ['alarm', 'tabActivated', 'tabUpdated', 'focus', 'idle', 'message', 'beforeNavigate', 'storageChanged', 'connect'];
@@ -58,7 +59,10 @@ function createFakeBrowser() {
           Object.assign(fake.local, clone(data));
           return later(callback);
         },
-        remove: (keys, callback) => later(callback),
+        remove: (keys, callback) => {
+          [].concat(keys).forEach((key) => delete fake.local[key]);
+          return later(callback);
+        },
         clear: (callback) => later(callback),
       },
       onChanged: event('storageChanged'),
@@ -75,7 +79,10 @@ function createFakeBrowser() {
         fake.alarms[name] = info;
         fake.alarmCreates++;
       },
-      clear: (name, callback) => later(callback, true),
+      clear: (name, callback) => {
+        delete fake.alarms[name];
+        return later(callback, true);
+      },
       onAlarm: event('alarm'),
     },
     tabs: {
@@ -469,7 +476,30 @@ describe('background service worker', () => {
       expect(fake.local.sites['www.example.com']).toBeUndefined();
       expect(fake.local.sites['news.site.org'].totalTime).toBe(200);
       expect(Object.keys(fake.local.history[day].sites)).toEqual(['a.com']);
-      expect(fake.local.dataVersion).toBe(2);
+      expect(fake.local.dataVersion).toBe(3);
+    });
+
+    it('removes account, plan and sync data left by 1.x and keeps everything else', async () => {
+      OBSOLETE_KEYS.forEach((key) => {
+        fake.local[key] = 'old';
+      });
+      fake.alarms['api-sync'] = { periodInMinutes: 15 };
+      const day = new Date(START - 86400000).toDateString();
+      const kept = {
+        history: { [day]: { sites: { 'a.com': { totalTime: 300, visits: 1 } }, totalTime: 300, date: day } },
+        settings: { idleTime: 7 },
+        blockedSites: ['a.com'],
+        focusStats: { sessions: 2 },
+        unblockData: { 'a.com': { count: 1 } },
+      };
+      Object.assign(fake.local, JSON.parse(JSON.stringify(kept)), { dataVersion: 2 });
+
+      await startWorker();
+
+      OBSOLETE_KEYS.forEach((key) => expect(fake.local).not.toHaveProperty(key));
+      expect(fake.alarms['api-sync']).toBeUndefined();
+      Object.keys(kept).forEach((key) => expect(fake.local[key]).toEqual(kept[key]));
+      expect(fake.local.dataVersion).toBe(3);
     });
   });
 
