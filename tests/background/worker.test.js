@@ -490,9 +490,9 @@ describe('background service worker', () => {
         settings: { idleTime: 7 },
         blockedSites: ['a.com'],
         focusStats: { sessions: 2 },
-        unblockData: { 'a.com': { count: 1 } },
+        unblockData: { date: new Date(START).toDateString(), remaining: 1, temporaryUnblocks: {} },
       };
-      Object.assign(fake.local, JSON.parse(JSON.stringify(kept)), { dataVersion: 2 });
+      Object.assign(fake.local, JSON.parse(JSON.stringify(kept)), { blockingEnabled: true, dataVersion: 2 });
 
       await startWorker();
 
