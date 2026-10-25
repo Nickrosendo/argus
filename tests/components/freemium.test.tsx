@@ -57,14 +57,6 @@ describe('plans', () => {
   });
 });
 
-describe('checkout started from the website', () => {
-  it('should use the yearly plan price the popup also sells', () => {
-    const { DEFAULT_PRICE_ID } = jest.requireActual('../../background/constants.js');
-
-    expect(DEFAULT_PRICE_ID).toBe(PLANS.find((plan) => plan.id === 'yearly')!.priceId);
-  });
-});
-
 describe('UpgradePrompt', () => {
   it('should explain the feature, list real benefits and state the price', () => {
     const onUpgrade = jest.fn();

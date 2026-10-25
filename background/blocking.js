@@ -1,8 +1,5 @@
 // Website blocking: network rules, temporary unblocks and navigation checks
 import browserApiService from "../services/BrowserApiService";
-import {
-  FREE_MODE_MAX_BLOCKED_SITES,
-} from './constants.js';
 import { state, isFocusActive } from './state.js';
 
 // Update the blocked sites configuration
@@ -11,21 +8,13 @@ export async function updateBlockedSites() {
     "blockingEnabled",
     "blockedSites",
     "settings",
-    "freeMode",
   ]);
   // Check both blockingEnabled and settings.enableBlocking for compatibility
   // A focus session blocks the list even when blocking is switched off
   const focusActive = isFocusActive();
   const blockingEnabled =
     focusActive || result.blockingEnabled || result.settings?.enableBlocking || false;
-  let blockedSites = result.blockedSites || [];
-  const isFreeMode = result.freeMode === true;
-
-  // In free mode only the first few sites are enforced. The stored list is
-  // left intact so nothing is lost if the account is premium again later.
-  if (isFreeMode && blockedSites.length > FREE_MODE_MAX_BLOCKED_SITES) {
-    blockedSites = blockedSites.slice(0, FREE_MODE_MAX_BLOCKED_SITES);
-  }
+  const blockedSites = result.blockedSites || [];
 
   // Filter out temporarily unblocked sites for the network rules
   // ...and ignores temporary unblocks until it ends
@@ -174,7 +163,6 @@ export async function isUrlBlocked(url) {
       'blockingEnabled',
       'blockedSites',
       'settings',
-      'freeMode'
     ]);
 
     console.log('Checking if URL is blocked:', url);
@@ -183,7 +171,6 @@ export async function isUrlBlocked(url) {
     const blockingEnabled =
       focusActive || result.blockingEnabled || result.settings?.enableBlocking || false;
     const blockedSites = result.blockedSites || [];
-    const isFreeMode = result.freeMode === true;
 
     // If blocking is not enabled, don't block anything
     if (!blockingEnabled || blockedSites.length === 0) {
@@ -215,12 +202,6 @@ export async function isUrlBlocked(url) {
         if (!focusActive && isTemporarilyUnblocked(cleanBlockedSite)) {
           console.log(`Site ${cleanBlockedSite} is temporarily unblocked`);
           return false;
-        }
-
-        // In free mode, apply additional restrictions if needed
-        if (isFreeMode) {
-          // For now, free mode users can block sites same as premium
-          // but we could add additional logic here
         }
 
         return true;

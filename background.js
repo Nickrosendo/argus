@@ -1,12 +1,9 @@
 // Argus - Time tracking background service worker
 import browserApiService from "./services/BrowserApiService";
-import authService from "./services/AuthService";
 import {
   ALARM_NAME,
   UPDATE_INTERVAL,
   TEMP_UNBLOCK_CHECK_ALARM,
-  API_SYNC_ALARM,
-  API_SYNC_INTERVAL,
   FOCUS_END_ALARM,
 } from './background/constants.js';
 import {
@@ -34,15 +31,7 @@ import {
   checkAndResetUnblockData,
   handleBeforeNavigate,
 } from './background/blocking.js';
-import { syncDataWithApi } from './background/sync.js';
 import { endFocusSession, loadFocusSession } from './background/focus.js';
-import {
-  handleCreateCheckoutSession,
-  handleVerifyPayment,
-  handleLogPaymentCancellation,
-  handleInitiatePayment,
-  handleSetFreeMode,
-} from './background/payments.js';
 import { CORE_ACTIONS, handleCoreMessage } from './background/messages.js';
 
 console.log("Argus background service worker starting up...");
@@ -62,11 +51,6 @@ async function initializeExtension() {
     delayInMinutes: 1,
   });
 
-  await ensureAlarm(API_SYNC_ALARM, {
-    periodInMinutes: API_SYNC_INTERVAL,
-    delayInMinutes: 1,
-  });
-
   console.log("Initializing browser storage and state...");
 
   // Initialize storage if needed
@@ -77,9 +61,6 @@ async function initializeExtension() {
     "blockingEnabled",
     "blockedSites",
     "unblockData",
-    "lastSyncTime",
-    "freeMode",
-    "authToken",
     "settings",
   ]);
 
@@ -99,11 +80,6 @@ async function initializeExtension() {
     });
   }
 
-  // Store last sync time if available
-  if (result.lastSyncTime) {
-    state.lastSyncTime = result.lastSyncTime;
-  }
-
   // Load any temporary unblocks
   if (result.unblockData && result.unblockData.temporaryUnblocks) {
     state.temporaryUnblocks = result.unblockData.temporaryUnblocks;
@@ -111,9 +87,6 @@ async function initializeExtension() {
 
   // Use the pause and idle settings the user chose
   applySettings(result.settings);
-
-  // Check free mode status
-  state.isFreeMode = result.freeMode === true;
 
   // Convert data stored by earlier versions before anything reads it
   await migrateStoredData();
@@ -123,19 +96,6 @@ async function initializeExtension() {
 
   // Check if it's a new day and reset if needed
   await checkAndResetForNewDay(result.lastDate);
-
-  // Treat a stored token as signed in and verify it with the server in the
-  // background, so startup (and every event waiting on it) never waits on
-  // the network.
-  state.isAuthenticated = !!result.authToken;
-  if (result.authToken) {
-    authService
-      .isAuthenticated()
-      .then((isAuthenticated) => {
-        state.isAuthenticated = isAuthenticated;
-      })
-      .catch((error) => console.error("Error verifying authentication:", error));
-  }
 
   // Pick up the tab and tracking flag from before the worker was suspended
   await restoreTrackingState();
@@ -181,11 +141,6 @@ function handleAlarm(alarm) {
     checkTemporaryUnblocks();
   } else if (alarm.name === FOCUS_END_ALARM) {
     endFocusSession(true);
-  } else if (alarm.name === API_SYNC_ALARM) {
-    // Only sync if authenticated (not in free mode)
-    if (state.isAuthenticated && !state.isFreeMode) {
-      syncDataWithApi();
-    }
   }
 }
 // Startup. Every listener below is registered synchronously, in the same turn
@@ -246,30 +201,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Indicates we will send a response asynchronously
   }
 
-  switch (request.action) {
-    case 'createCheckoutSession':
-      handleCreateCheckoutSession(request, sendResponse);
-      return true;
-
-    case 'verifyPayment':
-      handleVerifyPayment(request, sendResponse);
-      return true;
-
-    case 'logPaymentCancellation':
-      handleLogPaymentCancellation(request, sendResponse);
-      return true;
-
-    case 'initiatePayment':
-      handleInitiatePayment(sendResponse);
-      return true;
-
-    case 'setFreeMode':
-      handleSetFreeMode(request, sendResponse);
-      return true;
-
-    default:
-      console.log('Unknown action:', request.action);
-      sendResponse({ success: false, error: 'Unknown action' });
-      return false;
-  }
+  console.log('Unknown action:', request.action);
+  sendResponse({ success: false, error: 'Unknown action' });
+  return false;
 });

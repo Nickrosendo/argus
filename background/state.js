@@ -9,9 +9,6 @@ export const state = {
   currentTab: null, // { id, domain, url, title, favIconUrl, startTime, visitCounted }
   isTracking: true,
   temporaryUnblocks: {}, // Domain -> expiration timestamp
-  isAuthenticated: false,
-  isFreeMode: false,
-  lastSyncTime: 0,
   realTimeUpdateTimer: null,
   focusSession: null, // { startedAt, endsAt, minutes } while a focus session runs
   trackingPaused: false, // the user's "Pause tracking" setting

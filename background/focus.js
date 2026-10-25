@@ -29,9 +29,6 @@ export async function loadFocusSession() {
 }
 
 export async function startFocusSession(minutes) {
-  if (state.isFreeMode) {
-    return { ok: false, reason: "Focus sessions are part of Premium" };
-  }
   if (isFocusActive()) {
     return { ok: false, reason: "A focus session is already running" };
   }

@@ -13,6 +13,7 @@ import {
   REAL_TIME_UPDATE_INTERVAL,
   BACKGROUND_WRITE_INTERVAL,
   DATA_VERSION,
+  HISTORY_DAYS,
 } from './constants.js';
 import {
   state,
@@ -27,10 +28,17 @@ import {
   trackBlockedAttempt,
   redirectToBlockedPage,
 } from './blocking.js';
-import { syncDataWithApi } from './sync.js';
 
 // Serializes read-modify-write of tracking data
 let storageWriteQueue = Promise.resolve();
+
+// Run a storage task after the tracker writes already queued and before later
+// ones. A failing task rejects for its caller but does not stop the queue.
+export function enqueueStorageWrite(task) {
+  const result = storageWriteQueue.then(task);
+  storageWriteQueue = result.catch((error) => console.error("Error in queued storage write:", error));
+  return result;
+}
 
 // The id of the focused browser window, or null when the browser is not focused
 export async function getFocusedWindowId() {
@@ -114,11 +122,9 @@ export async function checkAndResetForNewDay(lastDate) {
       "history",
       "totalTime",
       "hourly",
-      "freeMode",
     ]);
 
     const historicalData = result.history || {};
-    const isFreeMode = result.freeMode === true;
 
     // Store yesterday's data in history
     historicalData[lastDate] = {
@@ -128,12 +134,8 @@ export async function checkAndResetForNewDay(lastDate) {
       date: lastDate,
     };
 
-    // For free mode, keep only 7 days of history
-    // For premium users, keep 30 days
-    const maxHistoryDays = isFreeMode ? 7 : 30;
-
-    // Keep only the last X days of history
-    pruneHistory(historicalData, maxHistoryDays);
+    // Keep only the last HISTORY_DAYS days of history
+    pruneHistory(historicalData, HISTORY_DAYS);
 
     // Reset today's data and update history
     await browserApiService.setStorage({
@@ -306,12 +308,6 @@ export async function recordTime(tab, timeSpent, isNewVisit, now) {
     totalTime: (result.totalTime || 0) + timeSpent,
     hourly: addHourlyTime(result.hourly, now, timeSpent),
   });
-
-  // If we're authenticated and it's been a while since our last sync,
-  if (state.isAuthenticated && now - state.lastSyncTime > 5 * 60 * 1000) {
-    // Sync after 5 minutes
-    syncDataWithApi();
-  }
 }
 
 // Apply the settings the tracker depends on: pause, and the idle threshold
