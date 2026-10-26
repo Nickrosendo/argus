@@ -796,4 +796,76 @@ describe('background service worker', () => {
       expect(fake.rules).toEqual([]);
     });
   });
+
+  describe('restore from backup', () => {
+    const dayKey = (n) => new Date(START - n * 86400000).toDateString();
+    const pastDay = (n, time) => ({ sites: {}, totalTime: time, hourly: [], date: dayKey(n) });
+    const todayOf = (time) => ({
+      lastDate: new Date(START).toDateString(),
+      sites: { 'example.com': { totalTime: time, visits: 1 } },
+      totalTime: time,
+      hourly: [],
+    });
+
+    beforeEach(() => startWorker());
+
+    it("adds the backup's days and takes its settings and block list", async () => {
+      fake.local.history = { [dayKey(2)]: pastDay(2, 1000) };
+
+      const responses = await send({
+        action: 'restoreBackup',
+        data: {
+          history: { [dayKey(3)]: pastDay(3, 2000) },
+          blockedSites: ['a.com', 'b.com'],
+          blockingEnabled: true,
+          settings: { idleTime: 9 },
+        },
+      });
+
+      expect(responses).toEqual([{ success: true }]);
+      expect(Object.keys(fake.local.history).sort()).toEqual([dayKey(2), dayKey(3)].sort());
+      expect(fake.local.blockedSites).toEqual(['a.com', 'b.com']);
+      expect(fake.local.settings.idleTime).toBe(9);
+      expect(blockedDomainsInRules()).toEqual(['a.com', 'b.com']);
+    });
+
+    it('credits the current tab before restoring and keeps tracking afterwards', async () => {
+      await advance(60_000);
+
+      await send({ action: 'restoreBackup', data: todayOf(10 * 60_000) });
+      expect(totalTime()).toBe(600_000);
+
+      await advance(30_000);
+      await fireTrackerAlarm();
+      expect(totalTime()).toBe(630_000);
+    });
+
+    it('keeps the time already recorded today when the backup has less', async () => {
+      await advance(60_000);
+
+      await send({ action: 'restoreBackup', data: todayOf(1000) });
+
+      expect(totalTime()).toBeGreaterThanOrEqual(60_000);
+    });
+
+    it('archives a stale day before merging so the backup keeps its today', async () => {
+      fake.local.lastDate = dayKey(1);
+      fake.local.totalTime = 5000;
+      fake.local.sites = { 'old.com': { totalTime: 5000, visits: 1 } };
+      fake.local.hourly = [];
+
+      await send({ action: 'restoreBackup', data: todayOf(20_000) });
+
+      expect(fake.local.lastDate).toBe(new Date(START).toDateString());
+      expect(totalTime()).toBe(20_000);
+      expect(fake.local.history[dayKey(1)].totalTime).toBe(5000);
+    });
+
+    it('never stores account or sync keys from an old export', async () => {
+      await send({ action: 'restoreBackup', data: { history: {}, authToken: 'x', remoteDays: {} } });
+
+      expect(fake.local.authToken).toBeUndefined();
+      expect(fake.local.remoteDays).toBeUndefined();
+    });
+  });
 });

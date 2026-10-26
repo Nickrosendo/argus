@@ -1,5 +1,6 @@
 // Messages from the popup, blocked page and content scripts
 import browserApiService from "../services/BrowserApiService";
+import { restoreBackup } from './backup.js';
 import { endFocusSession, startFocusSession } from './focus.js';
 import { state } from './state.js';
 import {
@@ -48,6 +49,15 @@ export function handleCoreMessage(message, sender, sendResponse) {
       })
       .catch((error) => {
         console.error("Error stopping focus session:", error);
+        sendResponse({ success: false, error: error.message });
+      });
+  } else if (message.action === "restoreBackup") {
+    restoreBackup(message.data)
+      .then(() => {
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("Error restoring backup:", error);
         sendResponse({ success: false, error: error.message });
       });
   } else if (message.action === "openBlocklistSettings") {
@@ -104,6 +114,7 @@ export const CORE_ACTIONS = new Set([
   'updateTemporaryUnblocks',
   'startFocusSession',
   'stopFocusSession',
+  'restoreBackup',
   'openBlocklistSettings',
   'getTrackingStatus',
   'checkUrlBlocked',
