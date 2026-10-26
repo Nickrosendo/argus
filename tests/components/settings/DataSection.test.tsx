@@ -22,8 +22,8 @@ const validBackup = {
   exportedAt: '2026-10-12T10:00:00.000Z',
   data: {
     history: {
-      '2026-10-10': { totalTime: 1000, sites: {}, hourly: [] },
-      '2026-10-11': { totalTime: 2000, sites: {}, hourly: [] },
+      'Sat Oct 10 2026': { totalTime: 1000, sites: {}, hourly: [] },
+      'Sun Oct 11 2026': { totalTime: 2000, sites: {}, hourly: [] },
     },
     blockedSites: ['a.com'],
   },
@@ -102,7 +102,7 @@ describe('DataSection', () => {
     render(<DataSection />);
     await user.upload(
       screen.getByLabelText('Backup file'),
-      backupFile({ history: { '2026-10-10': { totalTime: 5, sites: {} } }, blockedSites: ['a.com', 'b.com'] })
+      backupFile({ history: { 'Sat Oct 10 2026': { totalTime: 5, sites: {} } }, blockedSites: ['a.com', 'b.com'] })
     );
     expect(await screen.findByText('Backup with 1 day of history, 2 blocked sites')).toBeInTheDocument();
   });

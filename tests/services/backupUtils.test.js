@@ -146,7 +146,57 @@ describe('backupUtils', () => {
     });
   });
 
+  describe('stricter validation', () => {
+    const wrap = (data) => JSON.stringify({ argusBackup: 1, data });
+
+    it('keeps only history keys written the way Argus writes them (toDateString)', () => {
+      const result = parseBackup(
+        wrap({
+          history: {
+            '2026-10-12': day(10),
+            5: day(10),
+            'Mon Oct 12 2026': day(10),
+          },
+        })
+      );
+
+      expect(Object.keys(result.data.history)).toEqual(['Mon Oct 12 2026']);
+    });
+
+    it('drops a lastDate that is not in toDateString form', () => {
+      const result = parseBackup(wrap({ history: {}, lastDate: '2026-10-12' }));
+
+      expect(result.data).not.toHaveProperty('lastDate');
+    });
+
+    it('ignores the top-level counters as a day when sites is not a plain object', () => {
+      const backup = { history: {}, lastDate: 'Mon Oct 12 2026', totalTime: 500, sites: ['a.com'] };
+
+      expect(summarizeBackup(backup).days).toBe(0);
+      expect(mergeBackup({ lastDate: 'Tue Oct 13 2026', history: {} }, backup, 90).history).toEqual({});
+      expect(summarizeBackup({ ...backup, sites: undefined }).days).toBe(0);
+    });
+
+    it('defaults hourly to an empty list when the backup has none', () => {
+      const backup = { history: {}, lastDate: 'Mon Oct 12 2026', totalTime: 500, sites: { 'a.com': { totalTime: 500 } } };
+      const merged = mergeBackup({ lastDate: 'Tue Oct 13 2026', history: {} }, backup, 90);
+
+      expect(merged.history['Mon Oct 12 2026'].hourly).toEqual([]);
+    });
+  });
+
   describe('summarizeBackup', () => {
+    it('never reports more than 90 days of history by default, or the given maximum', () => {
+      const history = {};
+      for (let i = 0; i < 120; i += 1) {
+        history[new Date(2026, 0, 1 + i).toDateString()] = day(100);
+      }
+
+      expect(summarizeBackup({ history }).days).toBe(90);
+      expect(summarizeBackup({ history }, 30).days).toBe(30);
+      expect(summarizeBackup({ history: { 'Mon Jul 21 2025': day(1) } }).days).toBe(1);
+    });
+
     it('should count days with time plus the last day when not in history', () => {
       const data = {
         history: {
@@ -156,6 +206,7 @@ describe('backupUtils', () => {
         },
         lastDate: 'Thu Jul 24 2025',
         totalTime: 10,
+        sites: { 'a.com': { totalTime: 10 } },
         blockedSites: ['a.com', 'b.com'],
       };
 

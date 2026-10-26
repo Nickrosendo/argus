@@ -4,6 +4,7 @@
  */
 
 import { pruneHistory } from './trackingUtils';
+import { HISTORY_DAYS } from '../background/constants';
 
 export const BACKUP_FORMAT = 1;
 
@@ -22,7 +23,9 @@ export const BACKUP_KEYS = [
 const isPlainObject = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
-const isDateKey = (key) => typeof key === 'string' && !Number.isNaN(Date.parse(key));
+// Argus keys days with Date.toDateString(), for example "Sun Oct 12 2026"
+const isDateKey = (key) =>
+  typeof key === 'string' && new Date(key).toDateString() === key;
 
 /**
  * Recorded time of a day, treating a missing or non-numeric value as 0.
@@ -69,11 +72,11 @@ const VALID_VALUE = {
 function backupDaysOf(backup) {
   const days = isPlainObject(backup.history) ? cleanHistory(backup.history) : {};
 
-  if (isDateKey(backup.lastDate) && dayTime(backup) > 0) {
+  if (isDateKey(backup.lastDate) && dayTime(backup) > 0 && isPlainObject(backup.sites)) {
     const counters = {
       sites: backup.sites,
       totalTime: backup.totalTime,
-      hourly: backup.hourly,
+      hourly: Array.isArray(backup.hourly) ? backup.hourly : [],
       date: backup.lastDate,
     };
     if (!days[backup.lastDate] || dayTime(counters) > dayTime(days[backup.lastDate])) {
@@ -192,10 +195,12 @@ export function parseBackup(text) {
  * Describe a backup for the confirmation shown before restoring.
  *
  * @param {Object} data Backup data (BACKUP_KEYS only)
- * @returns {{days: number, blockedSites: number}} Days with recorded time and blocked site count
+ * @param {number} [maxDays] Most days a restore keeps (older ones are pruned)
+ * @returns {{days: number, blockedSites: number}} Days with recorded time (at most maxDays) and blocked site count
  */
-export function summarizeBackup(data) {
-  const days = Object.values(backupDaysOf(data)).filter((entry) => dayTime(entry) > 0).length;
+export function summarizeBackup(data, maxDays = HISTORY_DAYS) {
+  const recorded = Object.values(backupDaysOf(data)).filter((entry) => dayTime(entry) > 0).length;
+  const days = Math.min(recorded, maxDays);
 
   return {
     days,
