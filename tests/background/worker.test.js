@@ -384,6 +384,8 @@ describe('background service worker', () => {
   });
 
   describe('first write without a stored day', () => {
+    beforeEach(() => startWorker());
+
     it('records today as the last day, so a later day still rolls over into history', async () => {
       delete fake.local.lastDate; // as after Clear all data
       await advance(5000);

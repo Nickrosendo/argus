@@ -245,8 +245,8 @@ describe('SettingsTab Component', () => {
       const user = userEvent.setup();
       mockConfirm.mockReturnValue(true);
       setupBrowser.storage.local.clear.mockImplementation((cb?: () => void) => cb && cb());
-      mockBrowserAPI.runtime.sendMessage.mockResolvedValue({ success: true });
-      mockBrowserAPI.storage.local.set.mockImplementation((_: any, cb?: () => void) => cb && cb());
+      setupBrowser.runtime.sendMessage.mockResolvedValue({ success: true });
+      setupBrowser.storage.local.set.mockImplementation((_: any, cb?: () => void) => cb && cb());
 
       render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
       await user.click(screen.getByText('Clear all data'));
@@ -259,7 +259,7 @@ describe('SettingsTab Component', () => {
         blockedSites: [],
         lastDate: new Date().toDateString(),
       });
-      expect(mockBrowserAPI.runtime.sendMessage).toHaveBeenCalledWith({ action: 'updateBlockedSites' });
+      expect(setupBrowser.runtime.sendMessage).toHaveBeenCalledWith({ action: 'updateBlockedSites' });
     });
 
     it('does not clear data when user cancels confirmation', async () => {
