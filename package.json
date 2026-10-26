@@ -1,7 +1,7 @@
 {
   "name": "argus-screen-time",
   "version": "2.0.1",
-  "description": "A Chrome and Firefox extension that monitors and visualizes the time you spend on different websites",
+  "description": "Chrome and Firefox extension: track time per website, block distractions, run focus sessions. Free, open source, no account: your data stays in your browser.",
   "main": "background.js",
   "scripts": {
     "clean": "rimraf dist",
