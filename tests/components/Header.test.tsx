@@ -5,41 +5,14 @@ import '@testing-library/jest-dom';
 import Header from '../../src/components/Header';
 
 
-// Mock the MenuPopup component since we're testing Header in isolation
-jest.mock('../../src/components/MenuPopup', () => {
-  return function MockMenuPopup({ onAction }: any) {
-    return (
-      <div data-testid="mock-menu-popup">
-        <button onClick={() => onAction('settings')} data-testid="settings-menu-item">Settings</button>
-        <button onClick={() => onAction('account')} data-testid="account-menu-item">Account</button>
-      </div>
-    );
-  };
-});
-
-// Mock the FreeService
-jest.mock('../../services/FreeService', () => ({
-  isTabRestricted: jest.fn().mockResolvedValue(false),
-  getUpgradeUrl: jest.fn().mockReturnValue('https://upgrade.example.com')
-}));
-
-// Mock the LockIcon component
-jest.mock('../../src/components/ui/LockIcon', () => {
-  return function MockLockIcon() {
-    return <div data-testid="lock-icon">🔒</div>;
-  };
-});
-
 describe('Header Component', () => {
   const mockOnTabChange = jest.fn();
-  const mockOnMenuAction = jest.fn();
+  const mockOnToggleSettings = jest.fn();
 
   const defaultProps = {
     activeTab: 'stats' as const,
     onTabChange: mockOnTabChange,
-    onMenuAction: mockOnMenuAction,
-    isAuthenticated: false,
-    isFreeMode: true,
+    onToggleSettings: mockOnToggleSettings,
   };
 
   beforeEach(() => {
@@ -63,10 +36,12 @@ describe('Header Component', () => {
       expect(screen.getByRole('navigation')).toBeInTheDocument(); // nav element
     });
 
-    it('should render menu popup', () => {
+    it('renders the four tabs with no lock icon and no Premium label', () => {
       render(<Header {...defaultProps} />);
-      
-      expect(screen.getByTestId('mock-menu-popup')).toBeInTheDocument();
+
+      expect(screen.queryByLabelText(/premium/i)).not.toBeInTheDocument();
+      expect(document.querySelector('.tab-lock')).toBeNull();
+      expect(screen.queryByText(/premium/i)).not.toBeInTheDocument();
     });
   });
 
@@ -119,11 +94,17 @@ describe('Header Component', () => {
       expect(screen.getByLabelText('Sites')).not.toHaveClass('active');
     });
 
-    it('should highlight settings and account tabs when they are active', () => {
+    it('marks the gear as pressed while Settings is open', () => {
       render(<Header {...defaultProps} activeTab="settings" />);
-      
-      // Settings and Account tabs are handled by the MenuPopup, so we test the menu instead
-      expect(screen.getByTestId('mock-menu-popup')).toBeInTheDocument();
+
+      expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByLabelText('Stats')).not.toHaveClass('active');
+    });
+
+    it('leaves the gear unpressed on a content tab', () => {
+      render(<Header {...defaultProps} activeTab="stats" />);
+
+      expect(screen.getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-pressed', 'false');
     });
   });
 
@@ -168,24 +149,13 @@ describe('Header Component', () => {
       expect(mockOnTabChange).toHaveBeenCalledTimes(1);
     });
 
-    it('should call onMenuAction when Settings menu item is clicked', async () => {
+    it('calls onToggleSettings when the gear is clicked', async () => {
       const user = userEvent.setup();
       render(<Header {...defaultProps} activeTab="stats" />);
-      
-      await user.click(screen.getByTestId('settings-menu-item'));
-      
-      expect(mockOnMenuAction).toHaveBeenCalledWith('settings');
-      expect(mockOnMenuAction).toHaveBeenCalledTimes(1);
-    });
 
-    it('should call onMenuAction when Account menu item is clicked', async () => {
-      const user = userEvent.setup();
-      render(<Header {...defaultProps} activeTab="stats" />);
-      
-      await user.click(screen.getByTestId('account-menu-item'));
-      
-      expect(mockOnMenuAction).toHaveBeenCalledWith('account');
-      expect(mockOnMenuAction).toHaveBeenCalledTimes(1);
+      await user.click(screen.getByRole('button', { name: 'Settings' }));
+
+      expect(mockOnToggleSettings).toHaveBeenCalledTimes(1);
     });
 
     it('should call onTabChange even when clicking the already active tab', async () => {
@@ -292,15 +262,6 @@ describe('Header Component', () => {
       expect(buttons[1]).toHaveAttribute('aria-label', 'History');
       expect(buttons[2]).toHaveAttribute('aria-label', 'Sites');
       expect(buttons[3]).toHaveAttribute('aria-label', 'Focus');
-    });
-  });
-
-  describe('Props Passing', () => {
-    it('should pass authentication props to MenuPopup', () => {
-      render(<Header {...defaultProps} isAuthenticated={true} isFreeMode={false} />);
-      
-      // MenuPopup should receive the authentication props
-      expect(screen.getByTestId('mock-menu-popup')).toBeInTheDocument();
     });
   });
 }); 

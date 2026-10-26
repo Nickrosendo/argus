@@ -68,7 +68,6 @@ declare global {
   // Build-time constants (replaced during build process)
   const __GOOGLE_CLIENT_ID__: string;
   const __MICROSOFT_CLIENT_ID__: string;
-  const __API_URL__: string;
   const __ENABLE_MICROSOFT_AUTH__: string;
   const __VERSION__: string;
 } 

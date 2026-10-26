@@ -15,9 +15,6 @@ describe('Browser Storage', () => {
         }
       },
       totalTime: 3600000,
-      authToken: null,
-      userInfo: null,
-      freeMode: false
     };
     
     chrome.storage.local.set(testData);
@@ -36,9 +33,6 @@ describe('Browser Storage', () => {
         }
       },
       totalTime: 3600000,
-      authToken: null,
-      userInfo: null,
-      freeMode: false
     };
     
     // Mock the get implementation to return our test data

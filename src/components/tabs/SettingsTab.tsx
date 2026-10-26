@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageData, Settings } from '../../types/storage';
 import { normalizeDomain } from '../../lib/utils';
-// Import FreeService for premium checking
-declare const FreeService: any;
 
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
@@ -10,10 +8,9 @@ const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
 export interface SettingsTabProps {
   data: StorageData;
   updateStorage: (updates: Partial<StorageData>) => void;
-  onUpgrade?: () => void;
 }
 
-const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage, onUpgrade }) => {
+const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
   const { settings = {}, blockedSites = [] } = data;
   
   // Memoize the default settings to prevent infinite loops
@@ -29,7 +26,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage, onUpgrad
   });
   const [newBlockedSite, setNewBlockedSite] = useState<string>('');
   const [localBlockedSites, setLocalBlockedSites] = useState<string[]>(blockedSites);
-  const [isFreeMode, setIsFreeMode] = useState<boolean>(true);
 
   // Use refs to track previous values
   const prevSettingsRef = useRef<Partial<Settings> | undefined>();
@@ -54,28 +50,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage, onUpgrad
     }
   }, [blockedSites]);
 
-  // Check subscription status on component mount
-  useEffect(() => {
-    const checkSubscriptionStatus = async () => {
-      try {
-        // Check if FreeService is available (might be undefined in some contexts)
-        if (typeof window !== 'undefined' && (window as any).FreeService) {
-          const isFree = await (window as any).FreeService.isFreeMode();
-          setIsFreeMode(isFree);
-        } else {
-          // Fallback: check storage directly
-          const result = await browserAPI.storage.local.get(['authToken', 'userInfo']);
-          setIsFreeMode(!result.authToken || result.userInfo?.type !== 'premium');
-        }
-      } catch (error) {
-        console.error('Error checking subscription status:', error);
-        setIsFreeMode(true); // Default to free mode on error
-      }
-    };
-
-    checkSubscriptionStatus();
-  }, []);
-
   const handleSettingChange = (key: keyof Settings, value: any): void => {
     const newSettings = { ...localSettings, [key]: value };
     setLocalSettings(newSettings);
@@ -87,12 +61,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage, onUpgrad
     const site = normalizeDomain(newBlockedSite);
     if (!site) return;
     if (localBlockedSites?.includes?.(site)) return;
-    
-    // Check free mode limitations
-    if (isFreeMode && localBlockedSites.length >= 3) {
-      onUpgrade && onUpgrade();
-      return;
-    }
     
     const updatedSites = [...localBlockedSites, site];
     setLocalBlockedSites(updatedSites);
@@ -159,27 +127,21 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage, onUpgrad
 
   const handleClearData = (): void => {
     if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-      // Clear tracking data and preferences, but keep the user signed in
-      const keysToKeep = ['authToken', 'userInfo', 'freeMode', 'deviceId'];
-      browserAPI.storage.local.get(keysToKeep, (kept: Record<string, unknown>) => {
-        browserAPI.storage.local.clear(() => {
-          browserAPI.storage.local.set(kept, () => {
-            updateStorage({
-              sites: {},
-              totalTime: 0,
-              history: {},
-              settings: {
-                idleTime: 5,
-                dailyLimit: 8,
-                enableBlocking: false
-              },
-              blockedSites: []
-            });
-            setLocalBlockedSites([]);
-            // Remove the network rules too, or sites stay blocked with an empty list
-            updateBlockingRules([], false);
-          });
+      browserAPI.storage.local.clear(() => {
+        updateStorage({
+          sites: {},
+          totalTime: 0,
+          history: {},
+          settings: {
+            idleTime: 5,
+            dailyLimit: 8,
+            enableBlocking: false
+          },
+          blockedSites: []
         });
+        setLocalBlockedSites([]);
+        // Remove the network rules too, or sites stay blocked with an empty list
+        updateBlockingRules([], false);
       });
     }
   };
@@ -269,31 +231,13 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage, onUpgrad
                 onChange={(e) => setNewBlockedSite(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="example.com"
-                disabled={isFreeMode && localBlockedSites.length >= 3}
               />
               <button 
                 onClick={handleAddBlockedSite}
-                disabled={isFreeMode && localBlockedSites.length >= 3}
               >
                 Add Site
               </button>
             </div>
-            
-            {isFreeMode && (
-              <div className="free-mode-info">
-                <p>
-                  {localBlockedSites.length} of 3 free blocked sites used.
-                  {localBlockedSites.length >= 3 && (
-                    <>
-                      {' '}
-                      <button onClick={onUpgrade} className="link-btn">
-                        Block unlimited sites with Premium
-                      </button>
-                    </>
-                  )}
-                </p>
-              </div>
-            )}
             
           </div>
         </div>

@@ -30,16 +30,6 @@ export interface HistoryData {
   [date: string]: DayData; // date -> day data for that date
 }
 
-export interface UserInfo {
-  id: string;
-  email: string;
-  name?: string;
-  picture?: string;
-  username?: string;
-  type?: 'free' | 'premium';
-  subscriptionStatus?: 'active' | 'inactive' | 'cancelled' | 'past_due';
-}
-
 export interface FocusSession {
   startedAt: number;
   endsAt: number;
@@ -62,12 +52,6 @@ export interface StorageData {
   settings: Settings;
   blockedSites: string[];
   blockingEnabled?: boolean;
-  syncEnabled?: boolean; // the user turned on cloud sync (off until they do)
-  lastSyncTime?: number | null;
-  remoteDays?: HistoryData; // usage from the user's other devices, fetched by cloud sync
-  authToken?: string | boolean | null;
-  userInfo?: UserInfo | null;
-  freeMode: boolean;
   focusSession?: FocusSession | null; // set while a focus session is running
   focusStats?: FocusStats; // today's focus numbers
   onboardingDone?: boolean; // the first-run welcome was dismissed

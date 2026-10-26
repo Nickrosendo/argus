@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SettingsTab from '../../../src/components/tabs/SettingsTab';
 import { StorageData } from '../../../src/types/storage';
@@ -23,18 +23,13 @@ const mockBrowserAPI = {
   },
 };
 
-// Mock window.FreeService for premium gating tests
-const mockFreeService = {
-  isFreeMode: jest.fn(),
-  canAddBlockedSite: jest.fn(),
-};
+// The component binds to the browser object from tests/setup.js when it is imported,
+// so keep a handle on it before the globals below are replaced
+const setupBrowser = (global as any).browser;
 
 // Set up global browser/chrome
 (global as any).chrome = mockBrowserAPI;
 (global as any).browser = mockBrowserAPI;
-(global as any).window = {
-  FreeService: mockFreeService,
-};
 
 // Mock window.confirm
 const mockConfirm = jest.fn();
@@ -79,8 +74,6 @@ describe('SettingsTab Component', () => {
       enableBlocking: false,
     },
     blockedSites: [],
-    authToken: null,
-    userInfo: null,
   };
 
   beforeEach(() => {
@@ -255,6 +248,21 @@ describe('SettingsTab Component', () => {
       );
     });
 
+    it('Clear All Data removes everything', async () => {
+      const user = userEvent.setup();
+      mockConfirm.mockReturnValue(true);
+      const local = setupBrowser.storage.local;
+      local.clear.mockClear();
+      local.get.mockClear();
+      local.clear.mockImplementation((cb?: () => void) => cb && cb());
+
+      render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
+      await user.click(screen.getByText('Clear All Data'));
+
+      expect(local.clear).toHaveBeenCalled();
+      expect(local.get).not.toHaveBeenCalled();
+    });
+
     it('does not clear data when user cancels confirmation', async () => {
       const user = userEvent.setup();
       mockConfirm.mockReturnValue(false);
@@ -314,149 +322,29 @@ describe('SettingsTab Component', () => {
     });
   });
 
-  describe('Premium Gating', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-      mockBrowserAPI.storage.local.get.mockResolvedValue({
-        authToken: null,
-        userInfo: null,
+  describe('Unlimited blocking', () => {
+    it('adds a fourth and fifth blocked site with no limit message', async () => {
+      const user = userEvent.setup();
+      let data: StorageData = { ...defaultData, blockedSites: [] };
+      const updateStorage = jest.fn((updates: Partial<StorageData>) => {
+        data = { ...data, ...updates };
       });
-      mockFreeService.isFreeMode.mockResolvedValue(true);
-      mockFreeService.canAddBlockedSite.mockResolvedValue(true);
-    });
+      const { rerender } = render(<SettingsTab data={data} updateStorage={updateStorage} />);
 
-    describe('Free Mode Limitations', () => {
-      it('should show how many of the free blocked sites are used', async () => {
-        mockFreeService.isFreeMode.mockResolvedValue(true);
-        
-        const dataWithSites = {
-          ...defaultData,
-          blockedSites: ['site1.com', 'site2.com'],
-        };
-
-        render(<SettingsTab data={dataWithSites} updateStorage={mockUpdateStorage} />);
-
-        await waitFor(() => {
-          expect(screen.getByText(/2 of 3 free blocked sites used/)).toBeInTheDocument();
-        });
-        // The upgrade prompt only appears at the limit
-        expect(screen.queryByRole('button', { name: /Premium/ })).not.toBeInTheDocument();
-      });
-
-      it('should disable add site input when at limit', async () => {
-        mockFreeService.isFreeMode.mockResolvedValue(true);
-        mockFreeService.canAddBlockedSite.mockResolvedValue(false);
-        
-        const dataAtLimit = {
-          ...defaultData,
-          blockedSites: ['site1.com', 'site2.com', 'site3.com'],
-        };
-
-        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
-
-        await waitFor(() => {
-          const input = screen.getByPlaceholderText('example.com');
-          const button = screen.getByText('Add Site');
-          
-          expect(input).toBeDisabled();
-          expect(button).toBeDisabled();
-        });
-      });
-
-      it('should offer Premium when the limit is reached', async () => {
-        const dataAtLimit = {
-          ...defaultData,
-          blockedSites: ['site1.com', 'site2.com', 'site3.com'],
-        };
-
-        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
-
-        await waitFor(() => {
-          expect(screen.getByText(/3 of 3 free blocked sites used/)).toBeInTheDocument();
-          expect(screen.getByRole('button', { name: 'Block unlimited sites with Premium' })).toBeInTheDocument();
-        });
-      });
-
-      it('should start the real upgrade flow from the limit prompt', async () => {
-        const user = userEvent.setup();
-        const onUpgrade = jest.fn();
-        const dataAtLimit = {
-          ...defaultData,
-          blockedSites: ['site1.com', 'site2.com', 'site3.com'],
-        };
-
-        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} onUpgrade={onUpgrade} />);
-
-        await user.click(await screen.findByRole('button', { name: 'Block unlimited sites with Premium' }));
-
-        expect(onUpgrade).toHaveBeenCalledTimes(1);
-      });
-
-      it('should prevent adding sites when at free limit', async () => {
-        const user = userEvent.setup();
-        mockFreeService.isFreeMode.mockResolvedValue(true);
-        
-        const dataAtLimit = {
-          ...defaultData,
-          blockedSites: ['site1.com', 'site2.com', 'site3.com'],
-        };
-
-        render(<SettingsTab data={dataAtLimit} updateStorage={mockUpdateStorage} />);
-
+      for (const site of ['a.com', 'b.com', 'c.com', 'd.com', 'e.com']) {
         const input = screen.getByPlaceholderText('example.com');
-        const addButton = screen.getByText('Add Site');
+        expect(input).toBeEnabled();
+        await user.type(input, site);
+        await user.click(screen.getByText('Add Site'));
+        rerender(<SettingsTab data={data} updateStorage={updateStorage} />);
+      }
 
-        // Verify the button is disabled when at limit
-        expect(input).toBeDisabled();
-        expect(addButton).toBeDisabled();
-
-        // Since the button is disabled, we can't click it, so just verify the UI state
-        expect(screen.getByText(/3 of 3 free blocked sites used/)).toBeInTheDocument();
+      ['a.com', 'b.com', 'c.com', 'd.com', 'e.com'].forEach(site => {
+        expect(screen.getByText(site)).toBeInTheDocument();
       });
-
-
-
-    });
-
-    describe('Premium Mode Behavior', () => {
-      beforeEach(() => {
-        mockFreeService.isFreeMode.mockResolvedValue(false);
-        mockBrowserAPI.storage.local.get.mockResolvedValue({
-          authToken: 'valid_token',
-          userInfo: { type: 'premium' },
-        });
-      });
-
-      it('should render correctly for premium users', () => {
-        render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
-        
-        // Premium users should see all settings options
-        expect(screen.getByLabelText('Consider idle after (minutes):')).toBeInTheDocument();
-        expect(screen.getByLabelText('Daily screen time goal (hours):')).toBeInTheDocument();
-      });
-    });
-
-    describe('Error Handling', () => {
-      it('should handle subscription status check errors gracefully', async () => {
-        mockBrowserAPI.storage.local.get.mockRejectedValue(new Error('Storage error'));
-
-        render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
-
-        // Should still render the component without crashing
-        expect(screen.getByText('Website Blocking')).toBeInTheDocument();
-      });
-
-      it('should handle FreeService errors gracefully', async () => {
-        mockFreeService.isFreeMode.mockRejectedValue(new Error('FreeService error'));
-
-        render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
-
-        // Should default to free mode and still render
-        await waitFor(() => {
-          expect(screen.getByText('Website Blocking')).toBeInTheDocument();
-        });
-      });
-
+      expect(screen.getByPlaceholderText('example.com')).toBeEnabled();
+      expect(screen.getByText('Add Site')).toBeEnabled();
+      expect(screen.queryByText(/of 3|Premium/)).not.toBeInTheDocument();
     });
   });
-}); 
+});

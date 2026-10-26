@@ -30,9 +30,6 @@ describe('TodayTab Component', () => {
       enableBlocking: false,
     },
     blockedSites: [],
-    authToken: null,
-    userInfo: null,
-    freeMode: false,
   };
 
   beforeEach(() => {

@@ -2,14 +2,12 @@ import React, { useMemo } from 'react';
 import { formatTime } from '../../utils/timeUtils';
 import { getPastDays, getPeakHour, getSessionStats, getTopSite } from '../../utils/metrics';
 import { getCategoryBreakdown } from '../../utils/categories';
-import { FREE_HISTORY_DAYS, PREMIUM_HISTORY_DAYS } from '../../lib/plans';
+import { HISTORY_DAYS } from '../../../background/constants.js';
 import { StorageData } from '../../types/storage';
 import { Clock, MousePointer, Sunrise, Star } from 'lucide-react';
 
 interface HistoryTabProps {
   data: StorageData;
-  isFreeMode?: boolean;
-  onUpgrade?: () => void;
 }
 
 interface AnalyticsCardProps {
@@ -35,7 +33,7 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ title, value, subtitle, i
   </div>
 );
 
-const HistoryTab: React.FC<HistoryTabProps> = ({ data, isFreeMode = false, onUpgrade }) => {
+const HistoryTab: React.FC<HistoryTabProps> = ({ data }) => {
   const { sites = {}, totalTime = 0, hourly, history = {} } = data;
 
   // Every figure here comes from recorded data: time and visits per site,
@@ -44,8 +42,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ data, isFreeMode = false, onUpg
   const peakHour = useMemo(() => getPeakHour(hourly), [hourly]);
   const topSite = useMemo(() => getTopSite(sites), [sites]);
   const categoryBreakdown = useMemo(() => getCategoryBreakdown(sites), [sites]);
-  const historyDays = isFreeMode ? FREE_HISTORY_DAYS : PREMIUM_HISTORY_DAYS;
-  const pastDays = useMemo(() => getPastDays(history, historyDays), [history, historyDays]);
+  const pastDays = useMemo(() => getPastDays(history, HISTORY_DAYS), [history, HISTORY_DAYS]);
   const longestDay = pastDays.reduce((max, day) => Math.max(max, day.totalTime), 0);
 
   return (
@@ -54,7 +51,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ data, isFreeMode = false, onUpg
         {/* Past days */}
         <div className="productivity-section">
           <h3 className="section-title">Past Days</h3>
-          <p className="section-subtitle">Total browsing time on each day, for the last {historyDays} days</p>
+          <p className="section-subtitle">Total browsing time on each day, for the last {HISTORY_DAYS} days</p>
 
           {pastDays.length === 0 ? (
             <div className="no-sites-data">
@@ -79,12 +76,6 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ data, isFreeMode = false, onUpg
                 </div>
               ))}
             </div>
-          )}
-
-          {isFreeMode && onUpgrade && (
-            <button className="history-edge" onClick={onUpgrade}>
-              Free keeps {FREE_HISTORY_DAYS} days. Keep {PREMIUM_HISTORY_DAYS} days with Premium
-            </button>
           )}
         </div>
 
