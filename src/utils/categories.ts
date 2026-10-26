@@ -4,7 +4,7 @@ export type CategoryName = 'Work' | 'Social' | 'Entertainment' | 'News' | 'Shopp
 
 export interface Category {
   name: CategoryName;
-  color: string; // hex, for charts and dots
+  color: string; // hex, for dots; at least 3:1 against the card in both themes
   badgeClass: string; // background class for badges
 }
 
@@ -14,12 +14,12 @@ export interface CategoryTotal extends Category {
 }
 
 const CATEGORIES: { [name in CategoryName]: Category } = {
-  Work: { name: 'Work', color: '#10b981', badgeClass: 'bg-purple-500' },
-  Social: { name: 'Social', color: '#ef4444', badgeClass: 'bg-pink-500' },
-  Entertainment: { name: 'Entertainment', color: '#f97316', badgeClass: 'bg-orange-500' },
-  News: { name: 'News', color: '#eab308', badgeClass: 'bg-blue-500' },
-  Shopping: { name: 'Shopping', color: '#14b8a6', badgeClass: 'bg-teal-500' },
-  Other: { name: 'Other', color: '#6366f1', badgeClass: 'bg-indigo-500' },
+  Work: { name: 'Work', color: '#1f9d63', badgeClass: 'bg-purple-500' },
+  Social: { name: 'Social', color: '#e5484d', badgeClass: 'bg-pink-500' },
+  Entertainment: { name: 'Entertainment', color: '#d9730d', badgeClass: 'bg-orange-500' },
+  News: { name: 'News', color: '#b8860b', badgeClass: 'bg-blue-500' },
+  Shopping: { name: 'Shopping', color: '#0f9488', badgeClass: 'bg-teal-500' },
+  Other: { name: 'Other', color: '#7c74e8', badgeClass: 'bg-indigo-500' },
 };
 
 // Sites are matched on the whole domain or a parent domain, never on a

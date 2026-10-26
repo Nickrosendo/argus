@@ -21,49 +21,41 @@ export default {
 			}
 		},
 		extend: {
+			// The theme tokens from popup.css / blocked.css, so Tailwind classes
+			// follow the Paper and Dusk themes
 			colors: {
-				border: 'hsl(var(--border))',
-				input: 'hsl(var(--input))',
-				ring: 'hsl(var(--ring))',
-				background: 'hsl(var(--background))',
-				foreground: 'hsl(var(--foreground))',
+				border: 'var(--line)',
+				input: 'var(--line)',
+				ring: 'var(--accent)',
+				background: 'var(--bg)',
+				foreground: 'var(--text)',
 				primary: {
-					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					DEFAULT: 'var(--accent)',
+					foreground: 'var(--on-accent)'
 				},
 				secondary: {
-					DEFAULT: 'hsl(var(--secondary))',
-					foreground: 'hsl(var(--secondary-foreground))'
+					DEFAULT: 'var(--surface)',
+					foreground: 'var(--text)'
 				},
 				destructive: {
-					DEFAULT: 'hsl(var(--destructive))',
-					foreground: 'hsl(var(--destructive-foreground))'
+					DEFAULT: 'var(--error)',
+					foreground: 'var(--surface)'
 				},
 				muted: {
-					DEFAULT: 'hsl(var(--muted))',
-					foreground: 'hsl(var(--muted-foreground))'
+					DEFAULT: 'var(--track)',
+					foreground: 'var(--muted)'
 				},
 				accent: {
-					DEFAULT: 'hsl(var(--accent))',
-					foreground: 'hsl(var(--accent-foreground))'
+					DEFAULT: 'var(--accent-soft)',
+					foreground: 'var(--accent-text)'
 				},
 				popover: {
-					DEFAULT: 'hsl(var(--popover))',
-					foreground: 'hsl(var(--popover-foreground))'
+					DEFAULT: 'var(--surface)',
+					foreground: 'var(--text)'
 				},
 				card: {
-					DEFAULT: 'hsl(var(--card))',
-					foreground: 'hsl(var(--card-foreground))'
-				},
-				sidebar: {
-					DEFAULT: 'hsl(var(--sidebar-background))',
-					foreground: 'hsl(var(--sidebar-foreground))',
-					primary: 'hsl(var(--sidebar-primary))',
-					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'hsl(var(--sidebar-accent))',
-					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-					border: 'hsl(var(--sidebar-border))',
-					ring: 'hsl(var(--sidebar-ring))'
+					DEFAULT: 'var(--surface)',
+					foreground: 'var(--text)'
 				},
 				purple: {
 					50: '#faf5ff',
@@ -92,11 +84,6 @@ export default {
 					950: '#2e1065'
 				}
 			},
-			backgroundImage: {
-				'gradient-purple': 'linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%)',
-				'gradient-card': 'linear-gradient(135deg, rgba(109, 40, 217, 0.15) 0%, rgba(76, 29, 149, 0.15) 100%)',
-				'gradient-header': 'linear-gradient(135deg, rgba(109, 40, 217, 0.9) 0%, rgba(76, 29, 149, 0.9) 100%)'
-			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
@@ -123,41 +110,10 @@ export default {
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out'
-			},
-			backdropBlur: {
-				xs: '2px',
 			}
 		}
 	},
 	plugins: [
-		require("tailwindcss-animate"),
-		function({ addUtilities }: any) {
-			const newUtilities = {
-				'.glass-card': {
-					background: 'rgba(109, 40, 217, 0.15)',
-					border: '1px solid rgba(139, 92, 246, 0.3)',
-					borderRadius: '12px',
-					backdropFilter: 'blur(10px)',
-					boxShadow: '0 4px 15px rgba(0, 0, 0, 0.25)'
-				},
-				'.glass-button': {
-					background: 'rgba(109, 40, 217, 0.2)',
-					border: '1px solid rgba(139, 92, 246, 0.4)',
-					backdropFilter: 'blur(5px)',
-					transition: 'all 0.2s ease'
-				},
-				'.glass-button:hover': {
-					background: 'rgba(109, 40, 217, 0.3)',
-					border: '1px solid rgba(139, 92, 246, 0.6)'
-				},
-				'.text-purple-light': {
-					color: 'rgba(229, 231, 235, 0.9)'
-				},
-				'.text-purple-muted': {
-					color: 'rgba(229, 231, 235, 0.6)'
-				}
-			}
-			addUtilities(newUtilities)
-		}
+		require("tailwindcss-animate")
 	],
 } satisfies Config;

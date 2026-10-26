@@ -27,6 +27,25 @@ const unblockButtons = [
   { el: document.getElementById('unblock-30min'), minutes: 30 },
 ];
 
+// Light, dark or follow the computer, as chosen in Settings. js/theme-init.js
+// already applied the cached choice; this follows the stored setting.
+function applyThemeSetting(settings) {
+  const theme = settings && settings.theme;
+  const root = document.documentElement;
+  if (theme === 'light' || theme === 'dark') {
+    root.dataset.theme = theme;
+  } else {
+    delete root.dataset.theme;
+  }
+  try {
+    localStorage.setItem('argusTheme', theme === 'light' || theme === 'dark' ? theme : 'system');
+  } catch (error) {
+    // The theme still applies for this page
+  }
+}
+
+browserAPI.storage.local.get(['settings'], (data) => applyThemeSetting(data && data.settings));
+
 const stripWww = (domain) => String(domain || '').toLowerCase().replace(/^www\./, '');
 
 // Where to send the user once the site is allowed again. Only an http(s)

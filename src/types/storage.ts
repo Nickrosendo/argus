@@ -1,10 +1,12 @@
 // Storage data type definitions
+import type { ThemeSetting } from '../lib/theme';
 
 export interface Settings {
   idleTime: number;
   dailyLimit: number;
   enableBlocking: boolean;
   trackingPaused?: boolean;
+  theme?: ThemeSetting; // light, dark or follow the computer (default)
 }
 
 export interface SiteInfo {

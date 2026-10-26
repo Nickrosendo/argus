@@ -11,6 +11,7 @@ import {
   getSessionStats,
 } from '../../utils/metrics';
 import { StorageData } from '../../types/storage';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Clock, Globe, TrendingUp, Timer, BarChart3, Target, MousePointer } from "lucide-react";
 import { 
@@ -35,6 +36,7 @@ const NEUTRAL = 'text-gray-400';
 const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
   const { sites = {}, history = {}, totalTime = 0, hourly, settings } = data;
   const [chartType, setChartType] = useState<'line' | 'area'>('area');
+  const colors = useThemeColors();
 
   // The current hour drives the comparisons; recomputing when totals change
   // keeps it current while the popup stays open
@@ -90,7 +92,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
           y={0} 
           dy={16} 
           textAnchor="middle" 
-          fill="#e5e7eb" 
+          fill={colors.muted} 
           fontSize="11"
           transform="rotate(-30)"
         >
@@ -114,7 +116,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
     <YAxis 
       axisLine={false}
       tickLine={false}
-      tick={{ fill: '#e5e7eb', fontSize: 11 }}
+      tick={{ fill: colors.muted, fontSize: 11 }}
       domain={[0, 60]}
       allowDecimals={false}
     />
@@ -124,7 +126,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
       wrapperStyle={{ 
         paddingTop: '15px',
         fontSize: '12px',
-        color: '#e5e7eb'
+        color: colors.muted
       }}
       iconType="rect"
     />
@@ -139,7 +141,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
             <CardTitle className="card-title">
               Today's Usage
             </CardTitle>
-            <Clock className="card-icon text-red-400" />
+            <Clock className="card-icon" />
           </CardHeader>
           <CardContent className="card-content">
             <div className="stat-value">
@@ -156,7 +158,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
             <CardTitle className="card-title">
               Sites Visited
             </CardTitle>
-            <Globe className="card-icon text-orange-400" />
+            <Globe className="card-icon" />
           </CardHeader>
           <CardContent className="card-content">
             <div className="stat-value">{sitesCount}</div>
@@ -171,7 +173,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
             <CardTitle className="card-title">
               Daily Average
             </CardTitle>
-            <Timer className="card-icon text-blue-400" />
+            <Timer className="card-icon" />
           </CardHeader>
           <CardContent className="card-content">
             <div className="stat-value">
@@ -190,7 +192,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
             <CardTitle className="card-title">
               Daily Goal
             </CardTitle>
-            <Target className="card-icon text-emerald-400" />
+            <Target className="card-icon" />
           </CardHeader>
           <CardContent className="card-content">
             <div className="stat-value">{goal ? `${goal.percent}%` : '—'}</div>
@@ -260,11 +262,11 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
                 <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
                   <defs>
                     <linearGradient id="usageGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                      <stop offset="5%" stopColor={colors.accent} stopOpacity={0.35}/>
+                      <stop offset="95%" stopColor={colors.accent} stopOpacity={0.05}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(139, 92, 246, 0.1)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.line} />
                   {xAxis}
                   {yAxis}
                   <Tooltip content={<CustomTooltip />} />
@@ -273,7 +275,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
                     <Area
                       type="monotone"
                       dataKey="average"
-                      stroke="#9ca3af"
+                      stroke={colors.muted}
                       strokeWidth={1}
                       strokeDasharray="4 4"
                       fill="none"
@@ -285,18 +287,18 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
                   <Area
                     type="monotone"
                     dataKey="today"
-                    stroke="#8b5cf6"
+                    stroke={colors.accent}
                     strokeWidth={2}
                     fill="url(#usageGradient)"
                     name="Today"
                     dot={false}
-                    activeDot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#ffffff' }}
+                    activeDot={{ r: 4, fill: colors.accent, strokeWidth: 2, stroke: colors.surface }}
                     isAnimationActive={false}
                   />
                 </AreaChart>
               ) : (
                 <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(139, 92, 246, 0.1)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={colors.line} />
                   {xAxis}
                   {yAxis}
                   <Tooltip content={<CustomTooltip />} />
@@ -305,7 +307,7 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
                     <Line
                       type="monotone"
                       dataKey="average"
-                      stroke="#9ca3af"
+                      stroke={colors.muted}
                       strokeWidth={1}
                       strokeDasharray="4 4"
                       name="Recent average"
@@ -316,11 +318,11 @@ const StatsTab: React.FC<StatsTabProps> = ({ data }) => {
                   <Line
                     type="monotone"
                     dataKey="today"
-                    stroke="#8b5cf6"
+                    stroke={colors.accent}
                     strokeWidth={2}
                     name="Today"
                     dot={false}
-                    activeDot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#ffffff' }}
+                    activeDot={{ r: 4, fill: colors.accent, strokeWidth: 2, stroke: colors.surface }}
                     isAnimationActive={false}
                   />
                 </LineChart>

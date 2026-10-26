@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageData, Settings } from '../../types/storage';
 import { normalizeDomain } from '../../lib/utils';
+import AppearanceSection from '../settings/AppearanceSection';
 import DataSection from '../settings/DataSection';
+import { normalizeTheme } from '../../lib/theme';
 import SupportSection from '../settings/SupportSection';
 
 // Browser API compatibility
@@ -138,6 +140,11 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
   return (
     <section className="tab-content">
       <div className="settings-form">
+        <AppearanceSection
+          value={normalizeTheme(localSettings.theme)}
+          onChange={(theme) => handleSettingChange('theme', theme)}
+        />
+
         <div className="setting-item">
           <label htmlFor="idle-time">Consider idle after (minutes):</label>
           <input

@@ -352,3 +352,27 @@ describe('blocked.js functionality', () => {
     global.chrome = originalChrome;
   });
 });
+describe('blocked page theme', () => {
+  const loadBlockedPage = (settings) => {
+    global.chrome.storage.local.get.mockImplementation((keys, callback) => {
+      callback({ settings });
+    });
+    jest.isolateModules(() => {
+      require('../../js/blocked.js');
+    });
+  };
+
+  afterEach(() => {
+    delete document.documentElement.dataset.theme;
+  });
+
+  it('applies a stored light theme', () => {
+    loadBlockedPage({ theme: 'light' });
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+  });
+
+  it('ignores an unknown theme value', () => {
+    loadBlockedPage({ theme: 'nonsense' });
+    expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+  });
+});

@@ -9,6 +9,7 @@ import SettingsTab from "./tabs/SettingsTab";
 import WelcomeCard from "./ui/WelcomeCard";
 import { StorageData } from "../types/storage";
 import { useBrowserStorage } from "../hooks/useBrowserStorage";
+import { applyTheme, normalizeTheme } from "../lib/theme";
 
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
@@ -108,6 +109,14 @@ const App: React.FC = () => {
       if (port) port.disconnect();
     };
   }, []);
+
+  // Light, dark or follow the computer. Applied once storage has loaded, so
+  // the choice js/theme-init.js applied from its cache is not undone meanwhile
+  const themeSetting = currentStorageData.settings?.theme;
+  useEffect(() => {
+    if (loading) return;
+    applyTheme(normalizeTheme(themeSetting));
+  }, [loading, themeSetting]);
 
   // Show loading state
   if (loading) {

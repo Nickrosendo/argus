@@ -175,4 +175,30 @@ describe('App Component', () => {
       window.location.hash = '';
     }
   });
+  describe('theme', () => {
+    afterEach(() => {
+      delete document.documentElement.dataset.theme;
+    });
+
+    it('applies a stored dark theme to the page', () => {
+      mockUseBrowserStorage.mockReturnValue({
+        data: { settings: { idleTime: 5, dailyLimit: 8, enableBlocking: false, theme: 'dark' } },
+        loading: false,
+        updateStorage: jest.fn(),
+      } as any);
+      render(<App />);
+      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    });
+
+    it('leaves the page on System when no theme is stored', () => {
+      document.documentElement.dataset.theme = 'light';
+      mockUseBrowserStorage.mockReturnValue({
+        data: {},
+        loading: false,
+        updateStorage: jest.fn(),
+      } as any);
+      render(<App />);
+      expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+    });
+  });
 });

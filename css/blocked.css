@@ -1,15 +1,68 @@
 /* Argus - Blocked Website CSS */
 
+/* Colour tokens. Paper is the light theme, Dusk the dark one. Settings can
+   force either (data-theme on <html>); otherwise the computer's light/dark
+   setting decides. Every colour in this file comes from these tokens. */
 :root {
-  --primary: #4a1e8a;
-  --secondary: #d4af37;
-  --accent: #e74c3c;
-  --text: #333;
-  --bg: #f8f7f4;
-  --card-bg: #fff;
-  --border: #ddd;
-  --shadow: rgba(0, 0, 0, 0.1);
-  --success: #2ecc71;
+  --bg: #f7f4ee;
+  --surface: #ffffff;
+  --line: #e6e0d5;
+  --text: #22201c;
+  --muted: #6f6a61;
+  --accent: #c4552d;
+  --accent-soft: rgba(196, 85, 45, 0.10);
+  --accent-text: #a8431f;
+  --on-accent: #ffffff;
+  --track: #ebe5da;
+  --accent2: #3d7a5c;
+  --accent2-soft: rgba(61, 122, 92, 0.12);
+  --error: #b42318;
+  --warning: #8a5a00;
+  --warning-soft: rgba(138, 90, 0, 0.10);
+  --success: #2e6b4e;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16151f;
+    --surface: #1f1d2b;
+    --line: #2d2a3d;
+    --text: #ece9f5;
+    --muted: #9a95ad;
+    --accent: #a99bf5;
+    --accent-soft: rgba(169, 155, 245, 0.14);
+    --accent-text: #c3b8ff;
+    --on-accent: #16151f;
+    --track: #2c2940;
+    --accent2: #f4b39a;
+    --accent2-soft: rgba(244, 179, 154, 0.14);
+    --error: #ff8a80;
+    --warning: #f2c063;
+    --warning-soft: rgba(242, 192, 99, 0.12);
+    --success: #7fd1a3;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #16151f;
+  --surface: #1f1d2b;
+  --line: #2d2a3d;
+  --text: #ece9f5;
+  --muted: #9a95ad;
+  --accent: #a99bf5;
+  --accent-soft: rgba(169, 155, 245, 0.14);
+  --accent-text: #c3b8ff;
+  --on-accent: #16151f;
+  --track: #2c2940;
+  --accent2: #f4b39a;
+  --accent2-soft: rgba(244, 179, 154, 0.14);
+  --error: #ff8a80;
+  --warning: #f2c063;
+  --warning-soft: rgba(242, 192, 99, 0.12);
+  --success: #7fd1a3;
+  color-scheme: dark;
 }
 
 * {
@@ -35,9 +88,9 @@ body {
 }
 
 .blocked-card {
-  background: var(--card-bg);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  box-shadow: 0 5px 20px var(--shadow);
   padding: 30px;
   text-align: center;
 }
@@ -49,7 +102,7 @@ body {
 }
 
 h1 {
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 24px;
   margin-bottom: 20px;
 }
@@ -57,11 +110,11 @@ h1 {
 h2 {
   font-size: 18px;
   margin: 15px 0;
-  color: var(--primary);
+  color: var(--text);
 }
 
 .blocked-info {
-  background-color: rgba(231, 76, 60, 0.1);
+  background-color: var(--accent-soft);
   border-left: 3px solid var(--accent);
   padding: 15px;
   text-align: left;
@@ -79,13 +132,13 @@ h2 {
 
 #blocked-domain {
   font-weight: bold;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .unblock-options {
   margin-bottom: 25px;
   padding-bottom: 25px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
 }
 
 .unblock-btns {
@@ -97,8 +150,8 @@ h2 {
 
 .unblock-btn {
   flex: 1;
-  background: var(--primary);
-  color: white;
+  background: var(--accent);
+  color: var(--on-accent);
   border: none;
   padding: 10px;
   border-radius: 5px;
@@ -108,14 +161,14 @@ h2 {
 }
 
 .unblock-btn:hover {
-  background: #5f2eaa;
+  background: var(--accent-text);
 }
 
 .or-divider {
   position: relative;
   text-align: center;
   margin: 20px 0;
-  color: #777;
+  color: var(--muted);
 }
 
 .or-divider::before,
@@ -125,7 +178,7 @@ h2 {
   top: 50%;
   width: 40%;
   height: 1px;
-  background-color: var(--border);
+  background-color: var(--line);
 }
 
 .or-divider::before {
@@ -137,9 +190,9 @@ h2 {
 }
 
 .remove-btn {
-  background: #fff;
-  color: var(--accent);
-  border: 2px solid var(--accent);
+  background: var(--surface);
+  color: var(--error);
+  border: 2px solid var(--error);
   padding: 10px 15px;
   border-radius: 5px;
   cursor: pointer;
@@ -148,14 +201,14 @@ h2 {
 }
 
 .remove-btn:hover {
-  background: var(--accent);
-  color: white;
+  background: var(--error);
+  color: var(--surface);
 }
 
 .motivation {
   font-style: italic;
   margin: 20px 0;
-  color: #555;
+  color: var(--muted);
 }
 
 .actions {
@@ -176,28 +229,28 @@ h2 {
 }
 
 .back-btn {
-  background: #f1f1f1;
-  border: 1px solid #ccc;
-  color: #555;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
 }
 
 .back-btn:hover {
-  background: #e5e5e5;
+  background: var(--track);
 }
 
 .settings-btn {
-  background: var(--primary);
+  background: var(--accent);
   border: none;
-  color: white;
+  color: var(--on-accent);
 }
 
 .settings-btn:hover {
-  background: #5f2eaa;
+  background: var(--accent-text);
 }
 
 #unblocks-remaining {
   font-weight: bold;
-  color: var(--primary);
+  color: var(--accent-text);
 }
 
 /* Responsive styles */
@@ -225,8 +278,8 @@ h2 {
   margin: 16px 0;
   padding: 14px 16px;
   border-radius: 10px;
-  border: 1px solid rgba(251, 191, 36, 0.5);
-  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid var(--warning);
+  background: var(--warning-soft);
 }
 
 .focus-notice h2 {
@@ -236,6 +289,6 @@ h2 {
 
 .blocked-message {
   margin-top: 12px;
-  color: #f87171;
+  color: var(--error);
   font-size: 0.9rem;
 }
