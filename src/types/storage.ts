@@ -57,6 +57,7 @@ export interface StorageData {
   focusSession?: FocusSession | null; // set while a focus session is running
   focusStats?: FocusStats; // today's focus numbers
   onboardingDone?: boolean; // the first-run welcome was dismissed
+  lastDate?: string; // the day the running totals belong to
   lastUpdated?: string;
 }
 

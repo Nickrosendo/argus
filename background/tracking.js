@@ -271,6 +271,7 @@ export async function recordTime(tab, timeSpent, isNewVisit, now) {
     await checkAndResetUnblockData();
     result = await browserApiService.getStorage(["sites", "totalTime", "hourly"]);
   }
+  const today = new Date(now).toDateString();
 
   const sites = result.sites || {};
   const domain = tab.domain;
@@ -300,6 +301,7 @@ export async function recordTime(tab, timeSpent, isNewVisit, now) {
     sites: sites,
     totalTime: (result.totalTime || 0) + timeSpent,
     hourly: addHourlyTime(result.hourly, now, timeSpent),
+    lastDate: today,
   });
 }
 

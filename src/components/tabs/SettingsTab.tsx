@@ -124,7 +124,9 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
         dailyLimit: 8,
         enableBlocking: false
       },
-      blockedSites: []
+      blockedSites: [],
+      // Without it the day rollover would stop until the background restarts
+      lastDate: new Date().toDateString()
     });
     setLocalBlockedSites([]);
     // Remove the network rules too, or sites stay blocked with an empty list

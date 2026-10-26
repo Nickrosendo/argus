@@ -241,6 +241,27 @@ describe('SettingsTab Component', () => {
       expect(local.get).not.toHaveBeenCalled();
     });
 
+    it('resets the stored defaults, including today as the last day, and clears the block rules', async () => {
+      const user = userEvent.setup();
+      mockConfirm.mockReturnValue(true);
+      setupBrowser.storage.local.clear.mockImplementation((cb?: () => void) => cb && cb());
+      mockBrowserAPI.runtime.sendMessage.mockResolvedValue({ success: true });
+      mockBrowserAPI.storage.local.set.mockImplementation((_: any, cb?: () => void) => cb && cb());
+
+      render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
+      await user.click(screen.getByText('Clear all data'));
+
+      expect(mockUpdateStorage).toHaveBeenCalledWith({
+        sites: {},
+        totalTime: 0,
+        history: {},
+        settings: { idleTime: 5, dailyLimit: 8, enableBlocking: false },
+        blockedSites: [],
+        lastDate: new Date().toDateString(),
+      });
+      expect(mockBrowserAPI.runtime.sendMessage).toHaveBeenCalledWith({ action: 'updateBlockedSites' });
+    });
+
     it('does not clear data when user cancels confirmation', async () => {
       const user = userEvent.setup();
       mockConfirm.mockReturnValue(false);
