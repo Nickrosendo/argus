@@ -22,4 +22,5 @@ export const OBSOLETE_KEYS = [
   "deviceId",
   "freeActionCount",
   "lastAdTime",
+  "userType",
 ];
