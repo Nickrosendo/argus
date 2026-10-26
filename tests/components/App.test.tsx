@@ -56,16 +56,10 @@ jest.mock('../../src/hooks/useBrowserStorage', () => ({
   useBrowserStorage: jest.fn(),
 }));
 
-jest.mock('../../src/hooks/useBrowserMessaging', () => ({
-  useBrowserMessaging: jest.fn(),
-}));
-
 // Import the mocked hooks
 import { useBrowserStorage } from '../../src/hooks/useBrowserStorage';
-import { useBrowserMessaging } from '../../src/hooks/useBrowserMessaging';
 
 const mockUseBrowserStorage = useBrowserStorage as jest.MockedFunction<typeof useBrowserStorage>;
-const mockUseBrowserMessaging = useBrowserMessaging as jest.MockedFunction<typeof useBrowserMessaging>;
 
 // tests/setup.js replaces window.addEventListener and dispatchEvent with stubs;
 // the openSettingsTab tests need the real ones
@@ -97,15 +91,6 @@ describe('App Component', () => {
       },
       loading: false,
       updateStorage: jest.fn(),
-    });
-    
-    mockUseBrowserMessaging.mockReturnValue({
-      sendMessage: jest.fn(),
-      signin: jest.fn(),
-      signup: jest.fn(),
-      socialAuth: jest.fn(),
-      signout: jest.fn(),
-      checkAuthentication: jest.fn(),
     });
   });
 

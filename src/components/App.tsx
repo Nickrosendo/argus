@@ -9,7 +9,6 @@ import SettingsTab from "./tabs/SettingsTab";
 import WelcomeCard from "./ui/WelcomeCard";
 import { StorageData } from "../types/storage";
 import { useBrowserStorage } from "../hooks/useBrowserStorage";
-import { useBrowserMessaging } from "../hooks/useBrowserMessaging";
 
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
@@ -80,7 +79,6 @@ const App: React.FC = () => {
   }, []);
 
   // Handle browser messaging for sync updates
-  const { } = useBrowserMessaging();
 
   // The data every tab renders, recomputed only when storage changes so the
   // tabs' own memoised calculations are not redone on every render

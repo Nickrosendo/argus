@@ -13,13 +13,6 @@
   "background": {
     "page": "background.html"
   },
-  "content_scripts": [
-    {
-      "matches": ["__WEBSITE_URL__/*"],
-      "js": ["js/website-communication.js"],
-      "run_at": "document_start"
-    }
-  ],
   "browser_action": {
     "default_popup": "popup.html",
     "default_icon": {

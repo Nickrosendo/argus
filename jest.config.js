@@ -10,7 +10,6 @@ module.exports = {
     'background/**/*.js',
     'services/**/*.js',
     'js/blocked.js',
-    '!js/auth.js',
     '!js/error-handler.js',
     '!**/node_modules/**',
     '!**/tests/**',
