@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Footer from '../../src/components/Footer';
+import { DONATE_URL, SOURCE_URL, PRIVACY_URL } from '../../src/lib/links';
 
 // Mock package.json
 jest.mock('../../package.json', () => ({
@@ -9,44 +10,25 @@ jest.mock('../../package.json', () => ({
 }), { virtual: true });
 
 describe('Footer Component', () => {
-  describe('Rendering', () => {
-    it('should render the footer component', () => {
-      render(<Footer />);
-      
-      expect(screen.getByText('v1.0.1')).toBeInTheDocument();
-      expect(screen.getByText('Privacy Policy')).toBeInTheDocument();
-    });
-
-    it('should render version information', () => {
-      render(<Footer />);
-      
-      expect(screen.getByText('v1.0.1')).toBeInTheDocument();
-    });
-
-    it('should render privacy policy link', () => {
-      render(<Footer />);
-      
-      const privacyLink = screen.getByText('Privacy Policy');
-      expect(privacyLink).toBeInTheDocument();
-      expect(privacyLink).toHaveAttribute('href', 'https://argustime.com/privacy');
-      expect(privacyLink).toHaveAttribute('target', '_blank');
-      expect(privacyLink).toHaveAttribute('rel', 'noopener noreferrer');
-    });
+  it('renders the version', () => {
+    render(<Footer />);
+    expect(screen.getByText('v1.0.1')).toBeInTheDocument();
   });
 
-  describe('Accessibility', () => {
-    it('should have proper semantic structure', () => {
-      render(<Footer />);
-      
-      const footerElement = document.querySelector('footer');
-      expect(footerElement).toBeInTheDocument();
-    });
-
-    it('should have proper link attributes for security', () => {
-      render(<Footer />);
-      
-      const privacyLink = screen.getByText('Privacy Policy');
-      expect(privacyLink).toHaveAttribute('rel', 'noopener noreferrer');
-    });
+  it.each([
+    ['Donate', DONATE_URL],
+    ['Source code', SOURCE_URL],
+    ['Privacy', PRIVACY_URL],
+  ])('links %s to its URL in a new tab', (name, href) => {
+    render(<Footer />);
+    const link = screen.getByRole('link', { name });
+    expect(link).toHaveAttribute('href', href);
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
-}); 
+
+  it('has a footer element', () => {
+    render(<Footer />);
+    expect(document.querySelector('footer')).toBeInTheDocument();
+  });
+});

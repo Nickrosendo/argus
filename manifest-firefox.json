@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Argus - Screen Time Tracker",
   "version": "1.0.1",
-  "description": "See the time you actively spend on each website, block the ones that distract you, and run focus sessions. No account.",
+  "description": "Track time per website, block distractions, run focus sessions. Free, open source, no account: your data stays in your browser.",
   "permissions": [
     "storage",
     "tabs",

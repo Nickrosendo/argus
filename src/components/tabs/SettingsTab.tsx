@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageData, Settings } from '../../types/storage';
 import { normalizeDomain } from '../../lib/utils';
+import DataSection from '../settings/DataSection';
+import SupportSection from '../settings/SupportSection';
 
 // Browser API compatibility
 const browserAPI = (typeof browser !== 'undefined') ? browser : chrome;
@@ -110,40 +112,21 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
     });
   };
 
-  const handleExportData = (): void => {
-    browserAPI.storage.local.get(null, (allData: any) => {
-      const dataStr = JSON.stringify(allData, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `argus-data-${new Date().toISOString().split('T')[0]}.json`;
-      link.click();
-      
-      URL.revokeObjectURL(url);
+  const handleDataCleared = (): void => {
+    updateStorage({
+      sites: {},
+      totalTime: 0,
+      history: {},
+      settings: {
+        idleTime: 5,
+        dailyLimit: 8,
+        enableBlocking: false
+      },
+      blockedSites: []
     });
-  };
-
-  const handleClearData = (): void => {
-    if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-      browserAPI.storage.local.clear(() => {
-        updateStorage({
-          sites: {},
-          totalTime: 0,
-          history: {},
-          settings: {
-            idleTime: 5,
-            dailyLimit: 8,
-            enableBlocking: false
-          },
-          blockedSites: []
-        });
-        setLocalBlockedSites([]);
-        // Remove the network rules too, or sites stay blocked with an empty list
-        updateBlockingRules([], false);
-      });
-    }
+    setLocalBlockedSites([]);
+    // Remove the network rules too, or sites stay blocked with an empty list
+    updateBlockingRules([], false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>): void => {
@@ -242,18 +225,8 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
           </div>
         </div>
 
-        {/* Data Management Section */}
-        <div className="setting-section">
-          <h3>Data Management</h3>
-          <div className="data-actions">
-            <button onClick={handleExportData} className="secondary-btn">
-              Export Data
-            </button>
-            <button onClick={handleClearData} className="warning-btn">
-              Clear All Data
-            </button>
-          </div>
-        </div>
+        <DataSection onCleared={handleDataCleared} />
+        <SupportSection />
       </div>
     </section>
   );

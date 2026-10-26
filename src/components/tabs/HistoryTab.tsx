@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { formatTime } from '../../utils/timeUtils';
 import { getPastDays, getPeakHour, getSessionStats, getTopSite } from '../../utils/metrics';
 import { getCategoryBreakdown } from '../../utils/categories';
 import { HISTORY_DAYS } from '../../../background/constants.js';
 import { StorageData } from '../../types/storage';
 import { Clock, MousePointer, Sunrise, Star } from 'lucide-react';
+
+const RECENT_DAYS = 14;
 
 interface HistoryTabProps {
   data: StorageData;
@@ -43,6 +45,8 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ data }) => {
   const topSite = useMemo(() => getTopSite(sites), [sites]);
   const categoryBreakdown = useMemo(() => getCategoryBreakdown(sites), [sites]);
   const pastDays = useMemo(() => getPastDays(history, HISTORY_DAYS), [history, HISTORY_DAYS]);
+  const [showAll, setShowAll] = useState(false);
+  const visibleDays = showAll ? pastDays : pastDays.slice(0, RECENT_DAYS);
   const longestDay = pastDays.reduce((max, day) => Math.max(max, day.totalTime), 0);
 
   return (
@@ -59,7 +63,7 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ data }) => {
             </div>
           ) : (
             <div className="productivity-hours">
-              {pastDays.map((day) => (
+              {visibleDays.map((day) => (
                 <div key={day.date} className="productivity-slot" title={day.topSite ? `Most time on ${day.topSite}` : undefined}>
                   <div className="productivity-time-info">
                     <span className="productivity-time">{day.label}</span>
@@ -76,6 +80,11 @@ const HistoryTab: React.FC<HistoryTabProps> = ({ data }) => {
                 </div>
               ))}
             </div>
+          )}
+          {pastDays.length > RECENT_DAYS && (
+            <button className="secondary-btn show-all-btn" onClick={() => setShowAll(!showAll)}>
+              {showAll ? 'Show fewer' : 'Show all'}
+            </button>
           )}
         </div>
 

@@ -133,6 +133,12 @@ describe('App Component', () => {
     expect(container.textContent).not.toMatch(/premium|upgrade|sign in/i);
   });
 
+  it('shows the free and open source welcome without a block limit', () => {
+    const { container } = render(<App />);
+    expect(container.textContent).toContain('Free and open source');
+    expect(container.textContent).not.toContain('up to 3');
+  });
+
   it('renders the Focus timer for everyone', () => {
     render(<App />);
     fireEvent.click(screen.getByText('Go Focus'));

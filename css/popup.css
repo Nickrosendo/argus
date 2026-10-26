@@ -3049,3 +3049,53 @@ footer {
   background: rgba(255, 255, 255, 0.08);
   padding: 4px;
 }
+
+/* Settings: your data, support and footer links (structure only) */
+.setting-note {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.data-actions {
+  flex-wrap: wrap;
+}
+
+.restore-confirm,
+.restore-message {
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.support-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.donate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.show-all-btn {
+  margin-top: 10px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

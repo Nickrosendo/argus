@@ -38,29 +38,6 @@ Object.defineProperty(window, 'confirm', {
   value: mockConfirm,
 });
 
-// Mock URL and Blob for export functionality
-(global as any).URL = {
-  createObjectURL: jest.fn(() => 'mock-url'),
-  revokeObjectURL: jest.fn(),
-};
-
-(global as any).Blob = jest.fn();
-
-// Mock document.createElement for export functionality
-const mockLink = {
-  href: '',
-  download: '',
-  click: jest.fn(),
-};
-
-const originalCreateElement = document.createElement;
-document.createElement = jest.fn().mockImplementation((tag) => {
-  if (tag === 'a') {
-    return mockLink;
-  }
-  return originalCreateElement.call(document, tag);
-});
-
 describe('SettingsTab Component', () => {
   const mockUpdateStorage = jest.fn();
 
@@ -94,8 +71,9 @@ describe('SettingsTab Component', () => {
       expect(screen.getByLabelText(/Daily screen time goal/)).toBeInTheDocument();
       expect(screen.getByLabelText(/Enable website blocking/)).toBeInTheDocument();
       expect(screen.getByText('Website Blocking')).toBeInTheDocument();
-      expect(screen.getByText('Export Data')).toBeInTheDocument();
-      expect(screen.getByText('Clear All Data')).toBeInTheDocument();
+      expect(screen.getByText('Your data')).toBeInTheDocument();
+      expect(screen.getByText('Support Argus')).toBeInTheDocument();
+      expect(screen.getByText('Clear all data')).toBeInTheDocument();
     });
 
     it('displays current settings values', () => {
@@ -225,8 +203,8 @@ describe('SettingsTab Component', () => {
       render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
       
       // Check that the buttons exist and are clickable
-      const exportButton = screen.getByText('Export Data');
-      const clearButton = screen.getByText('Clear All Data');
+      const exportButton = screen.getByText('Export backup');
+      const clearButton = screen.getByText('Clear all data');
       
       expect(exportButton).toBeInTheDocument();
       expect(clearButton).toBeInTheDocument();
@@ -240,7 +218,7 @@ describe('SettingsTab Component', () => {
       
       render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
       
-      const clearButton = screen.getByText('Clear All Data');
+      const clearButton = screen.getByText('Clear all data');
       await user.click(clearButton);
       
       expect(window.confirm).toHaveBeenCalledWith(
@@ -248,7 +226,7 @@ describe('SettingsTab Component', () => {
       );
     });
 
-    it('Clear All Data removes everything', async () => {
+    it('Clear all data removes everything', async () => {
       const user = userEvent.setup();
       mockConfirm.mockReturnValue(true);
       const local = setupBrowser.storage.local;
@@ -257,7 +235,7 @@ describe('SettingsTab Component', () => {
       local.clear.mockImplementation((cb?: () => void) => cb && cb());
 
       render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
-      await user.click(screen.getByText('Clear All Data'));
+      await user.click(screen.getByText('Clear all data'));
 
       expect(local.clear).toHaveBeenCalled();
       expect(local.get).not.toHaveBeenCalled();
@@ -269,7 +247,7 @@ describe('SettingsTab Component', () => {
       
       render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
       
-      const clearButton = screen.getByText('Clear All Data');
+      const clearButton = screen.getByText('Clear all data');
       await user.click(clearButton);
       
       expect(window.confirm).toHaveBeenCalled();
