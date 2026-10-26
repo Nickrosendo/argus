@@ -114,23 +114,10 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ data, updateStorage }) => {
     });
   };
 
+  // The background has already reset storage and the blocking rules; only the screen needs resetting
   const handleDataCleared = (): void => {
-    updateStorage({
-      sites: {},
-      totalTime: 0,
-      history: {},
-      settings: {
-        idleTime: 5,
-        dailyLimit: 8,
-        enableBlocking: false
-      },
-      blockedSites: [],
-      // Without it the day rollover would stop until the background restarts
-      lastDate: new Date().toDateString()
-    });
+    setLocalSettings(defaultSettings);
     setLocalBlockedSites([]);
-    // Remove the network rules too, or sites stay blocked with an empty list
-    updateBlockingRules([], false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>): void => {

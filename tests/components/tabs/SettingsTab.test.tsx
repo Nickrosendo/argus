@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SettingsTab from '../../../src/components/tabs/SettingsTab';
 import { StorageData } from '../../../src/types/storage';
@@ -226,40 +226,39 @@ describe('SettingsTab Component', () => {
       );
     });
 
-    it('Clear all data removes everything', async () => {
+    it('Clear all data asks the background to clear, without writing anything from the popup', async () => {
       const user = userEvent.setup();
       mockConfirm.mockReturnValue(true);
       const local = setupBrowser.storage.local;
       local.clear.mockClear();
-      local.get.mockClear();
-      local.clear.mockImplementation((cb?: () => void) => cb && cb());
+      local.set.mockClear();
+      setupBrowser.runtime.sendMessage.mockClear();
+      setupBrowser.runtime.sendMessage.mockResolvedValue({ success: true });
 
       render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
       await user.click(screen.getByText('Clear all data'));
 
-      expect(local.clear).toHaveBeenCalled();
-      expect(local.get).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(setupBrowser.runtime.sendMessage).toHaveBeenCalledWith({ action: 'clearAllData' })
+      );
+      expect(local.clear).not.toHaveBeenCalled();
+      expect(local.set).not.toHaveBeenCalled();
+      expect(mockUpdateStorage).not.toHaveBeenCalled();
     });
 
-    it('resets the stored defaults, including today as the last day, and clears the block rules', async () => {
+    it('empties the block list on screen after a confirmed clear', async () => {
       const user = userEvent.setup();
       mockConfirm.mockReturnValue(true);
-      setupBrowser.storage.local.clear.mockImplementation((cb?: () => void) => cb && cb());
       setupBrowser.runtime.sendMessage.mockResolvedValue({ success: true });
-      setupBrowser.storage.local.set.mockImplementation((_: any, cb?: () => void) => cb && cb());
 
-      render(<SettingsTab data={defaultData} updateStorage={mockUpdateStorage} />);
+      render(
+        <SettingsTab data={{ ...defaultData, blockedSites: ['a.com', 'b.com'] }} updateStorage={mockUpdateStorage} />
+      );
+      expect(screen.getByText('a.com')).toBeInTheDocument();
       await user.click(screen.getByText('Clear all data'));
 
-      expect(mockUpdateStorage).toHaveBeenCalledWith({
-        sites: {},
-        totalTime: 0,
-        history: {},
-        settings: { idleTime: 5, dailyLimit: 8, enableBlocking: false },
-        blockedSites: [],
-        lastDate: new Date().toDateString(),
-      });
-      expect(setupBrowser.runtime.sendMessage).toHaveBeenCalledWith({ action: 'updateBlockedSites' });
+      expect(await screen.findByText('No blocked sites')).toBeInTheDocument();
+      expect(screen.queryByText('a.com')).not.toBeInTheDocument();
     });
 
     it('does not clear data when user cancels confirmation', async () => {

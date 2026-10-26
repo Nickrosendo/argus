@@ -34,6 +34,7 @@ function createFakeBrowser() {
       20: { id: 20, windowId: 2, active: true, url: 'https://background-window.com/', title: 'Background' },
     },
     rules: [],
+    createdTabs: [],
     tabUpdates: [],
     goBacks: [],
     failTabUpdates: 0, // the next n tabs.update calls fail (e.g. "Tabs cannot be edited right now")
@@ -67,7 +68,10 @@ function createFakeBrowser() {
           [].concat(keys).forEach((key) => delete fake.local[key]);
           return later(callback);
         },
-        clear: (callback) => later(callback),
+        clear: (callback) => {
+          Object.keys(fake.local).forEach((key) => delete fake.local[key]);
+          return later(callback);
+        },
       },
       onChanged: event('storageChanged'),
       session: {
@@ -93,7 +97,10 @@ function createFakeBrowser() {
       query: (query, callback) =>
         later(callback, Object.values(fake.tabs).filter((tab) => tab.windowId === fake.focusedWindow.id && tab.active)),
       get: (tabId, callback) => later(callback, fake.tabs[tabId]),
-      create: async () => ({}),
+      create: (info, callback) => {
+        fake.createdTabs.push(info.url);
+        return later(callback, { id: 99, url: info.url });
+      },
       update: (tabId, { url }, callback) => {
         if (fake.failTabUpdates > 0) {
           fake.failTabUpdates--;
@@ -667,12 +674,74 @@ describe('background service worker', () => {
       expect(responses).toEqual([{ success: false, error: 'Unknown action' }]);
     });
 
+    it('opens Settings in a full tab for "Manage block list" on the blocked page', async () => {
+      const responses = await send({ action: 'openBlocklistSettings' });
+
+      expect(responses).toEqual([{ success: true }]);
+      expect(fake.createdTabs).toEqual(['chrome-extension://test/popup.html?tab=1#settings']);
+    });
+
     it('answers removed server actions as unknown', async () => {
       for (const action of ['syncWithApi', 'signin', 'socialAuth', 'createCheckoutSession']) {
         const responses = await send({ action });
 
         expect(responses).toEqual([{ success: false, error: 'Unknown action' }]);
       }
+    });
+  });
+
+  describe('clear all data', () => {
+    const today = () => new Date(Date.now()).toDateString();
+
+    beforeEach(() => {
+      const day = new Date(START - 86400000).toDateString();
+      fake.local.lastDate = today();
+      fake.local.history = { [day]: { sites: { 'a.com': { totalTime: 1000, visits: 1 } }, totalTime: 1000, date: day } };
+      fake.local.blockingEnabled = true;
+      fake.local.blockedSites = ['a.com', 'b.com'];
+      fake.local.settings = { idleTime: 9, dailyLimit: 3, enableBlocking: true, theme: 'dark' };
+    });
+
+    it('resets storage to defaults, keeps today as the current day and removes the blocking rules', async () => {
+      await startWorker();
+      await advance(20000);
+
+      const responses = await send({ action: 'clearAllData' });
+
+      expect(responses).toEqual([{ success: true }]);
+      expect(fake.local.history).toEqual({});
+      expect(fake.local.sites).toEqual({});
+      expect(fake.local.lastDate).toBe(today());
+      expect(fake.local.blockedSites).toEqual([]);
+      expect(fake.local.blockingEnabled).toBe(false);
+      expect(fake.local.settings).toEqual({ idleTime: 5, dailyLimit: 8, enableBlocking: false });
+      expect(fake.local.dataVersion).toBe(3);
+      expect(blockedDomainsInRules()).toEqual([]);
+    });
+
+    it('drops the time recorded before the clear and keeps tracking after it', async () => {
+      await startWorker();
+      await advance(20000);
+      expect(totalTime()).toBeGreaterThan(0);
+
+      await send({ action: 'clearAllData' });
+      expect(totalTime()).toBe(0);
+
+      await advance(30000);
+      await fireTrackerAlarm();
+
+      expect(totalTime()).toBeGreaterThanOrEqual(25000);
+      expect(totalTime()).toBeLessThanOrEqual(30000);
+    });
+
+    it('ends a running focus session', async () => {
+      await startWorker();
+      await send({ action: 'startFocusSession', minutes: 25 });
+
+      await send({ action: 'clearAllData' });
+
+      expect(fake.local.focusSession == null).toBe(true);
+      expect(fake.alarms['focus-end']).toBeUndefined();
     });
   });
 

@@ -107,13 +107,20 @@ const DataSection: React.FC<DataSectionProps> = ({ onCleared }) => {
     fileInput.current?.click();
   };
 
-  const handleClearData = (): void => {
-    if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-      browserAPI.storage.local.clear(() => {
+  // The background clears, so a time save already on its way can't bring old numbers back
+  const handleClearData = async (): Promise<void> => {
+    if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) return;
+    try {
+      const response = await browserAPI.runtime.sendMessage({ action: 'clearAllData' });
+      if (response && response.success) {
         setPending(null);
         setMessage('');
         if (onCleared) onCleared();
-      });
+      } else {
+        setMessage(`Could not clear the data: ${(response && response.error) || 'please try again'}`);
+      }
+    } catch (error: any) {
+      setMessage(`Could not clear the data: ${error?.message || 'please try again'}`);
     }
   };
 

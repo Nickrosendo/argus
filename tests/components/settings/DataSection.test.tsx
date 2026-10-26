@@ -133,6 +133,45 @@ describe('DataSection', () => {
     expect(browserAPI.runtime.sendMessage).not.toHaveBeenCalled();
   });
 
+  describe('Clear all data', () => {
+    it('asks the background to clear everything, then reports back', async () => {
+      const user = userEvent.setup();
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+      browserAPI.runtime.sendMessage.mockResolvedValue({ success: true });
+      const onCleared = jest.fn();
+
+      render(<DataSection onCleared={onCleared} />);
+      await user.click(screen.getByText('Clear all data'));
+
+      await waitFor(() => expect(onCleared).toHaveBeenCalled());
+      expect(browserAPI.runtime.sendMessage).toHaveBeenCalledWith({ action: 'clearAllData' });
+      expect(browserAPI.storage.local.clear).not.toHaveBeenCalled();
+    });
+
+    it('shows why clearing failed and keeps the screen as it was', async () => {
+      const user = userEvent.setup();
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+      browserAPI.runtime.sendMessage.mockResolvedValue({ success: false, error: 'storage is locked' });
+      const onCleared = jest.fn();
+
+      render(<DataSection onCleared={onCleared} />);
+      await user.click(screen.getByText('Clear all data'));
+
+      expect(await screen.findByText('Could not clear the data: storage is locked')).toBeInTheDocument();
+      expect(onCleared).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the confirmation is cancelled', async () => {
+      const user = userEvent.setup();
+      jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+      render(<DataSection />);
+      await user.click(screen.getByText('Clear all data'));
+
+      expect(browserAPI.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Restore from backup button', () => {
     const originalBrowser = (global as any).browser;
     let clickedInputs: number;

@@ -1,6 +1,7 @@
 // Messages from the popup, blocked page and content scripts
 import browserApiService from "../services/BrowserApiService";
 import { restoreBackup } from './backup.js';
+import { clearAllData } from './clearData.js';
 import { endFocusSession, startFocusSession } from './focus.js';
 import { state } from './state.js';
 import {
@@ -51,6 +52,15 @@ export function handleCoreMessage(message, sender, sendResponse) {
         console.error("Error stopping focus session:", error);
         sendResponse({ success: false, error: error.message });
       });
+  } else if (message.action === "clearAllData") {
+    clearAllData()
+      .then(() => {
+        sendResponse({ success: true });
+      })
+      .catch((error) => {
+        console.error("Error clearing all data:", error);
+        sendResponse({ success: false, error: error.message });
+      });
   } else if (message.action === "restoreBackup") {
     restoreBackup(message.data)
       .then(() => {
@@ -62,7 +72,7 @@ export function handleCoreMessage(message, sender, sendResponse) {
       });
   } else if (message.action === "openBlocklistSettings") {
     browserApiService
-      .createTab(browserApiService.getExtensionUrl("popup.html"))
+      .createTab(browserApiService.getExtensionUrl("popup.html?tab=1#settings"))
       .then((popup) => {
         // Add a small delay to make sure the popup is loaded
         setTimeout(() => {
@@ -115,6 +125,7 @@ export const CORE_ACTIONS = new Set([
   'startFocusSession',
   'stopFocusSession',
   'restoreBackup',
+  'clearAllData',
   'openBlocklistSettings',
   'getTrackingStatus',
   'checkUrlBlocked',
