@@ -1,39 +1,24 @@
-# Argus - Screen Time Tracker Release Notes
+# Argus Release Notes
 
-## Version 1.0.4 (July 2025)
+## Version 2.0.0 (October 2025)
 
-### 🆕 New Features
-- **Google OAuth Integration**: Added secure Google sign-in functionality for user authentication
-- **Social Authentication**: Implemented complete social auth system with Google OAuth 2.0
-- **Payment Module Integration**: Enhanced payment processing capabilities with subscription management
-- **Cross-Device Sync**: User data now syncs across devices when signed in
+Argus is now free and open source, with no account and no server.
 
-### 🔧 Improvements
-- **Authentication UI**: Improved authentication interface and user experience
-- **Subscription Status**: Enhanced subscription status fetching and management
-- **Auth Service Endpoints**: Updated authentication service endpoints for better reliability
-- **Error Handling**: Improved error handling throughout the authentication flow
+### What changed
+- Free for everyone: no plans, no sign-in, no payments.
+- Everything is unlimited: block as many sites as you like, and use focus sessions.
+- History now keeps 90 days.
+- Your data stays in your browser. Argus makes no network requests.
+- New: Export backup and Restore from backup in Settings.
+- New: Paper (light) and Dusk (dark) themes, with a System / Light / Dark choice in Settings.
+- New: a Donate button in the footer and in Settings, if you want to support Argus.
+- Old sign-in and sync data is removed on update. Your history, settings, block list and focus stats are kept.
 
-### 🐛 Bug Fixes
-- Fixed unit test coverage and reliability
-- Resolved authentication state management issues
-- Fixed social auth token handling
-
-### 🔒 Security
-- Added Chrome Identity API permission for secure OAuth flows
-- Implemented proper token storage and management
-- Enhanced security for user data synchronization
-
-### 🛠️ Technical Changes
-- Updated manifest to support Google OAuth 2.0 scopes
-- Enhanced service worker architecture for auth handling
-- Improved TypeScript type definitions for authentication
-- Added comprehensive test coverage for new features
-
-### 📋 Requirements
-- Chrome 88+ or Firefox 79+
-- Internet connection required for authentication and sync features
+### Removed
+- Accounts, plans and cloud sync, and the combined view across devices.
 
 ---
 
-For support or feedback, please visit our [GitHub repository](https://github.com/your-repo/argus-extension).
+## Earlier versions
+
+Version 1.0.4 (July 2025) added Google sign-in, subscriptions and cross-device sync. Those features were removed in 2.0.0.

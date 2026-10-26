@@ -79,8 +79,6 @@ const App: React.FC = () => {
     return () => window.removeEventListener("openSettingsTab", onOpenSettings);
   }, []);
 
-  // Handle browser messaging for sync updates
-
   // The data every tab renders, recomputed only when storage changes so the
   // tabs' own memoised calculations are not redone on every render
   const currentStorageData = useMemo(

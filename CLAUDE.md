@@ -23,7 +23,7 @@ npm run build:firefox
 npm run watch:chrome
 npm run watch:firefox
 
-# Testing
+# Testing (use Node 20; the default shell node may be broken, so put a Node 20 bin first on PATH)
 npm test                # Run all tests with coverage
 npm run test:watch      # Watch mode for tests
 
@@ -46,28 +46,28 @@ This is a cross-browser extension (Chrome/Firefox) built with **React 18** and *
   - `tracking.js` - which tab is being looked at and time accounting
   - `blocking.js` - blocking rules, temporary unblocks, navigation checks
   - `messages.js` - messages from the popup, blocked page and content scripts
-  - `payments.js`, `sync.js` - checkout messages and API upload
   - `focus.js` - focus sessions: block the whole block list until a stored end time, ended by an alarm
+  - `backup.js` - restoreBackup: day rollover and unblock reset first, then merge the backup into storage
+  - `writeQueue.js` - the single storage write queue; tracker, restore and focus-stats writes all go through it
+  - `constants.js` - HISTORY_DAYS (90), DATA_VERSION (3, bump it to rerun `migrateStoredData`), OBSOLETE_KEYS
   - `state.js` - shared in-memory state, mirrored to `chrome.storage.session` so a worker restart resumes tracking
   - Register every listener synchronously at the top level of `background.js`; handlers wait on the `ready` promise
 - **React Popup UI**: `src/components/App.tsx` - main application with tab-based navigation
 - **Browser API Abstraction**: `services/BrowserApiService.js` - unified API for Chrome/Firefox differences
-- **Plans and pricing copy**: `src/lib/plans.ts` is the only place that states the price and what Premium includes; every upgrade surface reads it. Only list features that exist
-- **Upgrade flow**: every upgrade button calls `handleUpgradeClick` in `App.tsx` (plan picker when signed in, sign-in then plan picker otherwise)
 - **Metrics**: `src/utils/metrics.ts` and `src/utils/categories.ts` compute everything the screens show from recorded data; do not add estimated figures
 - **Custom Hooks**: `src/hooks/` - `useBrowserStorage` and `useBrowserMessaging` for React-browser integration
 
 ### Key Services
-- **AuthService.js**: Handles user authentication and social login
-- **SocialAuthService.js**: Google/Microsoft OAuth integration
-- **ApiService.js**: Backend API communication
-- **FreeService.js**: Free tier functionality management
+- `services/BrowserApiService.js`: unified Chrome/Firefox API
+- `services/backupUtils.js` + `background/backup.js`: backup file format `{argusBackup:1, exportedAt, data}`, parse/validate, and the merge rule (per day, whichever version recorded more time wins; never added together)
+- `services/trackingUtils.js`: pure helpers for time accounting
 
 ### Build System
 - **Rollup** with separate configurations for Chrome/Firefox
 - **Babel** for JSX/TypeScript transpilation
 - **PostCSS** with TailwindCSS for styling
-- **Environment variables** via `.env` file for API URLs and OAuth client IDs
+- The build reads no `.env` file and needs no secrets
+- `npm run release:check` (after `rm -rf dist && npm run build`) fails if the build contains account, payment or third-party strings, or a network-capable manifest
 
 ## Development Workflow
 
@@ -78,7 +78,7 @@ This is a cross-browser extension (Chrome/Firefox) built with **React 18** and *
 ### Key Development Patterns
 - Follow **Manifest V3** requirements strictly
 - Use service worker for background processing (avoid state in popup)
-- **All API requests must be made through the background service worker** to avoid CORS issues - components should send messages to the background worker which handles HTTP requests and returns responses
+- No network requests: Argus has no server. The only outbound links are the ones the user clicks, all in `src/lib/links.ts`
 - Implement cross-browser compatibility (Chrome/Firefox/Opera)
 - Follow TDD practices with Jest testing
 - Use functional programming patterns, avoid classes
@@ -97,21 +97,11 @@ This is a cross-browser extension (Chrome/Firefox) built with **React 18** and *
 - `tests/background/worker.test.js` runs the real background worker against an in-memory fake browser API with a fake clock; extend it when changing tracking or blocking behaviour
 - **Setup file**: `tests/setup.js` for test configuration
 
-## Environment Configuration
-Create `.env` file in root with:
-```
-GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-MICROSOFT_CLIENT_ID=your_microsoft_client_id
-API_URL=your_api_url
-WEBSITE_URL=https://argustime.com
-```
-
-`WEBSITE_URL` is the only origin the website bridge (`js/website-communication.js`) runs on and accepts messages from; the build writes it into the manifest and the script. It defaults to the production site; use `http://localhost:3001` for local testing.
-
 ## Code Conventions
 - **TypeScript** with strict mode enabled
 - **Functional components** with hooks
 - **Descriptive naming** (isLoading, hasPermission)
 - **JSDoc comments** for documentation
 - **Error boundaries** for React component errors
-- **Secure handling** of OAuth tokens and user data
+- **Theme**: `src/lib/theme.ts` (with `js/theme-init.js` and `src/hooks/useThemeColors.ts`). Every colour is a token at the top of `css/popup.css` and `css/blocked.css` (Paper light / Dusk dark); never add a colour literal (`tests/lib/themeTokens.test.ts` enforces it)
+- **Links**: `src/lib/links.ts` holds DONATE_URL, SOURCE_URL and PRIVACY_URL, the only outbound links

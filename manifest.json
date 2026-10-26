@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Argus - Screen Time Tracker",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "Track time per website, block distractions, run focus sessions. Free, open source, no account: your data stays in your browser.",
   "permissions": [
     "storage",

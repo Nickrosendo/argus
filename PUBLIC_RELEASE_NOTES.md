@@ -1,23 +1,15 @@
-# Argus - Screen Time Tracker v1.0.4
+# Argus 2.0.0
 
 ## What's New
 
-### 🔐 Google Sign-In
-Sign in with your Google account to access your screen time data from any device. Your usage statistics and settings will now sync automatically across all your browsers.
+Argus is now free and open source. There is no account to create and no server: everything Argus records stays in your browser.
 
-### 💳 Enhanced Premium Features
-Improved subscription management and payment processing for premium users. Subscription status updates are now more reliable and responsive.
+- **Everything is unlimited.** Block as many sites as you want and use focus sessions, at no cost.
+- **90 days of history** for everyone.
+- **Backup and restore.** Export your data to a file from Settings, and restore it after a reinstall or on a new computer.
+- **Light and dark themes.** Paper and Dusk, following your computer by default, or pick one in Settings.
+- **Donate.** If Argus helps you, there is a small Donate button in the footer. No pop-ups, no reminders.
 
-### 🎨 Better User Experience
-- Streamlined authentication process
-- Improved interface for signing in and managing your account
-- More reliable connection to our services
+Accounts, plans and sync are gone. Your existing history, settings and block list are kept when you update.
 
-### 🔒 Security & Privacy
-Enhanced security measures to protect your personal data and ensure secure authentication.
-
----
-
-**New to Argus?** Argus helps you understand and control your screen time by tracking website usage, providing detailed statistics, and offering focus tools to boost productivity.
-
-**Need Help?** Visit our support page or contact us through the extension.
+Source code: https://github.com/Nickrosendo/argus
