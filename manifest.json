@@ -10,7 +10,8 @@
     "idle",
     "webNavigation",
     "declarativeNetRequest",
-    "favicon"
+    "favicon",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "<all_urls>"

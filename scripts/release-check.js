@@ -61,7 +61,9 @@ function runChecks(root) {
       const text = fs.readFileSync(file, 'utf8');
       const rel = `${target}/${path.relative(dir, file)}`;
       for (const word of FORBIDDEN) {
-        if (text.includes(word)) problems.push(`${rel}: contains "${word}"`);
+        // "Stripe" is matched as a whole word: bundled charts have "HorizontalStripes"
+        const found = word === 'Stripe' ? /\bStripe\b/.test(text) : text.includes(word);
+        if (found) problems.push(`${rel}: contains "${word}"`);
       }
     }
     checkManifest(path.join(dir, 'manifest.json'), target, problems);
