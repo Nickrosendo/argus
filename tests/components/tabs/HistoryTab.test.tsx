@@ -8,7 +8,7 @@ const daysOfHistory = (count: number) => {
   for (let i = 1; i <= count; i++) {
     const date = new Date(2026, 8, 1);
     date.setDate(date.getDate() + i);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const key = `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}`;
     history[key] = { totalTime: 60000 * i, sites: { 'a.com': { time: 1, visits: 1 } }, hourly: [] };
   }
   return history;
