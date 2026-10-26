@@ -1,7 +1,3 @@
-// Stripe price IDs normally come from the build settings
-process.env.STRIPE_PRICE_MONTHLY = 'price_test_monthly';
-process.env.STRIPE_PRICE_YEARLY = 'price_test_yearly';
-
 // Setup DOM environment for React Testing Library
 import { TextEncoder, TextDecoder } from 'util';
 import '@testing-library/jest-dom';
@@ -126,10 +122,6 @@ class LocalStorageMock {
 global.localStorage = new LocalStorageMock();
 
 // Mock build-time constants
-global.__GOOGLE_CLIENT_ID__ = 'test-google-client-id';
-global.__MICROSOFT_CLIENT_ID__ = 'test-microsoft-client-id';
-global.__API_URL__ = 'http://localhost:3000';
-global.process.env.ENABLE_MICROSOFT_AUTH = 'false';
 global.__VERSION__ = '1.0.0';
 
 // Mock window methods
