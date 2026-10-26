@@ -23,6 +23,7 @@ import {
   setCurrentTab,
   setTracking,
 } from './state.js';
+import { enqueueStorageWrite, pendingStorageWrites, queueStorageWrite } from './writeQueue.js';
 import {
   checkAndResetUnblockData,
   isUrlBlocked,
@@ -30,16 +31,7 @@ import {
   redirectToBlockedPage,
 } from './blocking.js';
 
-// Serializes read-modify-write of tracking data
-let storageWriteQueue = Promise.resolve();
-
-// Run a storage task after the tracker writes already queued and before later
-// ones. A failing task rejects for its caller but does not stop the queue.
-export function enqueueStorageWrite(task) {
-  const result = storageWriteQueue.then(task);
-  storageWriteQueue = result.catch((error) => console.error("Error in queued storage write:", error));
-  return result;
-}
+export { enqueueStorageWrite };
 
 // The id of the focused browser window, or null when the browser is not focused
 export async function getFocusedWindowId() {
@@ -249,23 +241,19 @@ export function handleTabChange(tab) {
 // same step), so the timer, the alarm and tab events can all call this without
 // counting an interval twice. Storage writes are queued to avoid lost updates.
 export function updateTimeForCurrentTab() {
-  if (!state.currentTab) return storageWriteQueue;
+  if (!state.currentTab) return pendingStorageWrites();
 
   const tab = state.currentTab;
   const now = Date.now();
   const timeSpent = claimElapsedTime(tab, now, MAX_INACTIVE_TIME);
 
-  if (timeSpent <= 0) return storageWriteQueue;
+  if (timeSpent <= 0) return pendingStorageWrites();
 
   const isNewVisit = !tab.visitCounted;
   tab.visitCounted = true;
   persistTrackingState();
 
-  storageWriteQueue = storageWriteQueue
-    .then(() => recordTime(tab, timeSpent, isNewVisit, now))
-    .catch((error) => console.error("Error updating time:", error));
-
-  return storageWriteQueue;
+  return queueStorageWrite(() => recordTime(tab, timeSpent, isNewVisit, now), "Error updating time:");
 }
 
 // Add time for a tab to today's totals in storage

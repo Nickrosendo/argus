@@ -7,7 +7,7 @@ import {
   enqueueStorageWrite,
   updateTimeForCurrentTab,
 } from './tracking.js';
-import { updateBlockedSites } from './blocking.js';
+import { checkAndResetUnblockData, updateBlockedSites } from './blocking.js';
 
 // Merge a backup into the stored data. Time on the current tab is credited
 // first and the merge runs on the tracker's write queue, so a tick can neither
@@ -24,6 +24,7 @@ export async function restoreBackup(data) {
     // Roll a stale day over first, so the merge compares against today's counters
     const { lastDate } = await browserApiService.getStorage(['lastDate']);
     await checkAndResetForNewDay(lastDate);
+    await checkAndResetUnblockData();
 
     const local = await browserApiService.getStorage([
       'history',

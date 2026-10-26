@@ -861,6 +861,36 @@ describe('background service worker', () => {
       expect(fake.local.history[dayKey(1)].totalTime).toBe(5000);
     });
 
+    it('resets the daily temporary unblocks when the restore starts a new day', async () => {
+      fake.local.lastDate = dayKey(1);
+      fake.local.totalTime = 5000;
+      fake.local.sites = {};
+      fake.local.unblockData = { date: dayKey(1), remaining: 0, temporaryUnblocks: {} };
+
+      await send({ action: 'restoreBackup', data: todayOf(20_000) });
+
+      expect(fake.local.unblockData.date).toBe(new Date(START).toDateString());
+      expect(fake.local.unblockData.remaining).toBe(3);
+    });
+
+    it('does not lose a blocked attempt made during a restore', async () => {
+      const today = new Date(START).toDateString();
+      fake.local.blockedSites = ['a.com'];
+      fake.local.blockingEnabled = true;
+      await send({ action: 'startFocusSession', minutes: 25 });
+      const backup = {
+        ...todayOf(20_000),
+        focusStats: { date: today, started: 1, completed: 0, focusTime: 0, blocked: 2 },
+      };
+
+      // Both arrive together; the attempt is counted on top of whatever the restore wrote
+      fake.listeners.message.forEach((listener) => listener({ action: 'restoreBackup', data: backup }, {}, () => {}));
+      (fake.listeners.beforeNavigate || []).forEach((listener) => listener({ frameId: 0, url: 'https://a.com/' }));
+      await flush();
+
+      expect(fake.local.focusStats.blocked).toBe(3);
+    });
+
     it('never stores account or sync keys from an old export', async () => {
       await send({ action: 'restoreBackup', data: { history: {}, authToken: 'x', remoteDays: {} } });
 

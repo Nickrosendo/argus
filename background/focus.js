@@ -5,6 +5,7 @@ import browserApiService from "../services/BrowserApiService";
 import { FOCUS_END_ALARM, FOCUS_MAX_MINUTES } from './constants.js';
 import { state, browserAPI, isFocusActive } from './state.js';
 import { updateBlockedSites } from './blocking.js';
+import { enqueueStorageWrite } from './writeQueue.js';
 
 // Today's focus numbers, reset when the date changes
 async function getFocusStats() {
@@ -37,11 +38,12 @@ export async function startFocusSession(minutes) {
   const startedAt = Date.now();
   const session = { startedAt, endsAt: startedAt + duration * 60 * 1000, minutes: duration };
 
-  const stats = await getFocusStats();
-  stats.started += 1;
-
   state.focusSession = session;
-  await browserApiService.setStorage({ focusSession: session, focusStats: stats });
+  await enqueueStorageWrite(async () => {
+    const stats = await getFocusStats();
+    stats.started += 1;
+    await browserApiService.setStorage({ focusSession: session, focusStats: stats });
+  });
   browserAPI.alarms.create(FOCUS_END_ALARM, { when: session.endsAt });
   await updateBlockedSites();
 
@@ -53,13 +55,14 @@ export async function endFocusSession(completed) {
   const session = state.focusSession;
   if (!session) return { ok: true };
 
-  const stats = await getFocusStats();
-  const focusedUntil = Math.min(Date.now(), session.endsAt);
-  stats.focusTime += Math.max(0, focusedUntil - session.startedAt);
-  if (completed) stats.completed += 1;
-
   state.focusSession = null;
-  await browserApiService.setStorage({ focusSession: null, focusStats: stats });
+  await enqueueStorageWrite(async () => {
+    const stats = await getFocusStats();
+    const focusedUntil = Math.min(Date.now(), session.endsAt);
+    stats.focusTime += Math.max(0, focusedUntil - session.startedAt);
+    if (completed) stats.completed += 1;
+    await browserApiService.setStorage({ focusSession: null, focusStats: stats });
+  });
   await browserApiService.clearAlarm(FOCUS_END_ALARM);
   await updateBlockedSites();
 

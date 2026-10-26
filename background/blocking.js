@@ -1,6 +1,7 @@
 // Website blocking: network rules, temporary unblocks and navigation checks
 import browserApiService from "../services/BrowserApiService";
 import { state, isFocusActive } from './state.js';
+import { enqueueStorageWrite } from './writeQueue.js';
 
 // Update the blocked sites configuration
 export async function updateBlockedSites() {
@@ -244,11 +245,13 @@ export async function trackBlockedAttempt(url) {
 
     // Also counted for the running focus session, if any
     if (isFocusActive()) {
-      const { focusStats } = await browserApiService.getStorage(['focusStats']);
-      if (focusStats && focusStats.date === today) {
-        focusStats.blocked = (focusStats.blocked || 0) + 1;
-        await browserApiService.setStorage({ focusStats });
-      }
+      await enqueueStorageWrite(async () => {
+        const { focusStats } = await browserApiService.getStorage(['focusStats']);
+        if (focusStats && focusStats.date === today) {
+          focusStats.blocked = (focusStats.blocked || 0) + 1;
+          await browserApiService.setStorage({ focusStats });
+        }
+      });
     }
     
     console.log(`Blocked attempt recorded for ${domain}`);
