@@ -17,7 +17,9 @@ const FORBIDDEN = [
 ];
 const REQUIRED_IN_POPUP = ['ko-fi.com/', 'github.com/Nickrosendo/argus'];
 const TARGETS = ['chrome', 'firefox'];
-const CHECKED_EXTENSIONS = new Set(['.js', '.html', '.json']);
+const CHECKED_EXTENSIONS = new Set(['.js', '.html', '.json', '.css']);
+// A stylesheet that loads anything from the web (fonts, images, imports)
+const CSS_REMOTE_URL = /(?:url\(\s*|@import\s+(?:url\(\s*)?)['"]?\s*https?:\/\//i;
 
 function listFiles(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -64,8 +66,14 @@ function runChecks(root) {
       const rel = `${target}/${path.relative(dir, file)}`;
       for (const word of FORBIDDEN) {
         // "Stripe" is matched as a whole word: bundled charts have "HorizontalStripes"
-        const found = word === 'Stripe' ? /\bStripe\b/.test(text) : text.includes(word);
+        let found;
+        if (word === 'Stripe') found = /\bStripe\b/.test(text);
+        else if (word === 'Sign in') found = text.toLowerCase().includes('sign in');
+        else found = text.includes(word);
         if (found) problems.push(`${rel}: contains "${word}"`);
+      }
+      if (path.extname(file) === '.css' && CSS_REMOTE_URL.test(text)) {
+        problems.push(`${rel}: loads a web address from the stylesheet`);
       }
     }
     checkManifest(path.join(dir, 'manifest.json'), target, problems);
