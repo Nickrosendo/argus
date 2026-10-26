@@ -12,6 +12,8 @@
   --accent: #c4552d;
   --accent-soft: rgba(196, 85, 45, 0.10);
   --accent-text: #a8431f;
+  --accent-fill: #a8431f;
+  --accent-fill-hover: #8f3818;
   --on-accent: #ffffff;
   --track: #ebe5da;
   --accent2: #3d7a5c;
@@ -33,7 +35,9 @@
     --accent: #a99bf5;
     --accent-soft: rgba(169, 155, 245, 0.14);
     --accent-text: #c3b8ff;
-    --on-accent: #16151f;
+    --accent-fill: #a99bf5;
+  --accent-fill-hover: #c3b8ff;
+  --on-accent: #16151f;
     --track: #2c2940;
     --accent2: #f4b39a;
     --accent2-soft: rgba(244, 179, 154, 0.14);
@@ -54,6 +58,8 @@
   --accent: #a99bf5;
   --accent-soft: rgba(169, 155, 245, 0.14);
   --accent-text: #c3b8ff;
+  --accent-fill: #a99bf5;
+  --accent-fill-hover: #c3b8ff;
   --on-accent: #16151f;
   --track: #2c2940;
   --accent2: #f4b39a;
@@ -82,54 +88,55 @@ body {
   flex-direction: column;
 }
 
+/* One row: logo and name, the four tabs, the Settings gear at the right */
 .header-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   background: transparent;
   color: var(--text);
-  padding: 12px;
-  position: sticky;
-  top: 0;
+  padding: 8px 10px;
   z-index: 100;
   border-bottom: 1px solid var(--line);
-  position: relative; 
+  position: relative;
 }
 
 .logo {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 12px;
-  text-align: center;
+  gap: 6px;
+  margin-right: auto;
+  min-width: 0;
 }
 
 .logo img {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 8px;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 
 .logo h1 {
-  font-size: 1.4rem;
-  font-weight: 600;
-  letter-spacing: 1px;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1;
 }
 
 /* Icon Navigation */
 .icon-navigation {
   display: flex;
-  justify-content: center;
-  gap: 12px;
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
+  gap: 2px;
 }
 
 .nav-icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: 8px;
   background: transparent;
   border: 1px solid transparent;
   cursor: pointer;
@@ -142,15 +149,17 @@ body {
   color: var(--text);
 }
 
-.nav-icon-btn.active {
+.nav-icon-btn.active,
+.nav-icon-btn[aria-pressed="true"] {
   background: var(--accent-soft);
   color: var(--accent-text);
   font-weight: 600;
 }
 
 .nav-icon-svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .main-tab-content {
@@ -451,7 +460,7 @@ body {
   width: 20px;
   height: 20px;
   margin-right: 10px;
-  background: var(--accent);
+  background: var(--accent-fill);
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -528,7 +537,7 @@ input[type="checkbox"] {
 }
 
 button {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
   border: none;
   padding: 8px 16px;
@@ -539,7 +548,7 @@ button {
 }
 
 button:hover {
-  background: var(--accent-text);
+  background: var(--accent-fill-hover);
 }
 
 footer {
@@ -584,7 +593,6 @@ footer {
 
 .blocked-sites-container {
   margin-top: 15px;
-  margin-left: 20px;
 }
 
 .blocked-sites-list {
@@ -631,9 +639,10 @@ footer {
 
 .add-site-form input {
   flex: 1;
+  min-width: 0; /* lets the field shrink so the button stays inside the card */
   padding: 8px;
   border: 1px solid var(--line);
-  border-radius: 4px 0 0 4px;
+  border-radius: 6px;
   background: var(--bg);
   color: var(--text);
 }
@@ -644,15 +653,17 @@ footer {
 
 .add-site-form button {
   padding: 8px 12px;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
   border: none;
-  border-radius: 0 4px 4px 0;
+  border-radius: 6px;
   cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .add-site-form button:hover {
-  background: var(--accent-text);
+  background: var(--accent-fill-hover);
 }
 
 .primary-btn,
@@ -671,12 +682,12 @@ footer {
 }
 
 .primary-btn {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
 }
 
 .primary-btn:hover:not(:disabled) {
-  background: var(--accent-text);
+  background: var(--accent-fill-hover);
 }
 
 .secondary-btn {
@@ -711,11 +722,6 @@ footer {
 .btn-icon {
   width: 16px;
   height: 16px;
-}
-
-.logo {
-  height: auto;
-  padding: 1.5em;
 }
 
 /* Sites Table Styles */
@@ -1091,7 +1097,7 @@ footer {
 }
 
 .productivity-fill.active {
-  background: var(--accent);
+  background: var(--accent-fill);
 }
 
 /* Category Breakdown */
@@ -1251,7 +1257,7 @@ footer {
 
 .timer-progress-bar {
   height: 100%;
-  background: var(--accent);
+  background: var(--accent-fill);
   transition: width 0.3s ease;
 }
 
@@ -1282,16 +1288,16 @@ footer {
 }
 
 .timer-btn.primary {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
 }
 
 .timer-btn.primary:hover {
-  background: var(--accent-text);
+  background: var(--accent-fill-hover);
 }
 
 .timer-btn.primary:disabled {
-  background: var(--accent);
+  background: var(--accent-fill);
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -1366,9 +1372,9 @@ footer {
 }
 
 .duration-preset.active {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--on-accent);
-  border-color: var(--accent);
+  border-color: var(--accent-fill);
 }
 
 /* Blocked Sites Section */
@@ -1432,8 +1438,8 @@ footer {
 .nav-icon-btn.nav-tab-btn {
   flex-direction: column;
   gap: 3px;
-  width: 64px;
-  height: 52px;
+  width: 46px;
+  height: 42px;
   position: relative;
 }
 
