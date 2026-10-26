@@ -22,6 +22,68 @@ export const BACKUP_KEYS = [
 const isPlainObject = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
+const isDateKey = (key) => typeof key === 'string' && !Number.isNaN(Date.parse(key));
+
+/**
+ * Recorded time of a day, treating a missing or non-numeric value as 0.
+ *
+ * @param {Object} [day] Day data
+ * @returns {number} Total time in ms
+ */
+const dayTime = (day) => (day && Number.isFinite(day.totalTime) ? day.totalTime : 0);
+
+/**
+ * Keep only history entries with a valid date key and an object value.
+ *
+ * @param {Object} history Map of date string -> day data
+ * @returns {Object} A new map without malformed entries
+ */
+function cleanHistory(history) {
+  return Object.entries(history).reduce((clean, [date, entry]) => {
+    if (isDateKey(date) && isPlainObject(entry)) {
+      clean[date] = entry;
+    }
+    return clean;
+  }, {});
+}
+
+const VALID_VALUE = {
+  history: isPlainObject,
+  sites: isPlainObject,
+  hourly: Array.isArray,
+  totalTime: Number.isFinite,
+  lastDate: isDateKey,
+  settings: isPlainObject,
+  blockedSites: (value) => Array.isArray(value) && value.every((v) => typeof v === 'string'),
+  blockingEnabled: (value) => typeof value === 'boolean',
+  focusStats: isPlainObject,
+};
+
+/**
+ * The days a backup holds: its history plus the counters of its own last day.
+ * Those counters replace a history entry for the same date only if they have more time.
+ *
+ * @param {Object} backup Backup data
+ * @returns {Object} Map of date string -> day data
+ */
+function backupDaysOf(backup) {
+  const days = isPlainObject(backup.history) ? cleanHistory(backup.history) : {};
+
+  if (isDateKey(backup.lastDate) && dayTime(backup) > 0) {
+    const counters = {
+      sites: backup.sites,
+      totalTime: backup.totalTime,
+      hourly: backup.hourly,
+      date: backup.lastDate,
+    };
+    if (!days[backup.lastDate] || dayTime(counters) > dayTime(days[backup.lastDate])) {
+      days[backup.lastDate] = counters;
+    }
+  }
+
+  return days;
+}
+
 /**
  * Keep only the keys that belong in a backup.
  *
@@ -35,6 +97,26 @@ function pickBackupKeys(source) {
     }
     return data;
   }, {});
+}
+
+/**
+ * Like pickBackupKeys, for untrusted files: wrong-typed values are dropped
+ * and malformed history entries removed.
+ *
+ * @param {Object} source Parsed backup payload
+ * @returns {Object} A new object holding only well-formed backup values
+ */
+function pickValidBackupKeys(source) {
+  const data = pickBackupKeys(source);
+  BACKUP_KEYS.forEach((key) => {
+    if (key in data && !VALID_VALUE[key](data[key])) {
+      delete data[key];
+    }
+  });
+  if (data.history) {
+    data.history = cleanHistory(data.history);
+  }
+  return data;
 }
 
 /**
@@ -88,14 +170,17 @@ export function parseBackup(text) {
   let exportedAt = null;
 
   if ('argusBackup' in parsed) {
-    if (Number(parsed.argusBackup) > BACKUP_FORMAT) {
+    if (!Number.isFinite(parsed.argusBackup)) {
+      return { ok: false, reason: "This file isn't an Argus backup." };
+    }
+    if (parsed.argusBackup > BACKUP_FORMAT) {
       return { ok: false, reason: 'This backup was made by a newer version of Argus.' };
     }
     source = isPlainObject(parsed.data) ? parsed.data : {};
     exportedAt = typeof parsed.exportedAt === 'string' ? parsed.exportedAt : null;
   }
 
-  const data = pickBackupKeys(source);
+  const data = pickValidBackupKeys(source);
   if (!isPlainObject(data.history) && !isPlainObject(data.sites)) {
     return { ok: false, reason: 'This file has no Argus data.' };
   }
@@ -110,12 +195,7 @@ export function parseBackup(text) {
  * @returns {{days: number, blockedSites: number}} Days with recorded time and blocked site count
  */
 export function summarizeBackup(data) {
-  const history = isPlainObject(data.history) ? data.history : {};
-  let days = Object.values(history).filter((entry) => entry && entry.totalTime > 0).length;
-
-  if (data.lastDate && data.totalTime > 0 && !(data.lastDate in history)) {
-    days += 1;
-  }
+  const days = Object.values(backupDaysOf(data)).filter((entry) => dayTime(entry) > 0).length;
 
   return {
     days,
@@ -135,22 +215,13 @@ export function summarizeBackup(data) {
  */
 export function mergeBackup(local, backup, maxDays) {
   const updates = {};
-  const backupDays = { ...(backup.history || {}) };
-
-  if (backup.lastDate && backup.totalTime > 0) {
-    backupDays[backup.lastDate] = {
-      sites: backup.sites,
-      totalTime: backup.totalTime,
-      hourly: backup.hourly,
-      date: backup.lastDate,
-    };
-  }
+  const backupDays = backupDaysOf(backup);
 
   const history = { ...(local.history || {}) };
 
   Object.entries(backupDays).forEach(([date, backupDay]) => {
     if (date === local.lastDate) {
-      if (backupDay.totalTime > (local.totalTime || 0)) {
+      if (dayTime(backupDay) > dayTime(local)) {
         updates.sites = backupDay.sites;
         updates.totalTime = backupDay.totalTime;
         updates.hourly = backupDay.hourly;
@@ -158,7 +229,7 @@ export function mergeBackup(local, backup, maxDays) {
           updates.focusStats = backup.focusStats;
         }
       }
-    } else if (!history[date] || backupDay.totalTime > history[date].totalTime) {
+    } else if (!history[date] || dayTime(backupDay) > dayTime(history[date])) {
       history[date] = backupDay;
     }
   });

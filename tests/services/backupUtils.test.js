@@ -95,6 +95,55 @@ describe('backupUtils', () => {
         reason: 'This backup was made by a newer version of Argus.',
       });
     });
+
+    it('should reject JSON that is not an object', () => {
+      ['null', '[]', '5', '"x"'].forEach((text) =>
+        expect(parseBackup(text)).toEqual({ ok: false, reason: "This file isn't an Argus backup." })
+      );
+    });
+
+    it('should reject a non-numeric format marker', () => {
+      expect(parseBackup('{"argusBackup":"x","data":{"history":{}}}')).toEqual({
+        ok: false,
+        reason: "This file isn't an Argus backup.",
+      });
+    });
+
+    it('should drop history entries with a bad key or a non-object day', () => {
+      const result = parseBackup(
+        JSON.stringify({
+          history: { 'Mon Jul 21 2025': { totalTime: 5 }, nonsense: { totalTime: 9 }, 'Tue Jul 22 2025': null },
+        })
+      );
+
+      expect(Object.keys(result.data.history)).toEqual(['Mon Jul 21 2025']);
+    });
+
+    it('should drop wrong-typed values', () => {
+      const result = parseBackup(
+        JSON.stringify({
+          history: {},
+          blockedSites: 'a.com',
+          settings: [],
+          blockingEnabled: 'yes',
+          focusStats: 3,
+          sites: [],
+          hourly: {},
+          totalTime: '5',
+          lastDate: 'garbage',
+        })
+      );
+
+      expect(result).toEqual({ ok: true, data: { history: {} }, exportedAt: null });
+      expect(parseBackup('{"history":{},"blockedSites":["a",1]}').data).not.toHaveProperty('blockedSites');
+    });
+
+    it('should treat a non-object history as missing', () => {
+      expect(parseBackup('{"history":[]}')).toEqual({
+        ok: false,
+        reason: 'This file has no Argus data.',
+      });
+    });
   });
 
   describe('summarizeBackup', () => {
@@ -123,6 +172,21 @@ describe('backupUtils', () => {
         summarizeBackup({ history, lastDate: 'Tue Jul 22 2025', totalTime: 0 }).days
       ).toBe(1);
       expect(summarizeBackup({ sites: {} })).toEqual({ days: 0, blockedSites: 0 });
+    });
+  });
+
+  describe('summarizeBackup with malformed days', () => {
+    it('should ignore non-numeric times and count a lastDate day once', () => {
+      const data = {
+        history: { 'Mon Jul 21 2025': { totalTime: '5' }, 'Tue Jul 22 2025': day(10) },
+        lastDate: 'Tue Jul 22 2025',
+        totalTime: 3,
+      };
+
+      expect(summarizeBackup(data).days).toBe(1);
+      expect(
+        summarizeBackup({ history: { 'Tue Jul 22 2025': day(10) }, lastDate: 'Tue Jul 22 2025', totalTime: 0 }).days
+      ).toBe(1);
     });
   });
 
@@ -249,6 +313,53 @@ describe('backupUtils', () => {
 
       expect(l).toEqual(lCopy);
       expect(b).toEqual(bCopy);
+    });
+
+    it('should keep real days when the backup has a non-date key', () => {
+      const history = { nonsense: day(9) };
+      for (let i = 0; i < 90; i += 1) {
+        history[new Date(2025, 0, 1 + i).toDateString()] = day(10);
+      }
+
+      const updates = mergeBackup({ history: {}, lastDate: TODAY }, { history }, 90);
+
+      expect(Object.keys(updates.history)).toHaveLength(90);
+      expect(updates.history).not.toHaveProperty('nonsense');
+      expect(updates.history).toHaveProperty(new Date(2025, 0, 1).toDateString());
+    });
+
+    it('should skip null days, even for the local today key', () => {
+      const backup = { history: { [TODAY]: null, 'Tue Jul 22 2025': null } };
+
+      const updates = mergeBackup(local(), backup, 90);
+
+      expect(Object.keys(updates.history)).toEqual(['Mon Jul 21 2025']);
+      expect(updates).not.toHaveProperty('totalTime');
+    });
+
+    it('should treat a missing or non-numeric totalTime as zero', () => {
+      const date = 'Mon Jul 21 2025';
+      const l = { ...local(), history: { [date]: { sites: {} } } };
+
+      const a = mergeBackup(l, { history: { [date]: day(5) } }, 90);
+      const b = mergeBackup(local(), { history: { [date]: { totalTime: '999' } } }, 90);
+
+      expect(a.history[date].totalTime).toBe(5);
+      expect(b.history[date].totalTime).toBe(100);
+    });
+
+    it('should not let smaller lastDate counters replace a bigger history day', () => {
+      const date = 'Wed Jul 23 2025';
+      const backup = { history: { [date]: day(500) }, lastDate: date, totalTime: 60, sites: {}, hourly: [] };
+
+      expect(mergeBackup(local(), backup, 90).history[date].totalTime).toBe(500);
+    });
+
+    it('should let bigger lastDate counters replace a smaller history day', () => {
+      const date = 'Wed Jul 23 2025';
+      const backup = { history: { [date]: day(5) }, lastDate: date, totalTime: 60, sites: {}, hourly: [] };
+
+      expect(mergeBackup(local(), backup, 90).history[date].totalTime).toBe(60);
     });
 
     it('should copy settings, blocked sites and blocking flag only when present', () => {
