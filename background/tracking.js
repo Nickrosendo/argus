@@ -26,9 +26,8 @@ import {
 import { enqueueStorageWrite, pendingStorageWrites, queueStorageWrite } from './writeQueue.js';
 import {
   checkAndResetUnblockData,
-  isUrlBlocked,
-  trackBlockedAttempt,
-  redirectToBlockedPage,
+  findBlockedSite,
+  blockTab,
 } from './blocking.js';
 
 export { enqueueStorageWrite };
@@ -183,11 +182,10 @@ export async function handleTabUpdated(tabId, changeInfo, tab) {
   if (changeInfo.url) {
     // Check if the new URL should be blocked
     try {
-      const shouldBlock = await isUrlBlocked(changeInfo.url);
-      if (shouldBlock) {
+      const blockedSite = await findBlockedSite(changeInfo.url);
+      if (blockedSite) {
         console.log(`Blocking URL change to ${changeInfo.url} in tab ${tabId}`);
-        await redirectToBlockedPage(tabId, changeInfo.url);
-        await trackBlockedAttempt(changeInfo.url);
+        await blockTab(tabId, changeInfo.url, blockedSite);
         return; // Don't continue with normal tab handling
       }
     } catch (error) {

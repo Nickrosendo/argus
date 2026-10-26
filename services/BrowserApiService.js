@@ -301,16 +301,13 @@ const BrowserApiService = {
           // Clean the site domain
           const cleanSite = site.replace(/^www\./, '').toLowerCase();
 
-          // Redirect main frame requests to blocked page - exact domain
+          // Stop main frame requests - exact domain. A "redirect" to the blocked
+          // page would need access to every site; the worker switches the tab
+          // to the blocked page instead (background/blocking.js)
           rules.push({
             id: ruleId++,
             priority: 2,
-            action: { 
-              type: "redirect",
-              redirect: {
-                url: this.getExtensionUrl(`blocked.html?domain=${encodeURIComponent(cleanSite)}`)
-              }
-            },
+            action: { type: "block" },
             condition: {
               urlFilter: `*://${cleanSite}/*`,
               resourceTypes: ["main_frame"]
@@ -330,16 +327,11 @@ const BrowserApiService = {
 
           // Handle www variant if not already included
           if (!cleanSite.startsWith('www.')) {
-            // Redirect www variant main frames
+            // Stop www variant main frames
             rules.push({
               id: ruleId++,
               priority: 2,
-              action: { 
-                type: "redirect",
-                redirect: {
-                  url: this.getExtensionUrl(`blocked.html?domain=${encodeURIComponent(cleanSite)}`)
-                }
-              },
+              action: { type: "block" },
               condition: {
                 urlFilter: `*://www.${cleanSite}/*`,
                 resourceTypes: ["main_frame"]
@@ -358,16 +350,11 @@ const BrowserApiService = {
             });
           }
 
-          // Handle subdomains - redirect main frames
+          // Handle subdomains - stop main frames
           rules.push({
             id: ruleId++,
             priority: 2,
-            action: { 
-              type: "redirect",
-              redirect: {
-                url: this.getExtensionUrl(`blocked.html?domain=${encodeURIComponent(cleanSite)}`)
-              }
-            },
+            action: { type: "block" },
             condition: {
               urlFilter: `*://*.${cleanSite}/*`,
               resourceTypes: ["main_frame"]
@@ -521,6 +508,7 @@ const BrowserApiService = {
         // Chrome
         return new Promise((resolve) => {
           chrome.tabs.update(tabId, { url }, (tab) => {
+            if (chrome.runtime.lastError) console.warn('Could not update tab:', chrome.runtime.lastError.message);
             resolve(tab);
           });
         });
@@ -528,6 +516,33 @@ const BrowserApiService = {
     } catch (error) {
       console.error('Error updating tab:', error);
       return null;
+    }
+  },
+
+  /**
+   * Goes back one step in a tab's history
+   * @param {number} tabId The tab ID
+   * @returns {Promise<boolean>} Whether the tab could go back
+   */
+  async goBack(tabId) {
+    try {
+      if (typeof browser !== 'undefined') {
+        // Firefox
+        await browser.tabs.goBack(tabId);
+        return true;
+      } else {
+        // Chrome
+        return new Promise((resolve) => {
+          chrome.tabs.goBack(tabId, () => {
+            const error = chrome.runtime.lastError;
+            if (error) console.warn('Could not go back in tab:', error.message);
+            resolve(!error);
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error going back in tab:', error);
+      return false;
     }
   },
 

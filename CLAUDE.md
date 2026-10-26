@@ -44,7 +44,7 @@ This is a cross-browser extension (Chrome/Firefox) built with **React 18** and *
 ### Core Components Structure
 - **Background Service Worker**: `background.js` is the entry point (startup, alarms, listener registration); the logic lives in `background/`:
   - `tracking.js` - which tab is being looked at and time accounting
-  - `blocking.js` - blocking rules, temporary unblocks, navigation checks
+  - `blocking.js` - blocking rules, temporary unblocks, navigation checks. A blocked visit is sent to `blocked.html` with `tabs.update` from `webNavigation.onBeforeNavigate` (with the `tabs.onUpdated` fallback in `tracking.js`); the Chrome declarativeNetRequest rules only `block`, never `redirect`, so the extension needs no host permissions (`release-check.js` fails if a manifest asks for any). Chrome keeps the blocked address in the history before `blocked.html`, so going Back from the blocked page steps back once more (`tabs.goBack`) instead of blocking it again; which address each tab's blocked page replaced is kept in `state.blockedPageTabs` (survives a worker restart)
   - `messages.js` - messages from the popup, blocked page and content scripts
   - `focus.js` - focus sessions: block the whole block list until a stored end time, ended by an alarm
   - `backup.js` - restoreBackup: day rollover and unblock reset first, then merge the backup into storage

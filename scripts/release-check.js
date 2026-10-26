@@ -38,6 +38,16 @@ function checkManifest(manifestPath, label, problems) {
   if (manifest.content_scripts) problems.push(`${label}: manifest.json has content_scripts`);
   const permissions = [...(manifest.permissions || []), ...(manifest.optional_permissions || [])];
   if (permissions.includes('identity')) problems.push(`${label}: manifest.json asks for the identity permission`);
+  // Access to websites makes the stores review Argus in depth and the install prompt
+  // say "read and change all your data"; blocking works without it
+  for (const key of ['host_permissions', 'optional_host_permissions']) {
+    if (manifest[key]) problems.push(`${label}: manifest.json has ${key}`);
+  }
+  for (const permission of permissions) {
+    if (permission === '<all_urls>' || permission.includes('://')) {
+      problems.push(`${label}: manifest.json asks for access to "${permission}"`);
+    }
+  }
 
   const csp = manifest.content_security_policy;
   const pages = typeof csp === 'string' ? csp : (csp && csp.extension_pages) || '';

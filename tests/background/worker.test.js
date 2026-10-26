@@ -34,6 +34,10 @@ function createFakeBrowser() {
       20: { id: 20, windowId: 2, active: true, url: 'https://background-window.com/', title: 'Background' },
     },
     rules: [],
+    tabUpdates: [],
+    goBacks: [],
+    failTabUpdates: 0, // the next n tabs.update calls fail (e.g. "Tabs cannot be edited right now")
+    canGoBack: true,
   };
 
   const event = (name) => ({
@@ -90,7 +94,22 @@ function createFakeBrowser() {
         later(callback, Object.values(fake.tabs).filter((tab) => tab.windowId === fake.focusedWindow.id && tab.active)),
       get: (tabId, callback) => later(callback, fake.tabs[tabId]),
       create: async () => ({}),
-      update: async () => ({}),
+      update: (tabId, { url }, callback) => {
+        if (fake.failTabUpdates > 0) {
+          fake.failTabUpdates--;
+          return later(callback, undefined);
+        }
+        fake.tabUpdates.push({ tabId, url });
+        if (fake.tabs[tabId]) fake.tabs[tabId].url = url;
+        return later(callback, fake.tabs[tabId]);
+      },
+      goBack: (tabId, callback) => {
+        fake.goBacks.push(tabId);
+        fake.chrome.runtime.lastError = fake.canGoBack ? null : { message: 'Cannot find a next page in history.' };
+        return later(callback).then(() => {
+          fake.chrome.runtime.lastError = null;
+        });
+      },
       onActivated: event('tabActivated'),
       onUpdated: event('tabUpdated'),
     },
@@ -818,6 +837,195 @@ describe('background service worker', () => {
 
       expect(fake.rules).toEqual([]);
     });
+
+    it('uses no rule that needs access to the sites (no redirects)', async () => {
+      await startWorker();
+      await send({ action: 'updateBlockedSites' });
+
+      expect(fake.rules.length).toBeGreaterThan(0);
+      expect(fake.rules.filter((rule) => rule.action.type !== 'block')).toEqual([]);
+      expect(fake.rules.some((rule) => rule.condition.resourceTypes.includes('main_frame'))).toBe(true);
+    });
+  });
+
+  describe('blocked page', () => {
+    const navigate = (tabId, url, extra = {}) => emit('beforeNavigate', { tabId, frameId: 0, url, ...extra });
+    const blockedPage = (domain, url) =>
+      `chrome-extension://test/blocked.html?domain=${encodeURIComponent(domain)}&url=${encodeURIComponent(url)}`;
+
+    beforeEach(() => {
+      fake.local.blockingEnabled = true;
+      fake.local.blockedSites = ['a.com'];
+      fake.tabs[30] = { id: 30, windowId: 1, active: false, url: 'about:blank', title: '' };
+    });
+
+    it('sends a tab opening a blocked site to the blocked page, with the address asked for', async () => {
+      await startWorker();
+
+      await navigate(10, 'https://www.a.com/watch?v=1');
+
+      expect(fake.tabUpdates).toEqual([{ tabId: 10, url: blockedPage('a.com', 'https://www.a.com/watch?v=1') }]);
+    });
+
+    it('blocks a site opened in a background tab, naming the block list entry it matched', async () => {
+      await startWorker();
+
+      await navigate(30, 'https://sub.a.com/');
+
+      // The blocked page unblocks and removes the domain it is given, so it must be "a.com"
+      expect(fake.tabUpdates).toEqual([{ tabId: 30, url: blockedPage('a.com', 'https://sub.a.com/') }]);
+    });
+
+    it('blocks while the browser window is not focused (time is not being counted)', async () => {
+      await startWorker();
+      await blurBrowser();
+
+      await navigate(10, 'https://a.com/');
+
+      expect(fake.tabUpdates.map((update) => update.tabId)).toEqual([10]);
+    });
+
+    it('leaves other sites, sub-frames and pages loaded in advance alone', async () => {
+      await startWorker();
+
+      await navigate(10, 'https://other.com/');
+      await emit('beforeNavigate', { tabId: 10, frameId: 3, url: 'https://a.com/embed' });
+      await navigate(10, 'https://a.com/', { documentLifecycle: 'prerender' });
+
+      expect(fake.tabUpdates).toEqual([]);
+    });
+
+    it('lets a site through during a temporary unblock', async () => {
+      await startWorker();
+      await send({ action: 'updateTemporaryUnblocks', domain: 'a.com', expirationTime: Date.now() + 300000 });
+
+      await navigate(10, 'https://a.com/');
+
+      expect(fake.tabUpdates).toEqual([]);
+    });
+
+    it('blocks the list during a focus session, even with blocking switched off', async () => {
+      fake.local.blockingEnabled = false;
+      await startWorker();
+      await navigate(10, 'https://a.com/');
+      expect(fake.tabUpdates).toEqual([]);
+
+      await send({ action: 'startFocusSession', minutes: 25 });
+      await navigate(10, 'https://a.com/');
+
+      expect(fake.tabUpdates.map((update) => update.tabId)).toEqual([10]);
+    });
+
+    it('counts one attempt when the navigation and the tab change both report the visit', async () => {
+      await startWorker();
+
+      (fake.listeners.beforeNavigate || []).forEach((listener) => listener({ tabId: 10, frameId: 0, url: 'https://a.com/' }));
+      (fake.listeners.tabUpdated || []).forEach((listener) =>
+        listener(10, { url: 'https://a.com/' }, { ...fake.tabs[10], url: 'https://a.com/' })
+      );
+      await flush();
+
+      expect(fake.tabUpdates).toHaveLength(1);
+      expect(fake.local.blockedAttempts[new Date(START).toDateString()]['a.com']).toBe(1);
+    });
+
+    it('ignores navigations that belong to no tab', async () => {
+      await startWorker();
+
+      await navigate(-1, 'https://a.com/');
+
+      expect(fake.tabUpdates).toEqual([]);
+      expect(fake.local.blockedAttempts).toBeUndefined();
+    });
+
+    it('leaves the fallback to retry when switching the tab fails', async () => {
+      await startWorker();
+      fake.failTabUpdates = 1;
+
+      await navigate(10, 'https://a.com/');
+      expect(fake.tabUpdates).toEqual([]);
+      await emit('tabUpdated', 10, { url: 'https://a.com/' }, { ...fake.tabs[10], url: 'https://a.com/' });
+
+      expect(fake.tabUpdates).toEqual([{ tabId: 10, url: blockedPage('a.com', 'https://a.com/') }]);
+      expect(fake.local.blockedAttempts[new Date(START).toDateString()]['a.com']).toBe(1);
+    });
+
+    describe('going back from the blocked page', () => {
+      // Chrome keeps the blocked address in the history, just before the blocked page.
+      // By the time the worker looks, the tab may already show that entry (an error page)
+      const openThenGoBack = async (alsoReportTabChange, { restartWorker = false } = {}) => {
+        await startWorker();
+        await navigate(10, 'https://a.com/x');
+        expect(fake.tabs[10].url).toBe(blockedPage('a.com', 'https://a.com/x'));
+        await advance(60_000); // long after the visit: the repeat window does not help
+        if (restartWorker) await startWorker();
+        fake.tabs[10].url = 'https://a.com/x';
+
+        (fake.listeners.beforeNavigate || []).forEach((listener) => listener({ tabId: 10, frameId: 0, url: 'https://a.com/x' }));
+        if (alsoReportTabChange) {
+          (fake.listeners.tabUpdated || []).forEach((listener) =>
+            listener(10, { url: 'https://a.com/x' }, { ...fake.tabs[10], url: 'https://a.com/x' })
+          );
+        }
+        await flush();
+      };
+
+      it('steps back past the blocked address instead of blocking it again', async () => {
+        await openThenGoBack(false);
+
+        expect(fake.goBacks).toEqual([10]);
+        expect(fake.tabUpdates).toHaveLength(1);
+        expect(fake.local.blockedAttempts[new Date(START).toDateString()]['a.com']).toBe(1);
+      });
+
+      it('steps back after the service worker restarted', async () => {
+        await openThenGoBack(false, { restartWorker: true });
+
+        expect(fake.goBacks).toEqual([10]);
+        expect(fake.tabUpdates).toHaveLength(1);
+      });
+
+      it('blocks the address again on a later visit, once the tab has moved on', async () => {
+        await startWorker();
+        await navigate(10, 'https://a.com/x');
+        await send({ action: 'updateTemporaryUnblocks', domain: 'a.com', expirationTime: Date.now() + 60_000 });
+        await navigate(10, 'https://a.com/x'); // the blocked page sends the user on
+        await advance(120_000);
+        await emit('alarm', { name: 'check-temp-unblocks' });
+        await send({ action: 'updateBlockedSites' });
+
+        await navigate(10, 'https://a.com/x');
+
+        expect(fake.goBacks).toEqual([]);
+        expect(fake.tabUpdates).toHaveLength(2);
+      });
+
+      it('is not undone by the tab change reporting the blocked address', async () => {
+        await openThenGoBack(true);
+
+        expect(fake.goBacks).toEqual([10]);
+        expect(fake.tabUpdates).toHaveLength(1);
+      });
+
+      it('shows the blocked page again when there is nothing to go back to', async () => {
+        fake.canGoBack = false; // e.g. the blocked site was opened from a link in a new tab
+        await openThenGoBack(true);
+
+        expect(fake.goBacks).toEqual([10]);
+        expect(fake.tabUpdates).toHaveLength(2);
+        expect(fake.tabs[10].url).toBe(blockedPage('a.com', 'https://a.com/x'));
+      });
+
+      it('still blocks a different blocked address opened from the blocked page', async () => {
+        await startWorker();
+        await navigate(10, 'https://a.com/x');
+
+        await navigate(10, 'https://a.com/other');
+
+        expect(fake.goBacks).toEqual([]);
+        expect(fake.tabUpdates).toHaveLength(2);
+      });
+    });
   });
 
   describe('restore from backup', () => {
@@ -908,7 +1116,7 @@ describe('background service worker', () => {
 
       // Both arrive together; the attempt is counted on top of whatever the restore wrote
       fake.listeners.message.forEach((listener) => listener({ action: 'restoreBackup', data: backup }, {}, () => {}));
-      (fake.listeners.beforeNavigate || []).forEach((listener) => listener({ frameId: 0, url: 'https://a.com/' }));
+      (fake.listeners.beforeNavigate || []).forEach((listener) => listener({ tabId: 10, frameId: 0, url: 'https://a.com/' }));
       await flush();
 
       expect(fake.local.focusStats.blocked).toBe(3);

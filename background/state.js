@@ -14,14 +14,16 @@ export const state = {
   trackingPaused: false, // the user's "Pause tracking" setting
   openPopups: 0, // popups currently showing live numbers
   idleThreshold: getIdleThresholdSeconds(), // seconds, from the user's idle setting
+  blockedPageTabs: {}, // tabId -> the blocked address the tab's blocked page replaced
 };
 
 export function isFocusActive() {
   return !!state.focusSession && state.focusSession.endsAt > Date.now();
 }
 
-// The tracked tab and the tracking flag are mirrored to session storage so a
-// service worker restart continues where the previous instance stopped.
+// The tracked tab, the tracking flag and the tabs showing the blocked page are
+// mirrored to session storage so a service worker restart continues where the
+// previous instance stopped.
 // Session storage is cleared when the browser closes.
 const TRACKING_STATE_KEY = 'trackingState';
 
@@ -38,6 +40,7 @@ export function persistTrackingState() {
       [TRACKING_STATE_KEY]: {
         currentTab: state.currentTab,
         isTracking: state.isTracking,
+        blockedPageTabs: state.blockedPageTabs,
       },
     })
   ).catch((error) => console.error('Error persisting tracking state:', error));
@@ -55,6 +58,7 @@ export async function restoreTrackingState() {
 
     state.currentTab = saved.currentTab || null;
     state.isTracking = saved.isTracking !== false;
+    state.blockedPageTabs = saved.blockedPageTabs || {};
     return true;
   } catch (error) {
     console.error('Error restoring tracking state:', error);

@@ -88,6 +88,25 @@ describe('release check', () => {
     expect(runChecks(root).join('\n')).toMatch(/identity permission/);
   });
 
+  it('fails on host_permissions', () => {
+    manifestWith((m) => { m.host_permissions = ['<all_urls>']; });
+    expect(runChecks(root).join('\n')).toMatch(/chrome: manifest\.json has host_permissions/);
+  });
+
+  it.each(['permissions', 'optional_permissions'])('fails on <all_urls> or a site pattern in %s', (key) => {
+    manifestWith((m) => { m[key] = ['storage', '<all_urls>', '*://*/*']; });
+    const problems = runChecks(root).join('\n');
+    expect(problems).toMatch(/chrome: manifest\.json asks for access to "<all_urls>"/);
+    expect(problems).toMatch(/chrome: manifest\.json asks for access to "\*:\/\/\*\/\*"/);
+  });
+
+  it('checks the Firefox manifest for site access too', () => {
+    const manifest = goodManifest();
+    manifest.optional_host_permissions = ['https://example.com/*'];
+    write('firefox', 'manifest.json', manifest);
+    expect(runChecks(root).join('\n')).toMatch(/firefox: manifest\.json has optional_host_permissions/);
+  });
+
   it('fails without a content security policy', () => {
     manifestWith((m) => { delete m.content_security_policy; });
     expect(runChecks(root).join('\n')).toMatch(/no content security policy/);
