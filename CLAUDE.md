@@ -55,7 +55,7 @@ This is a cross-browser extension (Chrome/Firefox) built with **React 18** and *
 - **React Popup UI**: `src/components/App.tsx` - main application with tab-based navigation
 - **Browser API Abstraction**: `services/BrowserApiService.js` - unified API for Chrome/Firefox differences
 - **Metrics**: `src/utils/metrics.ts` and `src/utils/categories.ts` compute everything the screens show from recorded data; do not add estimated figures
-- **Custom Hooks**: `src/hooks/` - `useBrowserStorage` and `useBrowserMessaging` for React-browser integration
+- **Custom Hooks**: `src/hooks/` - `useBrowserStorage` and `useThemeColors` for React-browser integration
 
 ### Key Services
 - `services/BrowserApiService.js`: unified Chrome/Firefox API

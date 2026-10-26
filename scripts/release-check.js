@@ -43,7 +43,9 @@ function checkManifest(manifestPath, label, problems) {
     .split(';')
     .map((part) => part.trim())
     .find((part) => part.startsWith('connect-src'));
-  if (connect && connect !== "connect-src 'self'") {
+  if (!connect) {
+    problems.push(`${label}: manifest.json has no content security policy with connect-src 'self'`);
+  } else if (connect !== "connect-src 'self'") {
     problems.push(`${label}: connect-src is "${connect}", expected 'self' only`);
   }
 }

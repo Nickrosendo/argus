@@ -1,6 +1,6 @@
 # Argus Release Notes
 
-## Version 2.0.0 (October 2025)
+## Version 2.0.0 (October 2026)
 
 Argus is now free and open source, with no account and no server.
 
