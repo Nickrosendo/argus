@@ -27,13 +27,11 @@ All React components were migrated from `.jsx` to `.tsx`:
 - `src/components/App.tsx` - Root application component
 - `src/components/Header.tsx` - Navigation header
 - `src/components/Footer.tsx` - Application footer
-- `src/components/AuthOverlay.tsx` - Authentication overlay
 - `src/components/tabs/StatsTab.tsx` - Current day statistics and charts
 - `src/components/tabs/HistoryTab.tsx` - Historical data tab
 - `src/components/tabs/SitesTab.tsx` - Per-site details
 - `src/components/tabs/FocusTab.tsx` - Focus mode controls
 - `src/components/tabs/SettingsTab.tsx` - Settings configuration tab
-- `src/components/tabs/AccountTab.tsx` - Account management tab
 
 ### 4. Utility and Hook Migration
 
@@ -68,8 +66,11 @@ interface StorageData {
   history: HistoryData;
   settings: Settings;
   blockedSites: string[];
-  authToken: string | boolean | null;
-  userInfo: UserInfo | null;
+  blockingEnabled?: boolean;
+  focusSession?: FocusSession | null;
+  focusStats?: FocusStats;
+  onboardingDone?: boolean;
+  lastDate?: string;
 }
 ```
 

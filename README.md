@@ -16,7 +16,7 @@ There is no account and no server. Everything Argus records stays in your browse
 
 ## Privacy
 
-Argus makes no network requests. Nothing is collected or sent anywhere. The only links out are ones you click: Donate, Source code and Privacy.
+Argus makes no network requests of its own; in Firefox the popup shows site icons from the address the browser recorded for each site. Nothing is collected or sent anywhere. The only links out are ones you click: Donate, Source code and Privacy.
 
 ## Install from source
 
