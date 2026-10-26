@@ -383,6 +383,24 @@ describe('background service worker', () => {
     });
   });
 
+  describe('first write without a stored day', () => {
+    it('records today as the last day, so a later day still rolls over into history', async () => {
+      delete fake.local.lastDate; // as after Clear all data
+      await advance(5000);
+
+      const today = new Date(START).toDateString();
+      expect(fake.local.lastDate).toBe(today);
+      expect(totalTime()).toBe(5000);
+
+      jest.setSystemTime(new Date('2025-07-22T00:00:01').getTime());
+      await focusBrowser();
+      await advance(5000);
+
+      expect(fake.local.history[today].totalTime).toBe(5000);
+      expect(totalTime()).toBe(5000);
+    });
+  });
+
   describe('pause tracking', () => {
     it('records nothing while paused and resumes without counting the pause', async () => {
       await startWorker();
@@ -479,10 +497,12 @@ describe('background service worker', () => {
       expect(fake.local.dataVersion).toBe(3);
     });
 
-    it('removes account, plan and sync data left by 1.x and keeps everything else', async () => {
+    it('removes account, plan and sync data left by 1.x (including userType) and keeps everything else', async () => {
+      expect(OBSOLETE_KEYS).toContain('userType');
       OBSOLETE_KEYS.forEach((key) => {
         fake.local[key] = 'old';
       });
+      fake.local.userType = 'premium';
       fake.alarms['api-sync'] = { periodInMinutes: 15 };
       const day = new Date(START - 86400000).toDateString();
       const kept = {
@@ -497,6 +517,7 @@ describe('background service worker', () => {
       await startWorker();
 
       OBSOLETE_KEYS.forEach((key) => expect(fake.local).not.toHaveProperty(key));
+      expect(fake.local).not.toHaveProperty('userType');
       expect(fake.alarms['api-sync']).toBeUndefined();
       Object.keys(kept).forEach((key) => expect(fake.local[key]).toEqual(kept[key]));
       expect(fake.local.dataVersion).toBe(3);

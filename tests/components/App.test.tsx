@@ -175,6 +175,17 @@ describe('App Component', () => {
       window.location.hash = '';
     }
   });
+
+  it('opens Settings when the address is popup.html?tab=1#settings (the full-tab page)', () => {
+    window.history.replaceState({}, '', '/popup.html?tab=1#settings');
+    try {
+      render(<App />);
+      expect(screen.getByTestId('mock-settings-tab')).toBeInTheDocument();
+    } finally {
+      window.history.replaceState({}, '', '/');
+    }
+  });
+
   describe('theme', () => {
     afterEach(() => {
       delete document.documentElement.dataset.theme;

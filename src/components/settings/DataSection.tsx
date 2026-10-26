@@ -95,6 +95,18 @@ const DataSection: React.FC<DataSectionProps> = ({ onCleared }) => {
     }
   };
 
+  // Firefox closes the toolbar popup when a file dialog opens, so the file
+  // would never be read. There, pick the file from a full tab instead.
+  const handleRestoreClick = (): void => {
+    const isFirefox = typeof browser !== 'undefined';
+    const inFullTab = new URLSearchParams(window.location.search).get('tab') === '1';
+    if (isFirefox && !inFullTab) {
+      browserAPI.tabs.create({ url: browserAPI.runtime.getURL('popup.html?tab=1#settings') });
+      return;
+    }
+    fileInput.current?.click();
+  };
+
   const handleClearData = (): void => {
     if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
       browserAPI.storage.local.clear(() => {
@@ -113,7 +125,7 @@ const DataSection: React.FC<DataSectionProps> = ({ onCleared }) => {
       </p>
       <div className="data-actions">
         <button onClick={handleExportData} className="secondary-btn">Export backup</button>
-        <button onClick={() => fileInput.current?.click()} className="secondary-btn">Restore from backup</button>
+        <button onClick={handleRestoreClick} className="secondary-btn">Restore from backup</button>
         <button onClick={handleClearData} className="warning-btn">Clear all data</button>
       </div>
       <input

@@ -132,4 +132,50 @@ describe('DataSection', () => {
     expect(screen.queryByRole('button', { name: 'Restore' })).not.toBeInTheDocument();
     expect(browserAPI.runtime.sendMessage).not.toHaveBeenCalled();
   });
+
+  describe('Restore from backup button', () => {
+    const originalBrowser = (global as any).browser;
+    let clickedInputs: number;
+
+    beforeEach(() => {
+      clickedInputs = 0;
+      jest.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {
+        clickedInputs += 1;
+      });
+      browserAPI.tabs.create = jest.fn();
+      browserAPI.runtime.getURL = jest.fn((path: string) => `moz-extension://test/${path}`);
+      window.history.replaceState({}, '', '/');
+    });
+
+    afterEach(() => {
+      (global as any).browser = originalBrowser;
+      window.history.replaceState({}, '', '/');
+    });
+
+    it('in the Firefox popup opens the settings in a tab, because the popup closes with the file dialog', async () => {
+      render(<DataSection />);
+      await userEvent.click(screen.getByRole('button', { name: 'Restore from backup' }));
+
+      expect(browserAPI.tabs.create).toHaveBeenCalledWith({ url: 'moz-extension://test/popup.html?tab=1#settings' });
+      expect(clickedInputs).toBe(0);
+    });
+
+    it('in a full Firefox tab opens the file picker', async () => {
+      window.history.replaceState({}, '', '/popup.html?tab=1');
+      render(<DataSection />);
+      await userEvent.click(screen.getByRole('button', { name: 'Restore from backup' }));
+
+      expect(browserAPI.tabs.create).not.toHaveBeenCalled();
+      expect(clickedInputs).toBe(1);
+    });
+
+    it('in Chrome opens the file picker', async () => {
+      render(<DataSection />);
+      delete (global as any).browser;
+      await userEvent.click(screen.getByRole('button', { name: 'Restore from backup' }));
+
+      expect(browserAPI.tabs.create).not.toHaveBeenCalled();
+      expect(clickedInputs).toBe(1);
+    });
+  });
 });
