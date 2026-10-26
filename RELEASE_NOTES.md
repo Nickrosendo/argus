@@ -1,5 +1,16 @@
 # Argus Release Notes
 
+## Version 2.0.1 (October 2026)
+
+Argus no longer asks for access to all websites.
+
+### What changed
+- Chrome no longer shows "Read and change all your data on all websites" when you install Argus. Blocking works without it.
+- A blocked site is now blocked in every tab: also in a tab opened in the background, and while Argus is not counting time (browser in the background, or you are away).
+- After a temporary unblock you go back to the page you asked for, not the site's home page.
+
+---
+
 ## Version 2.0.0 (October 2026)
 
 Argus is now free and open source, with no account and no server.

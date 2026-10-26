@@ -1,3 +1,9 @@
+# Argus 2.0.1
+
+Argus no longer asks for access to all websites. When you install it, Chrome no longer warns that it can "read and change all your data on all websites". Blocking works the same without it, and now also catches a blocked site opened in a background tab. After a temporary unblock, you go back to the exact page you asked for.
+
+---
+
 # Argus 2.0.0
 
 ## What's New
